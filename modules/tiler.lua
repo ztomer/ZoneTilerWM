@@ -299,6 +299,38 @@ function window_state.get_window_zone(window_id)
         return tiler._zone_id2zone[zone_id], zone_id
     end
 
+    -- If still not found, try to find by window title
+    local win = hs.window.get(window_id)
+    if win and win:isStandard() then
+        local app_name = win:application():name()
+        local win_title = win:title()
+
+        -- Check if we're tracking any windows for this app
+        for tracked_win_id, tracked_zone_id in pairs(tiler._window_id2zone_id) do
+            local tracked_win = hs.window.get(tracked_win_id)
+            -- Skip if window no longer exists
+            if not tracked_win then
+                goto continue
+            end
+
+            -- Check if same app and same title
+            if tracked_win:application():name() == app_name and tracked_win:title() == win_title then
+                local found_zone = tiler._zone_id2zone[tracked_zone_id]
+                if found_zone then
+                    -- Found a match, associate this window
+                    tiler._window_id2zone_id[window_id] = tracked_zone_id
+                    if found_zone.window_to_tile_idx then
+                        found_zone.window_to_tile_idx[window_id] = found_zone.window_to_tile_idx[tracked_win_id] or 0
+                    end
+                    debug_log("Associated window", window_id, "with zone", tracked_zone_id, "by title match")
+                    return found_zone, tracked_zone_id
+                end
+            end
+
+            ::continue::
+        end
+    end
+
     return nil, nil
 end
 
@@ -325,6 +357,13 @@ end
 function window_utils.apply_frame(window, frame, force_screen)
     if not window or not window:isStandard() then
         return false
+    end
+
+    -- Check if window isn't in any zone yet - try to find by title
+    local win_id = window:id()
+    if not tiler._window_id2zone_id[win_id] then
+        -- Try to find a matching window by title
+        window_state.get_window_zone(win_id)
     end
 
     -- Validate frame parameters
@@ -1403,7 +1442,106 @@ local function zone_resize_window(zone, window_id)
 
     local window = hs.window.get(window_id)
     if not window or not window:isStandard() then
-        debug_log("Cannot find valid window with ID", window_id)
+        debug_log("Cannot find valid window with ID", window_id, "- seeking replacement")
+
+        -- Clean up invalid window ID
+        window_state.remove_window_from_all_zones(window_id)
+
+        -- Try several approaches to find a replacement window
+
+        -- 1. Try to get the app name and title from our records
+        local app_name = nil
+        local window_title = nil
+        if window_state._data and window_state._data[window_id] then
+            app_name = window_state._data[window_id].app_name
+            window_title = window_state._data[window_id].title
+        end
+
+        debug_log("Searching for replacement - App:", app_name or "unknown", "Title:", window_title or "unknown")
+
+        -- 2. If we don't have the app name, try using known problem apps
+        if not app_name and settings.problem_apps then
+            for _, prob_app in ipairs(settings.problem_apps) do
+                local app = hs.application.find(prob_app)
+                if app then
+                    app_name = prob_app
+                    debug_log("Found problem app:", app_name)
+                    break
+                end
+            end
+        end
+
+        local replacement_win = nil
+
+        -- 3. Try to find a window with matching title and app (most reliable)
+        if app_name and window_title then
+            debug_log("Looking for window with app:", app_name, "and title containing:", window_title)
+            for _, win in ipairs(hs.window.allWindows()) do
+                if win:isStandard() and win:application():name() == app_name then
+                    local title = win:title()
+                    -- Check for title similarity (accept partial matches)
+                    if title and (title:find(window_title) or window_title:find(title)) then
+                        replacement_win = win
+                        debug_log("Found window by title match:", win:id(), "title:", title)
+                        break
+                    end
+                end
+            end
+        end
+
+        -- 4. Try focused window if no title match was found
+        if not replacement_win then
+            local focused_win = hs.window.focusedWindow()
+            if focused_win and focused_win:isStandard() then
+                replacement_win = focused_win
+                debug_log("Using focused window:", focused_win:id())
+            end
+        end
+
+        -- 5. If we have an app name but no focused window, find app's main window
+        if not replacement_win and app_name then
+            debug_log("Looking for any window of app:", app_name)
+            local app = hs.application.find(app_name)
+            if app then
+                local app_windows = app:allWindows()
+                for _, win in ipairs(app_windows) do
+                    if win:isStandard() and not win:isMinimized() then
+                        replacement_win = win
+                        debug_log("Found window:", win:id(), "from app:", app_name)
+                        break
+                    end
+                end
+            end
+        end
+
+        -- 6. Last resort: look through all windows on the current screen
+        if not replacement_win and zone.screen then
+            debug_log("Looking for any window on screen:", zone.screen:name())
+            for _, win in ipairs(hs.window.allWindows()) do
+                if win:isStandard() and not win:isMinimized() and win:screen():id() == zone.screen:id() then
+                    replacement_win = win
+                    debug_log("Found window:", win:id(), "on current screen")
+                    break
+                end
+            end
+        end
+
+        -- If we found a replacement window, use it
+        if replacement_win then
+            -- Add the replacement window to this zone
+            zone_add_window(zone, replacement_win:id())
+
+            -- Now resize it using the original tile_idx
+            if zone.window_to_tile_idx[replacement_win:id()] ~= nil then
+                zone.window_to_tile_idx[replacement_win:id()] = tile_idx
+
+                -- Recursive call to resize the new window
+                return zone_resize_window(zone, replacement_win:id())
+            end
+        else
+            debug_log("No replacement window found")
+        end
+
         return false
     end
 
@@ -1415,8 +1553,17 @@ local function zone_resize_window(zone, window_id)
         debug_log("Zone has no screen assigned, using window's current screen:", target_screen:name())
     end
 
-    -- Get the application name for special handling check
+    -- Get the application name and window title for future reference
     local app_name = window:application():name()
+    local window_title = window:title()
+
+    -- Store app name and title for future reference
+    if not window_state._data[window_id] then
+        window_state._data[window_id] = {}
+    end
+    window_state._data[window_id].app_name = app_name
+    window_state._data[window_id].title = window_title
+
     local needs_special_handling = window_utils.is_problem_app(app_name)
 
     -- Apply the tile dimensions to the window on the correct screen

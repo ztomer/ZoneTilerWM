@@ -74,10 +74,10 @@ config.tiler = {
 
     -- Cache settings
     cache = {
-        tile_positions = 500, -- Size of tile position cache
-        zone_tiles = 200, -- Size of zone tiles cache
-        screen_modes = 50, -- Size of screen mode detection cache
-        window_positions = 1000 -- Size of window position cache
+        tile_positions = 128, -- Size of tile position cache
+        zone_tiles = 64, -- Size of zone tiles cache
+        screen_modes = 8, -- Size of screen mode detection cache
+        window_positions = 512 -- Size of window position cache
     },
 
     margins = {
