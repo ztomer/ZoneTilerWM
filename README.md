@@ -1,4 +1,4 @@
-# Hammerspoon Window Management System
+# ZoneTilerWM
 
 A modular and powerful window management system for macOS that includes window tiling, application switching, and productivity tools.
 
@@ -25,7 +25,9 @@ A modular and powerful window management system for macOS that includes window t
 └── modules/
     ├── pomodoor.lua      # Pomodoro timer module
     ├── tiler.lua         # Window management module
-    └── app_switcher.lua  # Application switching module
+    ├── app_switcher.lua  # Application switching module
+    ├── lru_cache.lua     # Least Recently Used cache implementation
+    └── window_memory.lua # Window position memory system
 ```
 
 ## Installation
