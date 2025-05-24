@@ -9,6 +9,9 @@ Hierarchy: Monitor → Zone → Tile
 ]] local config = require "config"
 local tiler = {}
 
+-- Window memory integration
+local window_memory = nil
+
 -- Debug logging
 local function debug_log(...)
     if tiler.debug then
@@ -103,7 +106,7 @@ end
 
 -- Find best position for a window
 function smart_placement.find_best_position(screen, window_width, window_height)
-    local cell_size = config.tiler.smart_placement and config.tiler.smart_placement.cell_size or 50 --
+    local cell_size = config.tiler.smart_placement and config.tiler.smart_placement.cell_size or 50
     local distance_map, screen_frame = smart_placement.compute_distance_map(screen, cell_size)
 
     local grid_width = math.ceil(screen_frame.w / cell_size)
@@ -159,14 +162,14 @@ function smart_placement.place_window(window)
         return false
     end
 
-    if not config.tiler.smart_placement or not config.tiler.smart_placement.enabled then --
+    if not config.tiler.smart_placement or not config.tiler.smart_placement.enabled then
         return false
     end
 
     -- Exclude configured apps from smart placement
-    if config.tiler.smart_placement.exclude_apps then --
+    if config.tiler.smart_placement.exclude_apps then
         local app_name = window:application():name()
-        for _, excluded_app in ipairs(config.tiler.smart_placement.exclude_apps) do --
+        for _, excluded_app in ipairs(config.tiler.smart_placement.exclude_apps) do
             if app_name == excluded_app then
                 debug_log("Skipping smart placement for excluded app:", app_name)
                 return false
@@ -180,7 +183,6 @@ function smart_placement.place_window(window)
     end
 
     -- Skip if window is already in a tiler-managed zone
-    -- This check relies on tiler's window_state, assuming it's populated when tiler moves a window.
     if window_state and window_state.get and window_state.get(window:id()) then
         debug_log("Skipping smart placement, window already in a zone:", window:application():name())
         return false
@@ -249,12 +251,10 @@ function monitors.get_screen(monitor_id)
             -- Find current screen with this system ID
             for _, screen_obj in ipairs(hs.screen.allScreens()) do
                 if screen_obj:id() == data.system_id then
-                    -- Further verify with frame if possible, as system_id might not be fully stable in all scenarios
-                    -- For now, system_id match is considered sufficient based on current logic.
                     return screen_obj
                 end
             end
-            -- If not found by system_id (e.g., it changed dramatically), try to find by key if still unique
+            -- If not found by system_id, try to find by key
             for _, screen_obj in ipairs(hs.screen.allScreens()) do
                 if get_monitor_key(screen_obj) == data.key then
                     debug_log("Found monitor", monitor_id, "by key after system_id mismatch. Updating registry.")
@@ -272,6 +272,9 @@ function monitors.get_screen(monitor_id)
     debug_log("Monitor ID not found in registry:", monitor_id)
     return nil
 end
+
+-- Expose monitors for window_memory
+tiler.monitors = monitors
 
 ------------------------------------------
 -- Zone and Tile Management
@@ -352,12 +355,12 @@ local function create_tile(screen, coords, rows, cols)
             local tile_w = (col_end - col_start + 1) * col_width
             local tile_h = (row_end - row_start + 1) * row_height
 
-            if tiler.margins and tiler.margins.enabled then --
-                local margin = tiler.margins.size or 0 --
-                local apply_left_margin = (col_start == 1 and tiler.margins.screen_edge) or (col_start > 1) --
-                local apply_top_margin = (row_start == 1 and tiler.margins.screen_edge) or (row_start > 1) --
-                local apply_right_margin = (col_end == cols and tiler.margins.screen_edge) or (col_end < cols) --
-                local apply_bottom_margin = (row_end == rows and tiler.margins.screen_edge) or (row_end < rows) --
+            if tiler.margins and tiler.margins.enabled then
+                local margin = tiler.margins.size or 0
+                local apply_left_margin = (col_start == 1 and tiler.margins.screen_edge) or (col_start > 1)
+                local apply_top_margin = (row_start == 1 and tiler.margins.screen_edge) or (row_start > 1)
+                local apply_right_margin = (col_end == cols and tiler.margins.screen_edge) or (col_end < cols)
+                local apply_bottom_margin = (row_end == rows and tiler.margins.screen_edge) or (row_end < rows)
 
                 if apply_left_margin then
                     tile_x = tile_x + margin
@@ -387,7 +390,7 @@ local function create_tile(screen, coords, rows, cols)
 end
 
 -- Get zone layout for screen
-local function get_zone_layout_config(screen) -- Renamed to avoid conflict with tiler.get_zone_layout
+local function get_zone_layout_config(screen)
     local frame = screen:frame()
     local name = screen:name()
     local is_portrait = frame.h > frame.w
@@ -398,7 +401,7 @@ local function get_zone_layout_config(screen) -- Renamed to avoid conflict with 
             -- Allow exact match or pattern match for custom_screens key
             if name == screen_name_pattern or name:match(screen_name_pattern) then
                 debug_log("Using custom screen layout for:", name, "->", custom_config.layout)
-                return config.tiler.grids[custom_config.layout], custom_config.layout -- Return grid and layout key
+                return config.tiler.grids[custom_config.layout], custom_config.layout
             end
         end
     end
@@ -418,26 +421,26 @@ local function get_zone_layout_config(screen) -- Renamed to avoid conflict with 
     if is_portrait then
         if config.tiler.screen_detection and config.tiler.screen_detection.portrait then
             if frame.h >= (config.tiler.screen_detection.portrait.large and
-                config.tiler.screen_detection.portrait.large.min_height_for_layout_check or 2000) then -- Arbitrary check if not configured
-                layout_key = config.tiler.screen_detection.portrait.large.layout -- This specific path was an example, actual config is different
+                config.tiler.screen_detection.portrait.large.min_height_for_layout_check or 2000) then
+                layout_key = config.tiler.screen_detection.portrait.large.layout
             else
-                layout_key = config.tiler.screen_detection.portrait.small.layout --
+                layout_key = config.tiler.screen_detection.portrait.small.layout
             end
         else -- Fallback if portrait config is missing
-            layout_key = frame.w >= 1440 and "1x3" or "1x2" --
+            layout_key = frame.w >= 1440 and "1x3" or "1x2"
         end
     else
         local aspect_ratio = frame.w / frame.h
         if frame.w >= 3840 then
-            layout_key = "4x3" --
+            layout_key = "4x3"
         elseif frame.w >= 3440 or aspect_ratio > 2.0 then
-            layout_key = "4x3" -- Defaulting wider screens to 4x3, config uses 4x2 example
+            layout_key = "4x3"
         elseif frame.w >= 2560 then
-            layout_key = "3x3" --
+            layout_key = "3x3"
         elseif frame.w >= 1920 then
-            layout_key = "3x2" --
+            layout_key = "3x2"
         else
-            layout_key = "2x2" --
+            layout_key = "2x2"
         end
     end
     debug_log("Using default layout for screen:", name, "->", layout_key, "Portrait:", is_portrait)
@@ -450,7 +453,7 @@ function zones.create_for_monitor(monitor_id, screen)
 
     if not grid_config or not layout_key then
         debug_log("Failed to get layout for monitor", monitor_id, screen:name(), "- using default 2x2.")
-        grid_config = config.tiler.grids["2x2"] --
+        grid_config = config.tiler.grids["2x2"]
         layout_key = "2x2"
     end
 
@@ -461,11 +464,11 @@ function zones.create_for_monitor(monitor_id, screen)
     debug_log("Creating zones for monitor", monitor_id, screen:name(), "layout_key:", layout_key, "grid:",
         cols .. "x" .. rows)
 
-    local zone_definitions = config.tiler.layouts[layout_key] or config.tiler.layouts["default"] --
+    local zone_definitions = config.tiler.layouts[layout_key] or config.tiler.layouts["default"]
 
     if not zone_definitions then
         debug_log("No zone definitions found for layout_key:", layout_key, "- using default definitions.")
-        zone_definitions = config.tiler.layouts["default"] --
+        zone_definitions = config.tiler.layouts["default"]
     end
     if not zone_definitions then
         debug_log("CRITICAL: No default zone definitions found in config.tiler.layouts. Zones will not be created.")
@@ -483,7 +486,6 @@ function zones.create_for_monitor(monitor_id, screen)
             end
             if #tiles_for_this_zone > 0 then
                 zones.by_monitor[monitor_id][zone_key] = tiles_for_this_zone
-                -- debug_log("Created zone", zone_key, "on monitor", monitor_id, "with", #tiles_for_this_zone, "tiles")
             else
                 debug_log("No tiles created for zone", zone_key, "on monitor", monitor_id, "for layout", layout_key)
             end
@@ -496,7 +498,6 @@ function zones.get(monitor_id, zone_key)
     if zones.by_monitor[monitor_id] and zones.by_monitor[monitor_id][zone_key] then
         return zones.by_monitor[monitor_id][zone_key]
     end
-    -- debug_log("Zone", zone_key, "not found for monitor_id", monitor_id)
     return nil
 end
 
@@ -509,7 +510,7 @@ window_state = {
     positions = {},
 
     -- app_name -> monitor_id -> {zone_key, tile_index}
-    app_memory = {} -- This seems to be from the original tiler, ensure it's used or removed if window_memory.lua handles it
+    app_memory = {}
 }
 
 -- Set window position
@@ -530,6 +531,11 @@ function window_state.set(window_id, monitor_id, zone_key, tile_index)
             zone_key = zone_key,
             tile_index = tile_index
         }
+
+        -- Notify window_memory if available
+        if window_memory and window_memory.on_window_positioned then
+            window_memory.on_window_positioned(window, monitor_id, zone_key, tile_index)
+        end
     end
 end
 
@@ -547,8 +553,10 @@ end
 function window_state.cleanup(window_id)
     debug_log("Cleaning up window state for ID:", window_id)
     window_state.positions[window_id] = nil
-    -- Note: App memory is not cleaned up here, it's persistent for app launch.
 end
+
+-- Expose window_state for window_memory
+tiler.window_state = window_state
 
 ------------------------------------------
 -- Rectangle Utility Functions
@@ -559,8 +567,8 @@ local function frames_match(frame1, frame2, tolerance)
         return false
     end
     return math.abs(frame1.x - frame2.x) <= tolerance and math.abs(frame1.y - frame2.y) <= tolerance and
-               math.abs((frame1.w or frame1.width or 0) - (frame2.w or frame2.width or 0)) <= tolerance and -- Add check for nil
-               math.abs((frame1.h or frame1.height or 0) - (frame2.h or frame2.height or 0)) <= tolerance -- Add check for nil
+               math.abs((frame1.w or frame1.width or 0) - (frame2.w or frame2.width or 0)) <= tolerance and
+               math.abs((frame1.h or frame1.height or 0) - (frame2.h or frame2.height or 0)) <= tolerance
 end
 
 ------------------------------------------
@@ -569,9 +577,9 @@ end
 local function is_problem_app(app_name)
     if not tiler.problem_apps or not app_name then
         return false
-    end --
+    end
     local lower_app_name = app_name:lower()
-    for _, name in ipairs(tiler.problem_apps) do --
+    for _, name in ipairs(tiler.problem_apps) do
         if name:lower() == lower_app_name then
             return true
         end
@@ -598,7 +606,7 @@ local function apply_frame(window, frame, force_screen_obj)
 
     if force_screen_obj and window:screen():id() ~= force_screen_obj:id() then
         debug_log("Moving window", window:application():name(), "to screen:", force_screen_obj:name())
-        window:moveToScreen(force_screen_obj, false, true, 0) -- Asynchronously, keep frame relative
+        window:moveToScreen(force_screen_obj, false, true, 0)
     end
 
     local saved_duration = hs.window.animationDuration
@@ -625,11 +633,11 @@ local function apply_frame_to_problem_app(window, frame, app_name, screen_obj)
             return
         end
         debug_log("Problem app", app_name, "setFrame attempt", current_attempt, "to", hs.inspect(frame))
-        apply_frame(window, frame, screen_obj) -- Use the basic apply_frame for actual move
+        apply_frame(window, frame, screen_obj)
 
         if current_attempt < attempts then
             hs.timer.doAfter(delay, function()
-                if window:isStandard() and not frames_match(window:frame(), frame, 20) then -- Increased tolerance for problem apps
+                if window:isStandard() and not frames_match(window:frame(), frame, 20) then
                     debug_log("Problem app", app_name, "frame did not stick, retrying...")
                     attempt_set_frame(current_attempt + 1)
                 else
@@ -639,7 +647,7 @@ local function apply_frame_to_problem_app(window, frame, app_name, screen_obj)
         end
     end
     attempt_set_frame(1)
-    return true -- Assume it will work out
+    return true
 end
 
 local function apply_tile(window, tile, screen_obj)
@@ -710,6 +718,34 @@ function tiler.move_window_to_zone(zone_key)
     return false
 end
 
+-- Position window from memory (called by window_memory)
+function tiler.position_window_from_memory(window, monitor_id, zone_key, tile_index)
+    if not window or not window:isStandard() then
+        return false
+    end
+
+    local screen_obj = monitors.get_screen(monitor_id)
+    if not screen_obj then
+        debug_log("Could not find screen for monitor ID:", monitor_id)
+        return false
+    end
+
+    local zone_tiles = zones.get(monitor_id, zone_key)
+    if not zone_tiles or not zone_tiles[tile_index] then
+        debug_log("Could not find tile", tile_index, "in zone", zone_key, "on monitor", monitor_id)
+        return false
+    end
+
+    local tile = zone_tiles[tile_index]
+    if apply_tile(window, tile, screen_obj) then
+        window_state.set(window:id(), monitor_id, zone_key, tile_index)
+        debug_log("Positioned window from memory: zone", zone_key, "tile", tile_index)
+        return true
+    end
+
+    return false
+end
+
 -- Move window to next/previous monitor
 function tiler.move_window_to_monitor(direction)
     local window = hs.window.focusedWindow()
@@ -725,7 +761,7 @@ function tiler.move_window_to_monitor(direction)
     local all_screens = hs.screen.allScreens()
     if #all_screens < 2 then
         return false
-    end -- No other screen to move to
+    end
 
     local current_screen_idx_in_list = -1
     for i, s in ipairs(all_screens) do
@@ -736,7 +772,7 @@ function tiler.move_window_to_monitor(direction)
     end
     if current_screen_idx_in_list == -1 then
         return false
-    end -- Should not happen
+    end
 
     local target_screen_idx
     if direction == "next" then
@@ -782,7 +818,7 @@ function tiler.move_window_to_monitor(direction)
     end
 
     -- Last resort: move to a default zone (e.g., "0" or "j") on target monitor
-    local default_zone_keys = {"0", "j"} -- Common center/full zones
+    local default_zone_keys = {"0", "j"}
     for _, dz_key in ipairs(default_zone_keys) do
         local zone_tiles = zones.get(target_monitor_id, dz_key)
         if zone_tiles and zone_tiles[1] then
@@ -798,7 +834,7 @@ function tiler.move_window_to_monitor(direction)
     debug_log("Could not find suitable tile, moving window", app_name, "to screen", target_screen_obj:name(),
         "without tiling.")
     window:moveToScreen(target_screen_obj)
-    window_state.cleanup(window_id) -- Remove from tiler state as we don't know its tile
+    window_state.cleanup(window_id)
     return true
 end
 
@@ -826,7 +862,7 @@ end
 -- Helper function to collect windows for a zone
 local function collect_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles_for_this_zone)
     local zone_windows_collected = {}
-    local overlap_threshold = config.tiler.overlap_threshold or 0.5 --
+    local overlap_threshold = config.tiler.overlap_threshold or 0.5
 
     if not screen_obj then
         debug_log("collect_zone_windows: screen_obj is nil for monitor_id", monitor_id, "zone_key", zone_key)
@@ -870,7 +906,7 @@ local function collect_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles
                             tile_index = tile_idx,
                             explicit = false,
                             z_order = get_window_z_order(win),
-                            overlap_debug = overlap -- For debugging
+                            overlap_debug = overlap
                         })
                     end
                 end
@@ -888,8 +924,8 @@ local function sort_zone_windows_for_intuitive_order(zone_windows_list)
         end
         if a.explicit ~= b.explicit then
             return a.explicit
-        end -- true comes before false
-        return a.z_order < b.z_order -- Lower z_order (more on top) comes first
+        end
+        return a.z_order < b.z_order
     end)
 end
 
@@ -958,7 +994,7 @@ function tiler.focus_zone_windows(target_zone_key)
             if not needs_rebuild then
                 -- If set of windows is the same, check if user manually focused a different window WITHIN the zone
                 local focused_is_in_zone_currently = false
-                for _, id_in_list in ipairs(cfcm.window_ids_in_order) do -- Check against stored list
+                for _, id_in_list in ipairs(cfcm.window_ids_in_order) do
                     if id_in_list == focused_window_id_before_call then
                         focused_is_in_zone_currently = true;
                         break
@@ -966,9 +1002,6 @@ function tiler.focus_zone_windows(target_zone_key)
                 end
 
                 if not focused_is_in_zone_currently then
-                    -- Focused window before call is NOT in our current cycle list.
-                    -- If it IS in the target zone, it means user clicked it. Rebuild.
-                    -- If it is NOT in the target zone, user clicked outside. Rebuild.
                     needs_rebuild = true
                     debug_log("Rebuilding cycle: Window focused before call (ID: " .. focused_window_id_before_call ..
                                   ") is not in the current cycle list. Forcing rebuild.")
@@ -1000,7 +1033,7 @@ function tiler.focus_zone_windows(target_zone_key)
             return false
         end
 
-        sort_zone_windows_for_intuitive_order(collected_windows) -- Use the helper
+        sort_zone_windows_for_intuitive_order(collected_windows)
 
         debug_log("Sorted windows for new cycle order:")
         for i, zw in ipairs(collected_windows) do
@@ -1010,10 +1043,7 @@ function tiler.focus_zone_windows(target_zone_key)
         end
 
         -- Determine starting index for the new/rebuilt cycle
-        -- Current `cfcm.current_idx_in_cycle_list` is 0.
-        -- We want to find the `focused_window_id_before_call` in the NEW list.
-        -- The next step (Advance Cycle Index) will then correctly pick it or the one after it.
-        local initial_focus_target_idx_in_new_list = 0 -- Default to 0, so advance logic picks 1st
+        local initial_focus_target_idx_in_new_list = 0
         for i, id_in_list in ipairs(cfcm.window_ids_in_order) do
             if id_in_list == focused_window_id_before_call then
                 initial_focus_target_idx_in_new_list = i
@@ -1036,9 +1066,6 @@ function tiler.focus_zone_windows(target_zone_key)
 
     -- Advance the cycle index
     local num_windows_in_cycle = #cfcm.window_ids_in_order
-    -- If current_idx_in_cycle_list is 0 (e.g. focused outside), next should be 1.
-    -- If current_idx_in_cycle_list is N (last item), next should be 1.
-    -- If current_idx_in_cycle_list is k (1 to N-1), next should be k+1.
     cfcm.current_idx_in_cycle_list = (cfcm.current_idx_in_cycle_list % num_windows_in_cycle) + 1
 
     local window_id_to_focus = cfcm.window_ids_in_order[cfcm.current_idx_in_cycle_list]
@@ -1049,7 +1076,7 @@ function tiler.focus_zone_windows(target_zone_key)
             num_windows_in_cycle, window_to_focus:application():name(), window_id_to_focus))
         window_to_focus:focus()
 
-        if config.tiler.flash_on_focus then --
+        if config.tiler.flash_on_focus then
             local frame = window_to_focus:frame()
             local flash = hs.canvas.new(frame):appendElements({
                 type = "rectangle",
@@ -1115,7 +1142,7 @@ function tiler.debug_zone(zone_key)
     end
 
     local zone_windows = collect_zone_windows(monitor_id, zone_key, screen, zone_tiles)
-    sort_zone_windows_for_intuitive_order(zone_windows) -- Sort them as they would be for initial cycle
+    sort_zone_windows_for_intuitive_order(zone_windows)
 
     print("\nWindows in zone '" .. zone_key .. "' (sorted for potential cycle): " .. #zone_windows)
     for i, zw in ipairs(zone_windows) do
@@ -1131,7 +1158,7 @@ end
 function calculate_overlap_percentage(rect1, rect2)
     if not rect1 or not rect2 or rect1.w <= 0 or rect1.h <= 0 then
         return 0
-    end -- Basic validation
+    end
     local x_overlap = math.max(0, math.min(rect1.x + rect1.w, rect2.x + rect2.w) - math.max(rect1.x, rect2.x))
     local y_overlap = math.max(0, math.min(rect1.y + rect1.h, rect2.y + rect2.h) - math.max(rect1.y, rect2.y))
     local overlap_area = x_overlap * y_overlap
@@ -1173,6 +1200,25 @@ local function handle_window_destroyed(window)
     end
 end
 
+local function handle_window_created(window)
+    -- Notify window_memory of new window
+    if window_memory and window_memory.on_window_created then
+        window_memory.on_window_created(window)
+    end
+
+    -- Handle smart placement if enabled
+    if config.tiler.smart_placement and config.tiler.smart_placement.enabled then
+        if window and window:isStandard() then
+            -- Delay to allow window to fully initialize its properties
+            hs.timer.doAfter(0.2, function()
+                if window:isStandard() then -- Recheck, might have closed or changed
+                    smart_placement.place_window(window)
+                end
+            end)
+        end
+    end
+end
+
 local function handle_screen_change()
     debug_log("Screen configuration changed")
     hs.timer.doAfter(0.5, function() -- Delay to allow screens to settle
@@ -1198,20 +1244,20 @@ end
 function tiler.start()
     debug_log("Starting tiler")
 
-    tiler.debug = config.tiler.debug --
-    tiler.margins = config.tiler.margins --
-    tiler.problem_apps = config.tiler.problem_apps --
+    tiler.debug = config.tiler.debug
+    tiler.margins = config.tiler.margins
+    tiler.problem_apps = config.tiler.problem_apps
 
     for _, screen_obj in ipairs(hs.screen.allScreens()) do
         local monitor_id = monitors.get_id(screen_obj)
         zones.create_for_monitor(monitor_id, screen_obj)
     end
 
-    local modifier = config.tiler.modifier --
-    local focus_modifier = config.tiler.focus_modifier --
+    local modifier = config.tiler.modifier
+    local focus_modifier = config.tiler.focus_modifier
 
     local all_zone_keys = {}
-    if config.tiler.layouts then --
+    if config.tiler.layouts then
         for _, layout_config in pairs(config.tiler.layouts) do
             for zone_key, _ in pairs(layout_config) do
                 if zone_key ~= "default" then
@@ -1240,37 +1286,27 @@ function tiler.start()
 
     hs.hotkey.bind(modifier, "p", function()
         tiler.move_window_to_monitor("next")
-    end) --
+    end)
     hs.hotkey.bind(modifier, ";", function()
         tiler.move_window_to_monitor("previous")
-    end) --
+    end)
 
-    -- Watch for window destruction
-    local window_filter_events = {hs.window.filter.windowDestroyed}
-    if config.tiler.smart_placement and config.tiler.smart_placement.enabled then --
-        table.insert(window_filter_events, hs.window.filter.windowCreated)
-    end
-
+    -- Watch for window events
+    local window_filter_events = {hs.window.filter.windowDestroyed, hs.window.filter.windowCreated}
     local window_watcher = hs.window.filter.new(window_filter_events)
     window_watcher:subscribe(hs.window.filter.windowDestroyed, handle_window_destroyed)
-
-    if config.tiler.smart_placement and config.tiler.smart_placement.enabled then --
-        window_watcher:subscribe(hs.window.filter.windowCreated, function(window, appName, eventType)
-            if window and window:isStandard() then
-                -- Delay to allow window to fully initialize its properties
-                hs.timer.doAfter(0.2, function()
-                    if window:isStandard() then -- Recheck, might have closed or changed
-                        smart_placement.place_window(window)
-                    end
-                end)
-            end
-        end)
-    end
+    window_watcher:subscribe(hs.window.filter.windowCreated, handle_window_created)
 
     local screen_watcher = hs.screen.watcher.new(handle_screen_change):start()
 
     debug_log("Tiler started successfully")
     return tiler
+end
+
+-- Set window_memory reference (called from init)
+function tiler.set_window_memory(wm)
+    window_memory = wm
+    debug_log("Window memory integration enabled")
 end
 
 return tiler

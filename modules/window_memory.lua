@@ -1,16 +1,12 @@
 -- window_memory.lua
--- Window memory with advanced persistence, caching, and tiler zone support
+-- Simple window position memory: load on startup, save on shutdown, auto-position new windows
 local window_memory = {}
 local config = require "config"
 local json = require "hs.json"
-local lru_cache = require "modules.lru_cache"
-local tiler = nil -- Assigned on init
 
--- Create caches
-local cache = {
-    positions = lru_cache.new(config.tiler.cache_size.positions or 500),
-    window_info = lru_cache.new(config.tiler.cache_size.window_info or 200)
-}
+-- Module state
+local tiler = nil -- Set during initialization
+local positions = {} -- app_name -> monitor_id -> {zone_key, tile_index}
 
 -- Debug logging
 local function debug_log(...)
@@ -20,12 +16,7 @@ local function debug_log(...)
     end
 end
 
--- Cache key for app/monitor
-local function get_position_key(app_name, monitor_id)
-    return app_name .. "_" .. tostring(monitor_id)
-end
-
--- Exclusion logic
+-- Check if app should be excluded from memory
 local function is_excluded_app(app_name)
     if not config.window_memory or not config.window_memory.excluded_apps then
         return false
@@ -38,233 +29,264 @@ local function is_excluded_app(app_name)
     return false
 end
 
--- Persistent cache location
+-- Get cache filename
 local function get_cache_filename()
-    local cache_dir = window_memory.cache_dir or (os.getenv("HOME") .. "/.config/tiler")
+    local cache_dir = config.window_memory and config.window_memory.cache_dir or (os.getenv("HOME") .. "/.config/tiler")
     return cache_dir .. "/window_positions.json"
 end
 
+-- Ensure cache directory exists
 local function ensure_cache_dir()
-    local cache_dir = window_memory.cache_dir or (os.getenv("HOME") .. "/.config/tiler")
+    local cache_dir = config.window_memory and config.window_memory.cache_dir or (os.getenv("HOME") .. "/.config/tiler")
     os.execute("mkdir -p " .. cache_dir)
 end
 
--- Load/save positions from disk
+-- Load positions from disk
 local function load_positions()
     local filename = get_cache_filename()
     local file = io.open(filename, "r")
     if not file then
-        debug_log("No existing cache file")
-        return {}
+        debug_log("No existing cache file found")
+        return
     end
+
     local content = file:read("*all")
     file:close()
+
     local success, data = pcall(function()
         return json.decode(content)
     end)
-    if success and data then
-        debug_log("Loaded", #(data.positions or {}), "cached positions")
-        return data.positions or {}
+
+    if success and data and data.positions then
+        -- Convert array back to nested structure
+        for _, pos in ipairs(data.positions) do
+            if not positions[pos.app_name] then
+                positions[pos.app_name] = {}
+            end
+            positions[pos.app_name][pos.monitor_id] = {
+                zone_key = pos.zone_key,
+                tile_index = pos.tile_index
+            }
+        end
+        debug_log("Loaded", #data.positions, "cached positions")
     else
         debug_log("Failed to parse cache file")
-        return {}
     end
 end
 
-local function save_positions(positions)
-    ensure_cache_dir()
-    local filename = get_cache_filename()
-    local data = {
-        timestamp = os.time(),
-        positions = positions
-    }
-    local json_str = json.encode(data)
-    local file = io.open(filename, "w")
-    if file then
-        file:write(json_str)
-        file:close()
-        debug_log("Saved", #positions, "positions to cache")
-        return true
-    else
-        debug_log("Failed to save cache file")
-        return false
-    end
-end
+-- Save current window positions to disk
+local function save_positions()
+    debug_log("Saving all window positions...")
 
--- Remember window position (by zone/tile)
-function window_memory.remember_window(window)
-    if not window or not window:isStandard() then
-        return false
-    end
+    -- Clear existing positions and rebuild from current state
+    positions = {}
 
-    local app_name = window:application():name()
-    if is_excluded_app(app_name) then
-        return false
-    end
-
-    -- Get the current zone of the window
-    local zone_id = tiler.get_zone_for_window(window)
-    if not zone_id then
-        debug_log("Window not in any zone:", app_name)
-        return false
-    end
-
-    -- Save by app and zone (could add screen if needed)
-    window_memory.positions = window_memory.positions or {}
-    window_memory.positions[app_name] = window_memory.positions[app_name] or {}
-
-    window_memory.positions[app_name][zone_id] = {
-        zone_id = zone_id,
-        timestamp = os.time()
-    }
-
-    debug_log("Remembered", app_name, "zone:", zone_id)
-    return true
-end
-
--- Lookup position for app/monitor
-function window_memory.get_position(app_name, monitor_id)
-    local cache_key = get_position_key(app_name, monitor_id)
-    local cached = cache.positions:get(cache_key)
-    if cached then
-        debug_log("Cache hit for", app_name, "on monitor", monitor_id)
-        return cached
-    end
-    if window_memory.positions[app_name] then
-        local position = window_memory.positions[app_name][monitor_id]
-        if position then
-            cache.positions:set(cache_key, position)
-            return position
-        end
-    end
-    return nil
-end
-
--- Restore window to remembered zone/tile
-function window_memory.restore_window(window)
-    if not window or not window:isStandard() then
-        return false
-    end
-
-    local app_name = window:application():name()
-    if is_excluded_app(app_name) then
-        return false
-    end
-
-    -- Attempt to retrieve last saved zone for this app
-    local positions = window_memory.positions and window_memory.positions[app_name]
-    if positions then
-        -- Use the most recent (last) saved zone
-        local last = nil
-        for _, pos in pairs(positions) do
-            if (not last) or (pos.timestamp > last.timestamp) then
-                last = pos
-            end
-        end
-        if last and last.zone_id then
-            debug_log("Restoring", app_name, "to zone:", last.zone_id)
-
-            tiler.move_window_to_zone(window, last.zone_id)
-            return true
-        end
-    end
-
-    -- Fallback to default zone if available
-    if config.window_memory and config.window_memory.app_zones and config.window_memory.app_zones[app_name] then
-        local default_zone = config.window_memory.app_zones[app_name]
-        debug_log("Using default zone for", app_name, ":", default_zone)
-
-        tiler.move_window_to_zone(window, default_zone)
-        return true
-    end
-
-    return false
-end
-
--- Handle new window created
-function window_memory.handle_window_created(window)
-    if not window or not window:isStandard() then
-        return
-    end
-    local app_name = window:application():name()
-    if is_excluded_app(app_name) then
-        return
-    end
-    debug_log("New window created:", app_name)
-
-    -- Let window settle
-    hs.timer.doAfter(0.1, function()
-        if not window:isStandard() then
-            return
-        end
-        if not window_memory.restore_window(window) then
-            if config.window_memory and config.window_memory.auto_tile_fallback then
-                local default_zone = config.window_memory.default_zone or "0"
-                debug_log("Auto-tiling", app_name, "to default zone:", default_zone)
-
-                tiler.move_window_to_zone(window, default_zone)
-            end
-        end
-        -- Remember final position after possible move
-        hs.timer.doAfter(0.2, function()
-            window_memory.remember_window(window)
-        end)
-    end)
-end
-
--- Handle window moved (debounced)
-local move_timers = {}
-function window_memory.handle_window_moved(window)
-    if not window or not window:isStandard() then
-        return
-    end
-    local window_id = window:id()
-    if move_timers[window_id] then
-        move_timers[window_id]:stop()
-    end
-    move_timers[window_id] = hs.timer.doAfter(0.5, function()
-        window_memory.remember_window(window)
-        move_timers[window_id] = nil
-    end)
-end
-
--- Save all window positions
-function window_memory.save_all_positions()
-    debug_log("Saving all window positions")
-    local count = 0
+    -- Collect current positions from tiler's window state
     for _, window in ipairs(hs.window.allWindows()) do
-        if window:isStandard() and window_memory.remember_window(window) then
-            count = count + 1
+        if window:isStandard() and not window:isMinimized() then
+            local app_name = window:application():name()
+            if not is_excluded_app(app_name) then
+                local window_id = window:id()
+                local pos = tiler.window_state.get(window_id)
+                if pos and pos.zone_key and pos.tile_index then
+                    if not positions[app_name] then
+                        positions[app_name] = {}
+                    end
+                    positions[app_name][pos.monitor_id] = {
+                        zone_key = pos.zone_key,
+                        tile_index = pos.tile_index
+                    }
+                end
+            end
         end
     end
 
-    -- Flatten for persistence
+    -- Convert to array for JSON
     local positions_array = {}
-    for app_name, monitors in pairs(window_memory.positions) do
+    for app_name, monitors in pairs(positions) do
         for monitor_id, position in pairs(monitors) do
             table.insert(positions_array, {
                 app_name = app_name,
                 monitor_id = monitor_id,
                 zone_key = position.zone_key,
-                tile_index = position.tile_index,
-                timestamp = position.timestamp
+                tile_index = position.tile_index
             })
         end
     end
-    save_positions(positions_array)
-    debug_log("Saved positions for", count, "windows")
-    return count
+
+    -- Save to disk
+    ensure_cache_dir()
+    local filename = get_cache_filename()
+    local data = {
+        timestamp = os.time(),
+        positions = positions_array
+    }
+
+    local json_str = json.encode(data)
+    local file = io.open(filename, "w")
+    if file then
+        file:write(json_str)
+        file:close()
+        debug_log("Saved", #positions_array, "positions to disk")
+    else
+        debug_log("Failed to save cache file")
+    end
 end
 
--- Restore all remembered positions
-function window_memory.restore_all_positions()
-    debug_log("Restoring all window positions")
+-- Get remembered position for app on current monitor
+local function get_remembered_position(app_name, monitor_id)
+    if is_excluded_app(app_name) then
+        return nil
+    end
+
+    -- Check for position on current monitor first
+    if positions[app_name] and positions[app_name][monitor_id] then
+        return positions[app_name][monitor_id]
+    end
+
+    -- Check for position on any monitor as fallback
+    if positions[app_name] then
+        for _, position in pairs(positions[app_name]) do
+            return position -- Return first found position
+        end
+    end
+
+    return nil
+end
+
+-- Called by tiler when a window is positioned
+function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_index)
+    if not window or not window:isStandard() then
+        return
+    end
+
+    local app_name = window:application():name()
+    if is_excluded_app(app_name) then
+        return
+    end
+
+    -- Store position
+    if not positions[app_name] then
+        positions[app_name] = {}
+    end
+    positions[app_name][monitor_id] = {
+        zone_key = zone_key,
+        tile_index = tile_index
+    }
+
+    debug_log("Remembered", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index)
+end
+
+-- Called by tiler when a new window is created
+function window_memory.on_window_created(window)
+    if not window or not window:isStandard() then
+        return
+    end
+
+    local app_name = window:application():name()
+    if is_excluded_app(app_name) then
+        return
+    end
+
+    debug_log("New window created:", app_name)
+
+    -- Wait for window to settle, then try to position it
+    hs.timer.doAfter(0.3, function()
+        if not window:isStandard() then
+            return
+        end
+
+        local screen = window:screen()
+        if not screen then
+            return
+        end
+
+        local monitor_id = tiler.monitors.get_id(screen)
+
+        -- Try remembered position first
+        local remembered = get_remembered_position(app_name, monitor_id)
+
+        if remembered then
+            debug_log("Restoring", app_name, "to zone:", remembered.zone_key, "tile:", remembered.tile_index)
+            tiler.position_window_from_memory(window, monitor_id, remembered.zone_key, remembered.tile_index)
+            return
+        end
+
+        -- Try configured app zones
+        if config.window_memory and config.window_memory.app_zones then
+            local default_zone = config.window_memory.app_zones[app_name]
+            if default_zone then
+                debug_log("Using configured default zone for", app_name, ":", default_zone)
+                window:focus()
+                hs.timer.doAfter(0.1, function()
+                    tiler.move_window_to_zone(default_zone)
+                end)
+                return
+            end
+        end
+
+        -- Try global default fallback
+        if config.window_memory and config.window_memory.auto_tile_fallback then
+            local default_zone = config.window_memory.default_zone or "0"
+            debug_log("Auto-tiling", app_name, "to default zone:", default_zone)
+            window:focus()
+            hs.timer.doAfter(0.1, function()
+                tiler.move_window_to_zone(default_zone)
+            end)
+        end
+    end)
+end
+
+-- Check if window should be positioned (called by tiler)
+function window_memory.should_position_window(window)
+    if not window or not window:isStandard() then
+        return false
+    end
+
+    local app_name = window:application():name()
+    return not is_excluded_app(app_name)
+end
+
+-- Save all window positions (for hotkey)
+function window_memory.save_all_positions()
+    debug_log("Manually saving all window positions")
+    save_positions()
     local count = 0
-    for _, window in ipairs(hs.window.allWindows()) do
-        if window:isStandard() and window_memory.restore_window(window) then
+    for app_name, monitors in pairs(positions) do
+        for _, _ in pairs(monitors) do
             count = count + 1
         end
     end
+    debug_log("Saved positions for", count, "app/monitor combinations")
+    return count
+end
+
+-- Restore all remembered positions (for hotkey)
+function window_memory.restore_all_positions()
+    debug_log("Restoring all window positions")
+    local count = 0
+
+    for _, window in ipairs(hs.window.allWindows()) do
+        if window:isStandard() and not window:isMinimized() then
+            local app_name = window:application():name()
+            if not is_excluded_app(app_name) then
+                local screen = window:screen()
+                if screen then
+                    local monitor_id = tiler.monitors.get_id(screen)
+                    local remembered = get_remembered_position(app_name, monitor_id)
+
+                    if remembered then
+                        debug_log("Restoring", app_name, "to zone:", remembered.zone_key, "tile:", remembered.tile_index)
+                        if tiler.position_window_from_memory(window, monitor_id, remembered.zone_key,
+                            remembered.tile_index) then
+                            count = count + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     debug_log("Restored positions for", count, "windows")
     return count
 end
@@ -303,52 +325,27 @@ function window_memory.setup_hotkeys()
     end
 end
 
--- Initialization
+-- Initialize window memory system
 function window_memory.init(tiler_module)
     tiler = tiler_module
     window_memory.debug = config.window_memory and config.window_memory.debug or false
-    window_memory.cache_dir = config.window_memory and config.window_memory.cache_dir or
-                                  (os.getenv("HOME") .. "/.config/tiler")
-    window_memory.positions = {}
 
-    -- Load from disk
-    local cached_positions = load_positions()
-    for _, pos in ipairs(cached_positions) do
-        if not window_memory.positions[pos.app_name] then
-            window_memory.positions[pos.app_name] = {}
-        end
-        window_memory.positions[pos.app_name][pos.monitor_id] = {
-            zone_key = pos.zone_key,
-            tile_index = pos.tile_index,
-            timestamp = pos.timestamp
-        }
-    end
-    debug_log("Loaded", #cached_positions, "cached positions")
+    -- Set up integration with tiler
+    tiler.set_window_memory(window_memory)
 
-    -- Watchers for new/moved windows
-    local window_watcher = hs.window.filter.new()
-    window_watcher:subscribe(hs.window.filter.windowCreated, window_memory.handle_window_created)
-    window_watcher:subscribe(hs.window.filter.windowMoved, window_memory.handle_window_moved)
+    -- Load positions from disk
+    load_positions()
 
-    -- Save on shutdown
+    -- Save positions on shutdown
     local existing_callback = hs.shutdownCallback
     hs.shutdownCallback = function()
-        window_memory.save_all_positions()
+        save_positions()
         if existing_callback then
             existing_callback()
         end
     end
 
-    -- Cache stats debug timer
-    if window_memory.debug then
-        hs.timer.doEvery(300, function()
-            local stats = cache.positions:stats()
-            debug_log(string.format("Cache stats: %d items, %.1f%% hit rate (%d hits, %d misses)", stats.size,
-                stats.hit_ratio * 100, stats.hits, stats.misses))
-        end)
-    end
-
-    debug_log("Window memory initialized")
+    debug_log("Window memory system initialized")
     return window_memory
 end
 

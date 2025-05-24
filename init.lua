@@ -47,6 +47,8 @@ end
   Main initialization function
 ]]
 local function init()
+    print("-------------- Loading Hammerspoon config --------------")
+
     -- Disable animation for speed
     hs.window.animationDuration = 0
 
@@ -57,11 +59,10 @@ local function init()
     -- Initialize simplified tiler
     tiler.start()
 
-    -- Initialize window memory if enabled (temporarily disabled due to integration issues)
-    -- if config.window_memory and config.window_memory.enabled then
-    --     window_memory.init(tiler)
-    --     window_memory.setup_hotkeys()
-    -- end
+    if config.window_memory and config.window_memory.enabled then
+        window_memory.init(tiler)
+        window_memory.setup_hotkeys() -- Optional, for manual capture/restore
+    end
 
     -- Initialize app switching
     appSwitcher.init_bindings(config.appCuts, config.hyperAppCuts, mash_app, HYPER)
