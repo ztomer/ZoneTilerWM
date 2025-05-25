@@ -103,15 +103,19 @@ end
 ]]
 function appSwitcher.init_bindings(appCuts, hyperAppCuts, mash_app, HYPER)
     for key, app in pairs(appCuts) do
-        hs.hotkey.bind(mash_app, key, function()
-            appSwitcher.toggle_app(app)
-        end)
+        if app and app:match("%S") then -- check for non-nil and non-whitespace app names
+            hs.hotkey.bind(mash_app, key, function()
+                appSwitcher.toggle_app(app)
+            end)
+        end
     end
 
     for key, app in pairs(hyperAppCuts) do
-        hs.hotkey.bind(HYPER, key, function()
-            appSwitcher.toggle_app(app)
-        end)
+        if app and app:match("%S") then -- check for non-nil and non-whitespace app names
+            hs.hotkey.bind(HYPER, key, function()
+                appSwitcher.toggle_app(app)
+            end)
+        end
     end
 
     -- Help binding
