@@ -620,33 +620,32 @@ local function apply_frame(window, frame, force_screen_obj)
     return success
 end
 
-local function apply_frame_to_problem_app(window, frame, app_name, screen_obj)
-    debug_log("Using special handling for problem app:", app_name)
-    if screen_obj and window:screen():id() ~= screen_obj:id() then
-        window:moveToScreen(screen_obj, false, true, 0)
+-- Special handling for problem apps using accessibility API
+local function apply_frame_to_problem_app(window, frame, app_name)
+    if not window or not frame then
+        return false
     end
-    -- Attempt multiple times with delays
-    local attempts = 5
-    local delay = 0.1
-    local function attempt_set_frame(current_attempt)
-        if not window or not window:isStandard() then
-            return
-        end
-        debug_log("Problem app", app_name, "setFrame attempt", current_attempt, "to", hs.inspect(frame))
-        apply_frame(window, frame, screen_obj)
 
-        if current_attempt < attempts then
-            hs.timer.doAfter(delay, function()
-                if window:isStandard() and not frames_match(window:frame(), frame, 20) then
-                    debug_log("Problem app", app_name, "frame did not stick, retrying...")
-                    attempt_set_frame(current_attempt + 1)
-                else
-                    debug_log("Problem app", app_name, "frame stuck or retries exhausted.")
-                end
-            end)
-        end
-    end
-    attempt_set_frame(1)
+    debug_log("Using accessibility API for problem app:", app_name)
+
+    local app = window:application()
+    local ax_app = hs.axuielement.applicationElement(app)
+
+    -- Store original settings
+    local was_enhanced = ax_app.AXEnhancedUserInterface
+    local original_animation_duration = hs.window.animationDuration
+
+    -- Disable enhanced UI and animation
+    ax_app.AXEnhancedUserInterface = false
+    hs.window.animationDuration = 0
+
+    -- Apply the frame
+    window:setFrame(frame)
+
+    -- Restore original settings
+    hs.window.animationDuration = original_animation_duration
+    ax_app.AXEnhancedUserInterface = was_enhanced
+
     return true
 end
 
