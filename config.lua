@@ -74,7 +74,7 @@ config.tiler = {
         size = 5,
         screen_edge = true
     },
-    -- Apps that require special handling (delayed movement and verification)
+    -- Apps that require special handling (Disable internal window management)
     problem_apps = {"Firefox", "Zen"},
     -- Screen detection configuration
     screen_detection = {
