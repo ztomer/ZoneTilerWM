@@ -46,11 +46,18 @@ ZoneTilerWM is a modular and powerful tiling window manager for macOS, built on 
 ├── init.lua              # Entry point
 ├── config.lua            # Configuration for keys, layouts, and features
 └── modules/
-    ├── tiler.lua         # Main tiling engine
+    ├── tiler.lua         # Core tiling orchestrator
+    ├── monitor_manager.lua # Stable monitor identification
+    ├── zone_calculator.lua # Zone and tile geometry calculation
+    ├── window_state_manager.lua # Manages window tiler states
+    ├── smart_placer.lua  # Intelligent new window placement
+    ├── focus_manager.lua   # Manages focus cycling within zones
+    ├── window_actions.lua  # Core window manipulation functions
     ├── window_memory.lua # Window memory and recall
     ├── app_switcher.lua  # App hotkey binding module
     ├── pomodoor.lua      # Pomodoro timer display and logic
     └── lru_cache.lua     # Helper LRU cache for window focus history
+    # Note: window_state.lua is a temporary compatibility layer and will be removed.
 ```
 
 ---
