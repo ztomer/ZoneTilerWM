@@ -263,7 +263,7 @@ function focus_manager.cycle_windows_in_zone(focused_window_before_call, target_
     end
 
     -- Advance the cycle index
-    local num_windows_in_cycle = #cfcm.window_ids_in_cycle_list
+    local num_windows_in_cycle = #cfcm.window_ids_in_order
     cfcm.current_idx_in_cycle_list = (cfcm.current_idx_in_cycle_list % num_windows_in_cycle) + 1
 
     local window_id_to_focus = cfcm.window_ids_in_order[cfcm.current_idx_in_cycle_list]
