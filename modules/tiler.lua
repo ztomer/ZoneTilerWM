@@ -162,12 +162,13 @@ function smart_placement.place_window(window)
         return false
     end
 
-    if not config.tiler.smart_placement or not config.tiler.smart_placement.enabled then
+    local sp_config = config.tiler.smart_placement
+    if not sp_config or not sp_config.enabled then
         return false
     end
 
     -- Exclude configured apps from smart placement
-    if config.tiler.smart_placement.exclude_apps then
+    if sp_config.exclude_apps then
         local app_name = window:application():name()
         for _, excluded_app in ipairs(config.tiler.smart_placement.exclude_apps) do
             if app_name == excluded_app then
@@ -575,12 +576,14 @@ end
 -- Window Utility Functions
 ------------------------------------------
 local function is_problem_app(app_name)
-    if not tiler.problem_apps or not app_name then
+    -- Assumes tiler.processed_problem_apps is initialized in tiler.start()
+    if not tiler.processed_problem_apps or #tiler.processed_problem_apps == 0 or not app_name then
         return false
     end
     local lower_app_name = app_name:lower()
-    for _, name in ipairs(tiler.problem_apps) do
-        if name:lower() == lower_app_name then
+    -- Iterate over pre-processed list of lowercase app names
+    for _, problem_app_lower_name in ipairs(tiler.processed_problem_apps) do
+        if problem_app_lower_name == lower_app_name then
             return true
         end
     end
@@ -872,42 +875,50 @@ local function collect_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles
         return zone_windows_collected
     end
 
-    -- Phase 1: Add explicitly assigned windows
+    local windows_on_screen = {}
     for _, win in ipairs(hs.window.allWindows()) do
         if win:isStandard() and not win:isMinimized() and win:screen():id() == screen_obj:id() then
-            local pos = window_state.get(win:id())
-            if pos and pos.monitor_id == monitor_id and pos.zone_key == zone_key then
-                if not is_window_in_list_by_id(win:id(), zone_windows_collected) then
-                    table.insert(zone_windows_collected, {
-                        window = win,
-                        window_id = win:id(),
-                        app_name = win:application():name(),
-                        tile_index = pos.tile_index,
-                        explicit = true,
-                        z_order = get_window_z_order(win)
-                    })
-                end
-            end
+            table.insert(windows_on_screen, win)
         end
     end
 
-    -- Phase 2: Add windows by overlap
-    for tile_idx, tile_frame in ipairs(zone_tiles_for_this_zone) do
-        for _, win in ipairs(hs.window.allWindows()) do
-            if win:isStandard() and not win:isMinimized() and win:screen():id() == screen_obj:id() then
-                if not is_window_in_list_by_id(win:id(), zone_windows_collected) then
-                    local overlap = calculate_overlap_percentage(win:frame(), tile_frame)
-                    if overlap >= overlap_threshold then
-                        table.insert(zone_windows_collected, {
-                            window = win,
-                            window_id = win:id(),
-                            app_name = win:application():name(),
-                            tile_index = tile_idx,
-                            explicit = false,
-                            z_order = get_window_z_order(win),
-                            overlap_debug = overlap
-                        })
-                    end
+    local added_window_ids = {} -- To track IDs already added to zone_windows_collected
+
+    -- Phase 1: Add explicitly assigned windows
+    for _, win in ipairs(windows_on_screen) do
+        local win_id = win:id()
+        local pos = window_state.get(win_id)
+        if pos and pos.monitor_id == monitor_id and pos.zone_key == zone_key then
+            table.insert(zone_windows_collected, {
+                window = win,
+                window_id = win_id,
+                app_name = win:application():name(),
+                tile_index = pos.tile_index,
+                explicit = true,
+                z_order = get_window_z_order(win)
+            })
+            added_window_ids[win_id] = true
+        end
+    end
+
+    -- Phase 2: Add windows by overlap (if not already added explicitly)
+    for _, win in ipairs(windows_on_screen) do
+        local win_id = win:id()
+        if not added_window_ids[win_id] then
+            for tile_idx, tile_frame in ipairs(zone_tiles_for_this_zone) do
+                local overlap = calculate_overlap_percentage(win:frame(), tile_frame)
+                if overlap >= overlap_threshold then
+                    table.insert(zone_windows_collected, {
+                        window = win,
+                        window_id = win_id,
+                        app_name = win:application():name(),
+                        tile_index = tile_idx,
+                        explicit = false,
+                        z_order = get_window_z_order(win),
+                        overlap_debug = overlap
+                    })
+                    added_window_ids[win_id] = true -- Mark as added
+                    break -- Associate with the first overlapping tile found
                 end
             end
         end
@@ -1174,25 +1185,17 @@ local function handle_window_destroyed(window)
         window_state.cleanup(window:id())
         -- Check if this window was part of the current focus cycle and invalidate if so
         if current_focus_cycle_manager.zone_key then
-            local removed = false
+            local was_in_cycle = false
             for i = #current_focus_cycle_manager.window_ids_in_order, 1, -1 do
                 if current_focus_cycle_manager.window_ids_in_order[i] == window:id() then
-                    table.remove(current_focus_cycle_manager.window_ids_in_order, i)
-                    removed = true
+                    was_in_cycle = true
                     break
                 end
             end
-            if removed then
-                debug_log("Removed destroyed window from current focus cycle. Cycle list may be stale or empty.")
-                if #current_focus_cycle_manager.window_ids_in_order == 0 then
-                    current_focus_cycle_manager.zone_key = nil -- Force full rebuild
-                    current_focus_cycle_manager.current_idx_in_cycle_list = 0
-                elseif current_focus_cycle_manager.current_idx_in_cycle_list >
-                    #current_focus_cycle_manager.window_ids_in_order then
-                    current_focus_cycle_manager.current_idx_in_cycle_list =
-                        #current_focus_cycle_manager.window_ids_in_order
-                end
-                -- Forcing a full rebuild on next focus might be safer than trying to adjust index here.
+            if was_in_cycle then
+                debug_log(
+                    "Destroyed window (ID: " .. window:id() .. ") was part of the current focus cycle for zone '" ..
+                        current_focus_cycle_manager.zone_key .. "'. Invalidating cycle.")
                 current_focus_cycle_manager.zone_key = nil
             end
         end
@@ -1245,7 +1248,14 @@ function tiler.start()
 
     tiler.debug = config.tiler.debug
     tiler.margins = config.tiler.margins
-    tiler.problem_apps = config.tiler.problem_apps
+
+    -- Pre-process problem apps list for efficient lookup
+    tiler.processed_problem_apps = {}
+    if config.tiler.problem_apps then
+        for _, name in ipairs(config.tiler.problem_apps) do
+            table.insert(tiler.processed_problem_apps, name:lower())
+        end
+    end
 
     for _, screen_obj in ipairs(hs.screen.allScreens()) do
         local monitor_id = monitors.get_id(screen_obj)
