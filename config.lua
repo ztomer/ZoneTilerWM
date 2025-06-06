@@ -48,7 +48,16 @@ config.hyperAppCuts = {
     e = 'Clock',
     r = 'Discord',
     t = 'ChatGpt',
-    a = 'KeePassXC'
+    a = 'KeePassXC',
+    s = '',
+    d = '',
+    f = '',
+    g = '',
+    z = '',
+    x = 'Gemini',
+    c = '',
+    v = '',
+    b = ''
 }
 
 -- Pomodoro settings
