@@ -152,6 +152,14 @@ function tiler.start()
     tiler.debug = config.tiler.debug
     tiler.margins = config.tiler.margins
 
+    -- Pre-process problem apps list for efficient lookup
+    tiler.processed_problem_apps = {}
+    if config.tiler.problem_apps then
+        for _, name in ipairs(config.tiler.problem_apps) do
+            table.insert(tiler.processed_problem_apps, name:lower())
+        end
+    end
+
     -- Initialize sub-modules
     monitor_manager.init(debug_log)
     zone_calculator.init(config, tiler.margins, debug_log)
@@ -160,14 +168,6 @@ function tiler.start()
     window_actions.init(config, monitor_manager, zone_calculator, window_state_manager, tiler.processed_problem_apps,
         debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
-
-    -- Pre-process problem apps list for efficient lookup
-    tiler.processed_problem_apps = {}
-    if config.tiler.problem_apps then
-        for _, name in ipairs(config.tiler.problem_apps) do
-            table.insert(tiler.processed_problem_apps, name:lower())
-        end
-    end
 
     for _, screen_obj in ipairs(hs_screen.allScreens()) do
         local monitor_id = monitor_manager.get_id(screen_obj)

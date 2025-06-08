@@ -3,6 +3,7 @@
 -- and handling problem applications.
 local hs_window = hs.window
 local hs_screen = hs.screen
+local hs_axuielement = hs.axuielement
 
 local window_actions = {}
 
@@ -68,10 +69,45 @@ end
 -- Special handling for problem apps using accessibility API (if needed, though setFrame is often enough)
 -- Keeping this separate function structure for clarity if specific AX calls become necessary later.
 local function apply_frame_to_problem_app(window, frame, app_name, force_screen_obj)
-    -- Currently, just delegates to the standard apply_frame.
-    -- If specific AX calls are needed for certain apps, they would go here.
-    debug_log("Using standard apply_frame for problem app:", app_name, "(No special AX handling implemented yet)")
-    return apply_frame(window, frame, force_screen_obj)
+    if not window or not window:isStandard() or not frame then
+        debug_log("apply_frame_to_problem_app: Invalid window or frame.")
+        return false
+    end
+
+    local valid_frame = {
+        x = frame.x,
+        y = frame.y,
+        w = frame.w or frame.width,
+        h = frame.h or frame.height
+    }
+    if not (type(valid_frame.x) == "number" and type(valid_frame.y) == "number" and type(valid_frame.w) == "number" and
+        valid_frame.w > 0 and type(valid_frame.h) == "number" and valid_frame.h > 0) then
+        debug_log("apply_frame_to_problem_app: Invalid frame parameters - x,y,w,h must be positive numbers.",
+            hs.inspect(valid_frame))
+        return false
+    end
+
+    debug_log("Using accessibility API for problem app:", app_name)
+
+    if force_screen_obj and window:screen():id() ~= force_screen_obj:id() then
+        debug_log("Moving problem window", window:application():name(), "to screen:", force_screen_obj:name(),
+            "before AX frame set")
+        window:moveToScreen(force_screen_obj, false, true, 0)
+    end
+
+    local app = window:application()
+    local ax_app = hs_axuielement.applicationElement(app)
+
+    local was_enhanced = ax_app.AXEnhancedUserInterface
+    local original_animation_duration = hs_window.animationDuration
+
+    ax_app.AXEnhancedUserInterface = false
+    hs_window.animationDuration = 0
+    local success = window:setFrame(valid_frame)
+    hs_window.animationDuration = original_animation_duration
+    ax_app.AXEnhancedUserInterface = was_enhanced
+
+    return success
 end
 
 -- Apply a calculated tile frame to a window
