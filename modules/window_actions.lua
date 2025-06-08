@@ -31,28 +31,72 @@ local function is_problem_app(app_name)
     return false
 end
 
--- Apply a frame to a window, optionally forcing it to a specific screen first
-local function apply_frame(window, frame, force_screen_obj)
-    if not window or not window:isStandard() or not frame then
-        debug_log("apply_frame: Invalid window or frame.")
-        return false
+-- Helper: Validate window, normalize frame, validate frame params, and move to screen if needed
+local function _prepare_window_and_frame(window, frame, force_screen_obj, caller_func_name_for_log,
+    is_problem_app_log_detail)
+    if not window or not window:isStandard() then
+        debug_log(caller_func_name_for_log .. ": Invalid window (nil or not standard).")
+        return nil
     end
-    local valid_frame = {
+    if not frame then
+        debug_log(caller_func_name_for_log .. ": Invalid frame (nil).")
+        return nil
+    end
+
+    local normalized_frame = {
         x = frame.x,
         y = frame.y,
         w = frame.w or frame.width,
         h = frame.h or frame.height
     }
-    if not (type(valid_frame.x) == "number" and type(valid_frame.y) == "number" and type(valid_frame.w) == "number" and
-        valid_frame.w > 0 and type(valid_frame.h) == "number" and valid_frame.h > 0) then
-        debug_log("apply_frame: Invalid frame parameters - x,y,w,h must be positive numbers.", hs.inspect(valid_frame))
-        return false
+
+    if not (type(normalized_frame.x) == "number" and type(normalized_frame.y) == "number" and type(normalized_frame.w) ==
+        "number" and normalized_frame.w > 0 and type(normalized_frame.h) == "number" and normalized_frame.h > 0) then
+        debug_log(caller_func_name_for_log .. ": Invalid frame parameters - x,y,w,h must be numbers, w,h > 0.",
+            hs.inspect(normalized_frame))
+        return nil
     end
 
     if force_screen_obj and window:screen():id() ~= force_screen_obj:id() then
-        debug_log("Moving window", window:application():name(), "to screen:", force_screen_obj:name())
-        -- Use Hammerspoon's moveToScreen, which handles the underlying AX calls
-        window:moveToScreen(force_screen_obj, false, true, 0)
+        local app_for_log = window:application()
+        local app_name_for_log = app_for_log and app_for_log:name() or "UnknownApp"
+        local log_prefix = is_problem_app_log_detail and "problem " or ""
+        debug_log("Moving " .. log_prefix .. "window '", app_name_for_log, "' to screen: '", force_screen_obj:name(),
+            "' as part of " .. caller_func_name_for_log)
+
+        if is_problem_app_log_detail then
+            local app = window:application()
+            local ax_app_prep = nil
+            if app then
+                ax_app_prep = hs_axuielement.applicationElement(app)
+            end
+
+            if ax_app_prep then
+                local was_enhanced_prep = ax_app_prep.AXEnhancedUserInterface
+                local original_animation_duration_prep = hs_window.animationDuration
+
+                ax_app_prep.AXEnhancedUserInterface = false
+                hs_window.animationDuration = 0
+                window:moveToScreen(force_screen_obj, false, true, 0)
+                hs_window.animationDuration = original_animation_duration_prep
+                ax_app_prep.AXEnhancedUserInterface = was_enhanced_prep
+            else
+                debug_log(caller_func_name_for_log .. ": Could not get AX element for problem app '", app_name_for_log,
+                    "', moving without AX tweaks.")
+                window:moveToScreen(force_screen_obj, false, true, 0)
+            end
+        else
+            window:moveToScreen(force_screen_obj, false, true, 0)
+        end
+    end
+    return normalized_frame
+end
+
+-- Apply a frame to a window, optionally forcing it to a specific screen first
+local function apply_frame(window, frame, force_screen_obj)
+    local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame", false)
+    if not valid_frame then
+        return false
     end
 
     local saved_duration = hs_window.animationDuration
@@ -69,43 +113,36 @@ end
 -- Special handling for problem apps using accessibility API (if needed, though setFrame is often enough)
 -- Keeping this separate function structure for clarity if specific AX calls become necessary later.
 local function apply_frame_to_problem_app(window, frame, app_name, force_screen_obj)
-    if not window or not window:isStandard() or not frame then
-        debug_log("apply_frame_to_problem_app: Invalid window or frame.")
-        return false
-    end
-
-    local valid_frame = {
-        x = frame.x,
-        y = frame.y,
-        w = frame.w or frame.width,
-        h = frame.h or frame.height
-    }
-    if not (type(valid_frame.x) == "number" and type(valid_frame.y) == "number" and type(valid_frame.w) == "number" and
-        valid_frame.w > 0 and type(valid_frame.h) == "number" and valid_frame.h > 0) then
-        debug_log("apply_frame_to_problem_app: Invalid frame parameters - x,y,w,h must be positive numbers.",
-            hs.inspect(valid_frame))
+    local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame_to_problem_app", true)
+    if not valid_frame then
         return false
     end
 
     debug_log("Using accessibility API for problem app:", app_name)
 
-    if force_screen_obj and window:screen():id() ~= force_screen_obj:id() then
-        debug_log("Moving problem window", window:application():name(), "to screen:", force_screen_obj:name(),
-            "before AX frame set")
-        window:moveToScreen(force_screen_obj, false, true, 0)
+    local app = window:application()
+    local ax_app = nil
+    if app then
+        ax_app = hs_axuielement.applicationElement(app)
     end
 
-    local app = window:application()
-    local ax_app = hs_axuielement.applicationElement(app)
-
-    local was_enhanced = ax_app.AXEnhancedUserInterface
+    local was_enhanced -- Keep nil if ax_app is nil
     local original_animation_duration = hs_window.animationDuration
 
-    ax_app.AXEnhancedUserInterface = false
+    if ax_app then
+        was_enhanced = ax_app.AXEnhancedUserInterface
+        ax_app.AXEnhancedUserInterface = false
+    else
+        local app_name_for_log = app and app:name() or "UnknownApp"
+        debug_log("apply_frame_to_problem_app: Could not get AX element for '", app_name_for_log,
+            "'. Proceeding without AXEnhancedUserInterface tweak.")
+    end
     hs_window.animationDuration = 0
     local success = window:setFrame(valid_frame)
     hs_window.animationDuration = original_animation_duration
-    ax_app.AXEnhancedUserInterface = was_enhanced
+    if ax_app then
+        ax_app.AXEnhancedUserInterface = was_enhanced
+    end
 
     return success
 end
@@ -308,7 +345,34 @@ function window_actions.move_window_to_monitor(window, direction)
     -- If all else fails, just move it to the screen without tiling
     debug_log("Could not find suitable tile, moving window", app_name, "to screen", target_screen_obj:name(),
         "without tiling.")
-    window:moveToScreen(target_screen_obj)
+    if is_problem_app(app_name) then
+        debug_log("Applying AX tweaks for problem app '", app_name, "' during final moveToScreen fallback.")
+        local app = window:application()
+        local ax_app = nil
+        if app then
+            ax_app = hs_axuielement.applicationElement(app)
+        end
+
+        local was_enhanced -- Keep nil if ax_app is nil
+        local original_animation_duration = hs_window.animationDuration
+
+        if ax_app then
+            was_enhanced = ax_app.AXEnhancedUserInterface
+            ax_app.AXEnhancedUserInterface = false
+        else
+            local app_name_for_log = app and app:name() or "UnknownApp"
+            debug_log("move_window_to_monitor fallback: Could not get AX element for '", app_name_for_log,
+                "'. Proceeding without AXEnhancedUserInterface tweak.")
+        end
+        hs_window.animationDuration = 0
+        window:moveToScreen(target_screen_obj)
+        hs_window.animationDuration = original_animation_duration
+        if ax_app then
+            ax_app.AXEnhancedUserInterface = was_enhanced
+        end
+    else
+        window:moveToScreen(target_screen_obj)
+    end
     window_state_manager.cleanup(window_id) -- Clean up tiler state if not successfully tiled
     return true
 end
