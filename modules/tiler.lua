@@ -28,7 +28,11 @@ local window_actions = require "modules.window_actions"
 local function debug_log(...)
     if tiler.debug then
         local args = {...}
-        local message = table.concat(args, " ")
+        local string_args = {}
+        for i, v in ipairs(args) do
+            string_args[i] = tostring(v)
+        end
+        local message = table.concat(string_args, " ")
         print("[Tiler] " .. message)
     end
 end
@@ -98,6 +102,56 @@ function tiler.debug_zone(zone_key)
     focus_manager.debug_cycle_state()
 end
 
+-- Attempt to reposition an existing window, e.g., after a screen change
+function tiler.attempt_reposition_existing_window(window)
+    if not window or not window:isStandard() or window:isMinimized() then
+        return
+    end
+
+    local app = window:application()
+    local app_name = app and app:name()
+    if not app_name then
+        return
+    end
+
+    local screen = window:screen()
+    if not screen then
+        debug_log("attempt_reposition_existing_window: Window '", app_name, "' has no screen.")
+        return
+    end
+
+    local monitor_id = monitor_manager.get_id(screen)
+    debug_log("Attempting to reposition existing window:", app_name, "on monitor:", monitor_id, "(", screen:name(), ")")
+
+    -- 1. Try remembered position from window_memory (via window_state_manager)
+    if window_memory then -- Ensure window_memory module is available
+        local remembered = window_state_manager.get_app_memory(app_name, monitor_id)
+        if remembered and remembered.zone_key and remembered.tile_index then
+            debug_log("Found remembered position for", app_name, "on monitor", monitor_id, "- Zone:",
+                remembered.zone_key, "Tile:", remembered.tile_index)
+            if tiler.position_window_from_memory(window, monitor_id, remembered.zone_key, remembered.tile_index) then
+                debug_log("Successfully repositioned", app_name, "from memory after screen change.")
+                return -- Window is tiled by memory
+            else
+                debug_log("Failed to reposition", app_name, "from memory to", remembered.zone_key,
+                    remembered.tile_index, "after screen change.")
+            end
+        else
+            debug_log("No remembered position for", app_name, "on monitor", monitor_id,
+                "for screen change repositioning.")
+        end
+    end
+
+    -- 2. If not tiled by memory, and smart_placer is enabled, try smart_placer
+    if config.tiler.smart_placement and config.tiler.smart_placement.enabled then
+        debug_log("Attempting smart placement for", app_name, "after screen change (memory attempt inconclusive).")
+        -- smart_placer.place_window will check if the window is already in a tiler zone.
+        -- A small delay might help if the OS is still moving windows.
+        hs_timer.doAfter(0.1, function()
+            smart_placer.place_window(window)
+        end)
+    end
+end
 ------------------------------------------
 -- Event Handling
 ------------------------------------------
@@ -111,18 +165,34 @@ local function handle_window_destroyed(window)
 end
 
 local function handle_window_created(window)
-    -- Notify window_memory of new window
+    -- 1. Let window_memory attempt to place the new window based on its rules (async)
+    debug_log("handle_window_created init:", window:id(), "App:",
+        window:application() and window:application():name() or "N/A")
+
     if window_memory and window_memory.on_window_created then
         window_memory.on_window_created(window)
     end
 
-    -- Handle smart placement if enabled
+    -- 2. Handle smart placement if enabled (async, runs after window_memory's attempt)
+    -- smart_placer.place_window itself will check if the window was already tiled by window_memory.
     if config.tiler.smart_placement and config.tiler.smart_placement.enabled then
+        debug_log("handle_window_created smart placement enabled for window:", window:id(), "App:",
+            window:application() and window:application():name() or "N/A")
+
         if window and window:isStandard() then
-            -- Delay to allow window to fully initialize
-            hs_timer.doAfter(0.2, function()
-                if window:isStandard() then -- Recheck, might have closed or changed
+            -- Delay to allow window to fully initialize AND for window_memory's async part to potentially run.
+            -- window_memory.on_window_created now has an internal 0.5s + 0.1s timer.
+            -- This delay should be longer.
+            hs_timer.doAfter(0.8, function()
+                -- Recheck window state
+                local app_name_for_debug = window:application() and window:application():name() or "UnknownApp"
+                debug_log("[SmartPlacer via Tiler] In timer for:", app_name_for_debug, "ID:", window:id(),
+                    "isStandard:", window:isStandard(), "isMinimized:", window:isMinimized())
+                if window:isStandard() and not window:isMinimized() then
                     smart_placer.place_window(window)
+                else
+                    debug_log("[SmartPlacer via Tiler] Window", app_name_for_debug,
+                        "not standard or minimized at 0.8s. Aborting smart placement.")
                 end
             end)
         end
@@ -133,12 +203,26 @@ local function handle_screen_change()
     debug_log("Screen configuration changed")
     hs_timer.doAfter(0.5, function() -- Delay to allow screens to settle
         monitor_manager.reinitialize_monitors(hs_screen.allScreens(), debug_log)
+        zone_calculator.clear_all() -- Clear old zone calculations
         for _, screen_obj in ipairs(hs_screen.allScreens()) do
             local monitor_id = monitor_manager.get_id(screen_obj)
             zone_calculator.create_for_monitor(monitor_id, screen_obj)
         end
         focus_manager.reset_cycle()
         debug_log("Reinitialized monitors and zones. Focus cycle invalidated.")
+
+        -- Attempt to reposition all existing windows if configured
+        if config.tiler.reposition_on_screen_change then
+            debug_log("Attempting to reposition windows after screen change...")
+            for _, win in ipairs(hs_window.allWindows()) do
+                if win:isStandard() and not win:isMinimized() then
+                    tiler.attempt_reposition_existing_window(win)
+                end
+            end
+        else
+            debug_log(
+                "Skipping automatic window repositioning after screen change (config.tiler.reposition_on_screen_change is false).")
+        end
     end)
 end
 
@@ -213,10 +297,11 @@ function tiler.start()
     end)
 
     -- Watch for window events
-    local window_filter_events = {hs_window.filter.windowDestroyed, hs_window.filter.windowCreated}
-    local window_watcher = hs_window.filter.new(window_filter_events)
+    -- Subscribe to both windowCreated and windowOpened for new windows, as some apps might trigger one more reliably.
+    local window_watcher = hs_window.filter.new() -- Watch all windows for the specified events.
+    -- The callback for these events is (windowObject, applicationNameString, eventTypeString)
+    window_watcher:subscribe({hs.window.filter.windowCreated, hs.window.filter.windowOpened}, handle_window_created)
     window_watcher:subscribe(hs_window.filter.windowDestroyed, handle_window_destroyed)
-    window_watcher:subscribe(hs_window.filter.windowCreated, handle_window_created)
 
     local screen_watcher = hs.screen.watcher.new(handle_screen_change):start()
 

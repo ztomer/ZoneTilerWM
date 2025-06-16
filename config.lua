@@ -75,6 +75,7 @@ config.pomodoro = {
 -- Simplified Tiler settings
 config.tiler = {
     debug = true,
+    reposition_on_screen_change = true, -- or false if you want to disable it by default
     modifier = {"ctrl", "cmd"},
     focus_modifier = {"shift", "ctrl", "cmd"},
 
