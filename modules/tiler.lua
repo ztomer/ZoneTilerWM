@@ -125,7 +125,8 @@ function tiler.attempt_reposition_existing_window(window)
 
     -- 1. Try remembered position from window_memory (via window_state_manager)
     if window_memory then -- Ensure window_memory module is available
-        local remembered = window_state_manager.get_app_memory(app_name, monitor_id)
+        -- Use window_memory's own function to get the persisted remembered position
+        local remembered = window_memory.get_remembered_position(app_name, monitor_id)
         if remembered and remembered.zone_key and remembered.tile_index then
             debug_log("Found remembered position for", app_name, "on monitor", monitor_id, "- Zone:",
                 remembered.zone_key, "Tile:", remembered.tile_index)
