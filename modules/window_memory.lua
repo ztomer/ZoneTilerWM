@@ -8,6 +8,7 @@ local json = require "hs.json"
 local tiler = nil -- Set during initialization
 local positions = {} -- app_name -> monitor_id -> {zone_key, tile_index}
 local preferences = {} -- app_name -> monitor_id -> zone_key -> tile_index -> count
+local pending_learning = {} -- window_id -> { timer, data = {app_name, monitor_id, zone_key, tile_index} }
 
 -- Debug logging
 local function debug_log(...)
@@ -247,27 +248,9 @@ function window_memory.get_preferred_zone(app_name, monitor_id)
     return best_zone
 end
 
--- Called by tiler when a window is positioned
-function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_index)
-    if not window or not window:isStandard() then
-        return
-    end
-
-    local app_name = window:application():name()
-    if is_excluded_app(app_name) then
-        return
-    end
-
-    -- Store position
-    if not positions[app_name] then
-        positions[app_name] = {}
-    end
-    positions[app_name][monitor_id] = {
-        zone_key = zone_key,
-        tile_index = tile_index
-    }
-
-    -- Update preferences count
+-- Commits a learned position after a window has "settled"
+local function commit_learned_position(app_name, monitor_id, zone_key, tile_index)
+    -- This is the core preference-incrementing logic
     if not preferences[app_name] then
         preferences[app_name] = {}
     end
@@ -283,8 +266,61 @@ function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_i
     preferences[app_name][monitor_id][zone_key][tile_index] =
         preferences[app_name][monitor_id][zone_key][tile_index] + 1
 
-    debug_log("Remembered", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index, "(Count:",
-        preferences[app_name][monitor_id][zone_key][tile_index], ")")
+    debug_log("Learned (settled)", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index,
+        "(New Count:", preferences[app_name][monitor_id][zone_key][tile_index], ")")
+end
+
+-- Called by tiler when a window is positioned
+function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_index)
+    if not window or not window:isStandard() then
+        return
+    end
+
+    local app_name = window:application():name()
+    if is_excluded_app(app_name) then
+        return
+    end
+
+    -- Immediately store the last known position for instant recall (e.g., moving between monitors)
+    if not positions[app_name] then
+        positions[app_name] = {}
+    end
+    positions[app_name][monitor_id] = {
+        zone_key = zone_key,
+        tile_index = tile_index
+    }
+    debug_log("Remembered last position for", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index)
+
+    -- --- DELAYED LEARNING LOGIC ---
+    local window_id = window:id()
+
+    -- If there's a pending learning timer for this window, cancel it. This prevents learning intermediate cycle positions.
+    if pending_learning[window_id] and pending_learning[window_id].timer then
+        pending_learning[window_id].timer:stop()
+        pending_learning[window_id].timer = nil
+    end
+
+    -- Set up a new pending learning event.
+    pending_learning[window_id] = {
+        data = {
+            app_name = app_name,
+            monitor_id = monitor_id,
+            zone_key = zone_key,
+            tile_index = tile_index
+        }
+    }
+
+    -- Start a new timer. When it fires, it will commit the learning.
+    local settle_delay_sec = (config.window_memory and config.window_memory.settle_delay_sec) or 2.0
+    pending_learning[window_id].timer = hs.timer.doAfter(settle_delay_sec, function()
+        -- The timer fired, so the window has "settled".
+        local learn_data = pending_learning[window_id] and pending_learning[window_id].data
+        if learn_data then
+            commit_learned_position(learn_data.app_name, learn_data.monitor_id, learn_data.zone_key,
+                learn_data.tile_index)
+            pending_learning[window_id] = nil -- Clean up the pending entry
+        end
+    end)
 end
 
 -- Called by tiler when a new window is created
