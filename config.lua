@@ -294,9 +294,10 @@ config.tiler = {
 config.window_memory = {
     enabled = true, -- Enable/disable window memory
     debug = true, -- Enable debug logging
+    max_preference_entries = 1000, -- Maximum number of unique app/monitor/zone/tile preferences to remember
 
     -- Directory to store position cache files
-    cache_dir = os.getenv("HOME") .. "/.config/tiler",
+    cache_dir = os.getenv("HOME") .. "/.config/ZoneTilerWM",
 
     -- Hotkey configuration
     hotkeys = {
