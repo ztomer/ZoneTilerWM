@@ -113,37 +113,61 @@ function tiler.attempt_reposition_existing_window(window)
     if not app_name then
         return
     end
-
     local screen = window:screen()
     if not screen then
         debug_log("attempt_reposition_existing_window: Window '", app_name, "' has no screen.")
         return
     end
-
     local monitor_id = monitor_manager.get_id(screen)
     debug_log("Attempting to reposition existing window:", app_name, "on monitor:", monitor_id, "(", screen:name(), ")")
 
-    -- 1. Try remembered position from window_memory (via window_state_manager)
+    -- 1. Try persisted remembered position from window_memory
     if window_memory then -- Ensure window_memory module is available
-        -- Use window_memory's own function to get the persisted remembered position
         local remembered = window_memory.get_remembered_position(app_name, monitor_id)
         if remembered and remembered.zone_key and remembered.tile_index then
             debug_log("Found remembered position for", app_name, "on monitor", monitor_id, "- Zone:",
                 remembered.zone_key, "Tile:", remembered.tile_index)
             if tiler.position_window_from_memory(window, monitor_id, remembered.zone_key, remembered.tile_index) then
                 debug_log("Successfully repositioned", app_name, "from memory after screen change.")
-                return -- Window is tiled by memory
+                return -- Window is tiled by persisted memory
             else
                 debug_log("Failed to reposition", app_name, "from memory to", remembered.zone_key,
                     remembered.tile_index, "after screen change.")
             end
         else
-            debug_log("No remembered position for", app_name, "on monitor", monitor_id,
+            debug_log("No persisted remembered position for", app_name, "on monitor", monitor_id,
                 "for screen change repositioning.")
         end
     end
 
-    -- 2. If not tiled by memory, and smart_placer is enabled, try smart_placer
+    -- 2. If not repositioned from persisted memory, try app-specific or default zones (if window_memory is enabled)
+    if config.window_memory and config.window_memory.enabled then
+        -- Try configured app zones
+        if config.window_memory.app_zones then
+            local default_app_zone_key = config.window_memory.app_zones[app_name]
+            if default_app_zone_key then
+                debug_log("Attempting to reposition", app_name, "to configured app_zone:", default_app_zone_key,
+                    "on monitor", monitor_id)
+                if window_actions.move_window_to_zone(window, default_app_zone_key) then
+                    debug_log("Successfully repositioned", app_name, "to app_zone:", default_app_zone_key)
+                    return -- Successfully repositioned to app_zone
+                end
+            end
+        end
+
+        -- Try global default fallback if auto_tile_fallback is enabled
+        if config.window_memory.auto_tile_fallback then
+            local global_default_zone_key = config.window_memory.default_zone or "0"
+            debug_log("Attempting to reposition", app_name, "to global default_zone:", global_default_zone_key,
+                "on monitor", monitor_id)
+            if window_actions.move_window_to_zone(window, global_default_zone_key) then
+                debug_log("Successfully repositioned", app_name, "to global default_zone:", global_default_zone_key)
+                return -- Successfully repositioned to default_zone
+            end
+        end
+    end
+
+    -- 3. Fallback to smart placement if all else fails
     if config.tiler.smart_placement and config.tiler.smart_placement.enabled then
         debug_log("Attempting smart placement for", app_name, "after screen change (memory attempt inconclusive).")
         -- smart_placer.place_window will check if the window is already in a tiler zone.
@@ -202,22 +226,29 @@ end
 
 local function handle_screen_change()
     debug_log("Screen configuration changed")
-    hs_timer.doAfter(0.5, function() -- Delay to allow screens to settle
-        monitor_manager.reinitialize_monitors(hs_screen.allScreens(), debug_log)
-        zone_calculator.clear_all() -- Clear old zone calculations
-        for _, screen_obj in ipairs(hs_screen.allScreens()) do
-            local monitor_id = monitor_manager.get_id(screen_obj)
-            zone_calculator.create_for_monitor(monitor_id, screen_obj)
-        end
-        focus_manager.reset_cycle()
-        debug_log("Reinitialized monitors and zones. Focus cycle invalidated.")
 
+    -- Immediate updates for monitor registry and zone definitions
+    monitor_manager.reinitialize_monitors(hs_screen.allScreens(), debug_log)
+    zone_calculator.clear_all() -- Clear old zone calculations
+    for _, screen_obj in ipairs(hs_screen.allScreens()) do
+        local monitor_id = monitor_manager.get_id(screen_obj)
+        zone_calculator.create_for_monitor(monitor_id, screen_obj)
+    end
+    focus_manager.reset_cycle()
+    debug_log("Immediately reinitialized monitors and zones. Focus cycle invalidated.")
+
+    -- Delayed window repositioning to allow screens and windows to settle
+    hs_timer.doAfter(0.5, function()
         -- Attempt to reposition all existing windows if configured
         if config.tiler.reposition_on_screen_change then
-            debug_log("Attempting to reposition windows after screen change...")
+            debug_log("Attempting to reposition windows after screen change (delayed)...")
             for _, win in ipairs(hs_window.allWindows()) do
+                local app_name_for_log = win:application() and win:application():name() or "UnknownApp"
                 if win:isStandard() and not win:isMinimized() then
                     tiler.attempt_reposition_existing_window(win)
+                else
+                    debug_log("Skipping reposition for window ID", win:id(), "(", app_name_for_log,
+                        ") during screen change because it's not standard or is minimized.")
                 end
             end
         else
@@ -315,6 +346,9 @@ function tiler.set_window_memory(wm)
     window_memory = wm
     if window_state_manager and window_state_manager.set_window_memory_module then
         window_state_manager.set_window_memory_module(wm)
+    end
+    if window_actions and window_actions.set_window_memory_module then
+        window_actions.set_window_memory_module(wm)
     end
     debug_log("Window memory integration enabled")
 end

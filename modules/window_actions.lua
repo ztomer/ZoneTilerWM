@@ -13,6 +13,7 @@ local monitor_manager = nil -- Set in init
 local zone_calculator = nil -- Set in init
 local window_state_manager = nil -- Set in init
 local processed_problem_apps = {} -- Set in init
+local window_memory_module = nil -- Set via setter from tiler
 local debug_log = function(...)
 end -- Placeholder, will be set in init
 
@@ -201,7 +202,18 @@ function window_actions.move_window_to_zone(window, zone_key)
 
     local tile_index_to_apply = 1 -- 1-based index
     if current_pos and current_pos.zone_key == zone_key and current_pos.monitor_id == monitor_id then
+        -- Cycle within the same zone
         tile_index_to_apply = (current_pos.tile_index % #zone_tiles) + 1
+    else
+        -- Moving to a NEW zone. Check for a preferred tile.
+        if window_memory_module then
+            local app_name = window:application():name()
+            local preferred_tile = window_memory_module.get_preferred_tile(app_name, monitor_id, zone_key)
+            if preferred_tile and zone_tiles[preferred_tile] then
+                tile_index_to_apply = preferred_tile
+                debug_log("Using preferred tile", tile_index_to_apply, "for", app_name, "in new zone", zone_key)
+            end
+        end
     end
 
     local tile_to_apply = zone_tiles[tile_index_to_apply]
@@ -386,6 +398,12 @@ function window_actions.init(cfg, mm, zc, wsm, problem_apps_list, log_func)
     processed_problem_apps = problem_apps_list
     debug_log = log_func or debug_log
     debug_log("WindowActions initialized")
+end
+
+-- Set the window_memory module reference (called by tiler)
+function window_actions.set_window_memory_module(wm)
+    window_memory_module = wm
+    debug_log("WindowMemory module reference set in WindowActions")
 end
 
 return window_actions

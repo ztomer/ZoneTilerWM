@@ -7,6 +7,7 @@ local json = require "hs.json"
 -- Module state
 local tiler = nil -- Set during initialization
 local positions = {} -- app_name -> monitor_id -> {zone_key, tile_index}
+local preferences = {} -- app_name -> monitor_id -> zone_key -> tile_index -> count
 
 -- Debug logging
 local function debug_log(...)
@@ -68,7 +69,25 @@ local function load_positions()
                 tile_index = pos.tile_index
             }
         end
-        debug_log("Loaded", #data.positions, "cached positions")
+        debug_log("Loaded", #data.positions, "cached last positions")
+
+        if data.preferences then
+            for _, pref in ipairs(data.preferences) do
+                if not preferences[pref.app_name] then
+                    preferences[pref.app_name] = {}
+                end
+                if not preferences[pref.app_name][pref.monitor_id] then
+                    preferences[pref.app_name][pref.monitor_id] = {}
+                end
+                if not preferences[pref.app_name][pref.monitor_id][pref.zone_key] then
+                    preferences[pref.app_name][pref.monitor_id][pref.zone_key] = {}
+                end
+                preferences[pref.app_name][pref.monitor_id][pref.zone_key][pref.tile_index] = pref.count
+            end
+            debug_log("Loaded", #data.preferences, "cached preferences")
+        else
+            debug_log("No preferences found in cache file")
+        end
     else
         debug_log("Failed to parse cache file")
     end
@@ -114,12 +133,31 @@ local function save_positions()
         end
     end
 
+    -- Convert preferences to array for JSON
+    local preferences_array = {}
+    for app_name, monitors in pairs(preferences) do
+        for monitor_id, zones in pairs(monitors) do
+            for zone_key, tiles in pairs(zones) do
+                for tile_index, count in pairs(tiles) do
+                    table.insert(preferences_array, {
+                        app_name = app_name,
+                        monitor_id = monitor_id,
+                        zone_key = zone_key,
+                        tile_index = tile_index,
+                        count = count
+                    })
+                end
+            end
+        end
+    end
+
     -- Save to disk
     ensure_cache_dir()
     local filename = get_cache_filename()
     local data = {
         timestamp = os.time(),
-        positions = positions_array
+        positions = positions_array,
+        preferences = preferences_array
     }
 
     local json_str = json.encode(data)
@@ -127,14 +165,14 @@ local function save_positions()
     if file then
         file:write(json_str)
         file:close()
-        debug_log("Saved", #positions_array, "positions to disk")
+        debug_log("Saved", #positions_array, "positions and", #preferences_array, "preferences to disk")
     else
         debug_log("Failed to save cache file")
     end
 end
 
 -- Get remembered position for app on current monitor
-local function get_remembered_position(app_name, monitor_id)
+function window_memory.get_remembered_position(app_name, monitor_id)
     if is_excluded_app(app_name) then
         return nil
     end
@@ -152,6 +190,61 @@ local function get_remembered_position(app_name, monitor_id)
     end
 
     return nil
+end
+
+-- Get the most frequently used tile for an app in a specific zone
+function window_memory.get_preferred_tile(app_name, monitor_id, zone_key)
+    if not preferences[app_name] or not preferences[app_name][monitor_id] or
+        not preferences[app_name][monitor_id][zone_key] then
+        return nil
+    end
+
+    local tile_prefs = preferences[app_name][monitor_id][zone_key]
+    local best_tile = nil
+    local max_count = -1
+
+    for tile_index, count in pairs(tile_prefs) do
+        if count > max_count then
+            max_count = count
+            best_tile = tile_index
+        end
+    end
+
+    if best_tile then
+        debug_log("Found preferred tile for", app_name, "in zone", zone_key, "on monitor", monitor_id, ": tile",
+            best_tile, "(count:", max_count, ")")
+    end
+
+    return best_tile
+end
+
+-- Get the most frequently used zone for an app on a specific monitor
+function window_memory.get_preferred_zone(app_name, monitor_id)
+    if not preferences[app_name] or not preferences[app_name][monitor_id] then
+        return nil
+    end
+
+    local monitor_prefs = preferences[app_name][monitor_id]
+    local best_zone = nil
+    local max_total_count = -1
+
+    for zone_key, tiles_prefs in pairs(monitor_prefs) do
+        local current_zone_total_count = 0
+        for _, count in pairs(tiles_prefs) do
+            current_zone_total_count = current_zone_total_count + count
+        end
+
+        if current_zone_total_count > max_total_count then
+            max_total_count = current_zone_total_count
+            best_zone = zone_key
+        end
+    end
+
+    if best_zone then
+        debug_log("Found preferred zone for", app_name, "on monitor", monitor_id, ": zone", best_zone, "(total count:",
+            max_total_count, ")")
+    end
+    return best_zone
 end
 
 -- Called by tiler when a window is positioned
@@ -174,7 +267,24 @@ function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_i
         tile_index = tile_index
     }
 
-    debug_log("Remembered", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index)
+    -- Update preferences count
+    if not preferences[app_name] then
+        preferences[app_name] = {}
+    end
+    if not preferences[app_name][monitor_id] then
+        preferences[app_name][monitor_id] = {}
+    end
+    if not preferences[app_name][monitor_id][zone_key] then
+        preferences[app_name][monitor_id][zone_key] = {}
+    end
+    if not preferences[app_name][monitor_id][zone_key][tile_index] then
+        preferences[app_name][monitor_id][zone_key][tile_index] = 0
+    end
+    preferences[app_name][monitor_id][zone_key][tile_index] =
+        preferences[app_name][monitor_id][zone_key][tile_index] + 1
+
+    debug_log("Remembered", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index, "(Count:",
+        preferences[app_name][monitor_id][zone_key][tile_index], ")")
 end
 
 -- Called by tiler when a new window is created
@@ -191,50 +301,103 @@ function window_memory.on_window_created(window)
     debug_log("New window created:", app_name)
 
     -- Wait for window to settle, then try to position it
-    hs.timer.doAfter(0.3, function()
-        if not window:isStandard() then
+    hs.timer.doAfter(0.3, function() -- Initial delay for window to become stable
+        if not window:isStandard() or window:isMinimized() then
+            debug_log("Window", app_name, "not standard or minimized after initial delay. Aborting auto-placement.")
             return
         end
 
         local screen = window:screen()
         if not screen then
+            debug_log("Window", app_name, "has no screen after initial delay. Aborting auto-placement.")
             return
         end
 
         local monitor_id = tiler.monitors.get_id(screen)
+        local placed = false
 
-        -- Try remembered position first
-        local remembered = get_remembered_position(app_name, monitor_id)
-
-        if remembered then
-            debug_log("Restoring", app_name, "to zone:", remembered.zone_key, "tile:", remembered.tile_index)
-            tiler.position_window_from_memory(window, monitor_id, remembered.zone_key, remembered.tile_index)
-            return
-        end
-
-        -- Try configured app zones
-        if config.window_memory and config.window_memory.app_zones then
-            local default_zone = config.window_memory.app_zones[app_name]
-            if default_zone then
-                debug_log("Using configured default zone for", app_name, ":", default_zone)
-                window:focus()
-                hs.timer.doAfter(0.1, function()
-                    tiler.move_window_to_zone(default_zone)
-                end)
-                return
+        -- Helper function to attempt placement and set 'placed' flag
+        -- This function will be called within the inner timer, after focus.
+        local function attempt_placement(placement_type, zone_key, tile_index)
+            local success = false
+            if zone_key and tiler.move_window_to_zone then -- For preferred zone/app_zones/default_zone
+                -- move_window_to_zone handles preferred tile internally
+                success = tiler.move_window_to_zone(window, zone_key)
+            elseif tile_index and tiler.position_window_from_memory then -- For remembered position
+                success = tiler.position_window_from_memory(window, monitor_id, zone_key, tile_index)
             end
+
+            if success then
+                debug_log("Successfully auto-placed", app_name, "using", placement_type, "to zone:", zone_key, "tile:",
+                    tile_index or "N/A")
+                placed = true
+            else
+                debug_log("Failed to auto-place", app_name, "using", placement_type, "to zone:", zone_key, "tile:",
+                    tile_index or "N/A", ". Falling back.")
+            end
+            return success
         end
 
-        -- Try global default fallback
-        if config.window_memory and config.window_memory.auto_tile_fallback then
-            local default_zone = config.window_memory.default_zone or "0"
-            debug_log("Auto-tiling", app_name, "to default zone:", default_zone)
-            window:focus()
-            hs.timer.doAfter(0.1, function()
-                tiler.move_window_to_zone(default_zone)
-            end)
-        end
-    end)
+        -- Focus the window once before attempting any moves, as some apps require focus for setFrame to work reliably.
+        window:focus()
+
+        -- Small delay to ensure focus takes effect before attempting to move the window.
+        hs.timer.doAfter(0.1, function()
+            if placed then
+                return
+            end -- If already placed by a previous attempt (e.g., by smart_placer if it runs first, though order is window_memory then smart_placer)
+
+            -- 1. Try learned preferred zone (Phase 2)
+            local preferred_zone = window_memory.get_preferred_zone(app_name, monitor_id)
+            if preferred_zone then
+                debug_log("Attempting auto-placement for", app_name, "to learned preferred zone:", preferred_zone)
+                if attempt_placement("learned preferred zone", preferred_zone) then
+                    return
+                end
+            end
+
+            if placed then
+                return
+            end -- Check again after first attempt
+
+            -- 2. Try remembered last position (Phase 1)
+            local remembered = window_memory.get_remembered_position(app_name, monitor_id)
+            if remembered then
+                debug_log("Attempting auto-placement for", app_name, "to last remembered position:",
+                    remembered.zone_key, remembered.tile_index)
+                if attempt_placement("remembered last position", remembered.zone_key, remembered.tile_index) then
+                    return
+                end
+            end
+
+            if placed then
+                return
+            end -- Check again after second attempt
+
+            -- 3. Try configured app zones (existing)
+            if config.window_memory and config.window_memory.app_zones then
+                local default_zone_from_config = config.window_memory.app_zones[app_name]
+                if default_zone_from_config then
+                    debug_log("Attempting auto-placement for", app_name, "to configured app_zone:",
+                        default_zone_from_config)
+                    if attempt_placement("configured app zone", default_zone_from_config) then
+                        return
+                    end
+                end
+            end
+
+            if placed then
+                return
+            end -- Check again after third attempt
+
+            -- 4. Try global default fallback (existing)
+            if config.window_memory and config.window_memory.auto_tile_fallback then
+                local global_default_zone = config.window_memory.default_zone or "0"
+                debug_log("Attempting auto-placement for", app_name, "to global default zone:", global_default_zone)
+                attempt_placement("global default zone", global_default_zone) -- No 'return' here, as this is the last fallback.
+            end
+        end) -- End of inner hs.timer.doAfter(0.1)
+    end) -- End of outer hs.timer.doAfter(0.3)
 end
 
 -- Check if window should be positioned (called by tiler)
