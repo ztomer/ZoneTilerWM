@@ -233,6 +233,14 @@ function zone_calculator.clear_all()
     zones.by_monitor = {}
 end
 
+-- Check if zones exist for a monitor
+function zone_calculator.has_zones(monitor_id)
+    if zones.by_monitor[monitor_id] then
+        return true
+    end
+    return false
+end
+
 -- Debug function to inspect a specific zone's tiles
 function zone_calculator.debug_zone_tiles(monitor_id, zone_key)
     local zone_tiles = zone_calculator.get(monitor_id, zone_key)

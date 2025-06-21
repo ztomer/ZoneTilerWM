@@ -114,6 +114,11 @@ function tiler.attempt_reposition_existing_window(window)
         return
     end
     local screen = window:screen()
+    if not zone_calculator.has_zones(monitor_id) then
+        debug_log("handle_window_created: Zones not initialized yet for monitor", monitor_id, ". Cannot place.")
+        return
+    end
+
     if not screen then
         debug_log("attempt_reposition_existing_window: Window '", app_name, "' has no screen.")
         return
@@ -194,15 +199,16 @@ local function handle_window_created(window)
     debug_log("handle_window_created init:", window:id(), "App:",
         window:application() and window:application():name() or "N/A")
 
-    if window_memory and window_memory.on_window_created then
-        window_memory.on_window_created(window)
-    end
+    -- Consolidated window placement logic in tiler.lua:
+    -- 1. If window_memory is enabled and has a position, use that.
+    -- 2. Otherwise, use smart placement (if enabled).
+    hs_timer.doAfter(0.5, function() -- Slightly longer delay to ensure zones are initialized
+        local screen = window:screen()
+        local monitor_id = screen and monitor_manager.get_id(screen)
 
-    -- 2. Handle smart placement if enabled (async, runs after window_memory's attempt)
-    -- smart_placer.place_window itself will check if the window was already tiled by window_memory.
-    if config.tiler.smart_placement and config.tiler.smart_placement.enabled then
-        debug_log("handle_window_created smart placement enabled for window:", window:id(), "App:",
-            window:application() and window:application():name() or "N/A")
+        if not screen or not zone_calculator.has_zones(monitor_id) then
+            debug_log("Zones not initialized for monitor", monitor_id, ". Cannot place window", window:id())
+        end
 
         if window and window:isStandard() then
             -- Delay to allow window to fully initialize AND for window_memory's async part to potentially run.
@@ -210,18 +216,35 @@ local function handle_window_created(window)
             -- This delay should be longer.
             hs_timer.doAfter(0.8, function()
                 -- Recheck window state
-                local app_name_for_debug = window:application() and window:application():name() or "UnknownApp"
-                debug_log("[SmartPlacer via Tiler] In timer for:", app_name_for_debug, "ID:", window:id(),
-                    "isStandard:", window:isStandard(), "isMinimized:", window:isMinimized())
-                if window:isStandard() and not window:isMinimized() then
-                    smart_placer.place_window(window)
-                else
-                    debug_log("[SmartPlacer via Tiler] Window", app_name_for_debug,
-                        "not standard or minimized at 0.8s. Aborting smart placement.")
+                local app_name = window:application() and window:application():name() or "UnknownApp"
+                debug_log("[Tiler::handle_window_created] In final timer for:", app_name, "ID:", window:id(),
+                    "isStandard:", window:isStandard(), "isMinimized:", window:isMinimized(), "monitor:",
+                    monitor_id or "N/A")
+
+                if window:isStandard() and not window:isMinimized() and monitor_id then
+                    local placed = false
+
+                    -- 1. Try window_memory placement if available
+                    if window_memory and window_memory.should_position_window(window) then
+                        local remembered = window_memory.get_remembered_position(app_name, monitor_id)
+                        if remembered and remembered.zone_key and remembered.tile_index then
+                            debug_log("handle_window_created: Attempting window_memory placement for", app_name,
+                                "to zone", remembered.zone_key, "tile", remembered.tile_index)
+                            placed = tiler.position_window_from_memory(window, monitor_id, remembered.zone_key,
+                                remembered.tile_index)
+                        end
+                    end
+
+                    -- 2. If not placed by window_memory, try smart placement
+                    if not placed and config.tiler.smart_placement and config.tiler.smart_placement.enabled then
+                        debug_log("handle_window_created: Attempting smart placement for", app_name)
+                        smart_placer.place_window(window)
+                    end
                 end
+
             end)
         end
-    end
+    end)
 end
 
 local function handle_screen_change()
