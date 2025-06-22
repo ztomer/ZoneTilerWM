@@ -9,6 +9,7 @@ local tiler = nil -- Set during initialization
 local positions = {} -- app_name -> monitor_id -> {zone_key, tile_index}
 local preferences = {} -- app_name -> monitor_id -> zone_key -> tile_index -> count
 local pending_learning = {} -- window_id -> { timer, data = {app_name, monitor_id, zone_key, tile_index} }
+local save_timer = nil
 
 -- Debug logging
 local function debug_log(...)
@@ -423,6 +424,16 @@ function window_memory.init(tiler_module)
 
     -- Load positions from disk
     load_positions()
+
+    -- Periodic saving
+    local save_interval = config.window_memory and config.window_memory.save_interval_sec or 0
+    if save_interval > 0 then
+        if save_timer then
+            save_timer:stop()
+        end
+        save_timer = hs.timer.doEvery(save_interval, save_positions)
+        debug_log("Enabled periodic position saving every", save_interval, "seconds.")
+    end
 
     -- Save positions on shutdown
     local existing_callback = hs.shutdownCallback

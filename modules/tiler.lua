@@ -302,10 +302,10 @@ function tiler.start()
     -- Initialize sub-modules
     monitor_manager.init(debug_log)
     zone_calculator.init(config, tiler.margins, debug_log)
-    window_state_manager.init(window_memory, debug_log) -- window_memory might be nil initially
-    smart_placer.init(config, window_state_manager, debug_log)
     window_actions.init(config, monitor_manager, zone_calculator, window_state_manager, tiler.processed_problem_apps,
         debug_log)
+    window_state_manager.init(window_memory, debug_log) -- window_memory might be nil initially
+    smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
 
     for _, screen_obj in ipairs(hs_screen.allScreens()) do

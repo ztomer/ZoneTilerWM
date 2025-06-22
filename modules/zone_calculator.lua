@@ -116,8 +116,8 @@ local function create_tile(screen, coords, rows, cols)
     return nil
 end
 
--- Get zone layout for screen
-local function get_zone_layout_config(screen)
+-- Get zone layout for screen (exposed for smart_placer)
+function zone_calculator.get_layout_config(screen)
     local frame = screen:frame()
     local name = screen:name()
     local is_portrait = frame.h > frame.w
@@ -176,7 +176,7 @@ end
 
 -- Initialize zones for a monitor
 function zone_calculator.create_for_monitor(monitor_id, screen)
-    local grid_config, layout_key = get_zone_layout_config(screen)
+    local grid_config, layout_key = zone_calculator.get_layout_config(screen)
 
     if not grid_config or not layout_key then
         debug_log("Failed to get layout for monitor", monitor_id, screen:name(), "- using default 2x2.")

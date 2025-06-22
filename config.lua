@@ -296,6 +296,7 @@ config.window_memory = {
     debug = true, -- Enable debug logging
     max_preference_entries = 1000, -- Maximum number of unique app/monitor/zone/tile preferences to remember
     settle_delay_sec = 2.0, -- Time in seconds before a window position is "learned" after it stops moving
+    save_interval_sec = 60, -- Time in seconds between automatic saves. Set to 0 to disable.
 
     -- Directory to store position cache files
     cache_dir = os.getenv("HOME") .. "/.config/ZoneTilerWM",
