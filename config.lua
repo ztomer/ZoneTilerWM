@@ -37,7 +37,7 @@ config.appCuts = {
     g = 'Gmail',
     z = 'Nimble Commander',
     x = 'Claude',
-    c = 'Google Chrome',
+    c = 'Arc',
     v = 'Visual Studio Code',
     b = 'YouTube Music'
 }
@@ -55,7 +55,7 @@ config.hyperAppCuts = {
     g = '',
     z = '',
     x = 'Gemini',
-    c = 'Arc',
+    c = 'Google Chrome',
     v = '',
     b = ''
 }

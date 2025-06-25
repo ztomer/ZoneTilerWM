@@ -95,9 +95,8 @@ local function load_positions()
     end
 end
 
--- Save current window positions to disk
-local function save_positions()
-    debug_log("Saving all window positions...")
+-- Capture the current state of all tiled windows into the `positions` memory table
+local function capture_current_positions()
 
     -- Clear existing positions and rebuild from current state
     positions = {}
@@ -122,6 +121,10 @@ local function save_positions()
         end
     end
 
+end
+
+-- Save the current `positions` and `preferences` tables to disk
+local function save_memory_to_disk()
     -- Convert to array for JSON
     local positions_array = {}
     for app_name, monitors in pairs(positions) do
@@ -167,10 +170,17 @@ local function save_positions()
     if file then
         file:write(json_str)
         file:close()
-        debug_log("Saved", #positions_array, "positions and", #preferences_array, "preferences to disk")
+        debug_log("Saved", #positions_array, "last positions and", #preferences_array, "preferences to disk")
     else
         debug_log("Failed to save cache file")
     end
+end
+
+-- The main save function, which captures and then saves. Used for manual hotkey and shutdown.
+local function capture_and_save_positions()
+    debug_log("Capturing and saving all window positions...")
+    capture_current_positions()
+    save_memory_to_disk()
 end
 
 -- Get remembered position for app on current monitor
@@ -338,8 +348,8 @@ end
 
 -- Save all window positions (for hotkey)
 function window_memory.save_all_positions()
-    debug_log("Manually saving all window positions")
-    save_positions()
+    debug_log("Manually capturing and saving all window positions")
+    capture_and_save_positions()
     local count = 0
     for app_name, monitors in pairs(positions) do
         for _, _ in pairs(monitors) do
@@ -431,14 +441,14 @@ function window_memory.init(tiler_module)
         if save_timer then
             save_timer:stop()
         end
-        save_timer = hs.timer.doEvery(save_interval, save_positions)
+        save_timer = hs.timer.doEvery(save_interval, save_memory_to_disk) -- Periodic save should NOT capture
         debug_log("Enabled periodic position saving every", save_interval, "seconds.")
     end
 
     -- Save positions on shutdown
     local existing_callback = hs.shutdownCallback
     hs.shutdownCallback = function()
-        save_positions()
+        capture_and_save_positions() -- Capture final state on shutdown
         if existing_callback then
             existing_callback()
         end

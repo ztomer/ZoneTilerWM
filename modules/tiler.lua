@@ -188,7 +188,15 @@ end
 
 local function handle_window_destroyed(window)
     if window then
-        debug_log("Window destroyed:", window:id(), window:application() and window:application():name() or "N/A")
+        local app_name = "N/A"
+        -- pcall to safely get app name, as app process might be gone
+        local success, app = pcall(function()
+            return window:application()
+        end)
+        if success and app then
+            app_name = app:name()
+        end
+        debug_log("Window destroyed:", window:id(), app_name)
         window_state_manager.cleanup(window:id())
         focus_manager.handle_window_destroyed(window:id())
     end
@@ -206,8 +214,16 @@ local function handle_window_created(window)
         local screen = window:screen()
         local monitor_id = screen and monitor_manager.get_id(screen)
 
-        if not screen or not zone_calculator.has_zones(monitor_id) then
-            debug_log("Zones not initialized for monitor", monitor_id, ". Cannot place window", window:id())
+        if not screen then
+            return
+        end
+
+        if not zone_calculator.has_zones(monitor_id) then
+            -- This can happen if a window is created on a new monitor before the screen_watcher event fires.
+            -- We can initialize them lazily here.
+            debug_log("handle_window_created: Zones not initialized for monitor", monitor_id, screen:name(),
+                ". Initializing now.")
+            zone_calculator.create_for_monitor(monitor_id, screen)
         end
 
         if window and window:isStandard() then
