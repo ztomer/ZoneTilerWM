@@ -16,10 +16,8 @@ end -- Placeholder, will be set in init
 
 -- Generate stable monitor key from screen properties
 local function get_monitor_key(screen)
-    local frame = screen:frame()
-    local name = screen:name()
-    -- Use position + resolution + name for stable identification
-    return string.format("%s_%.0f_%.0f_%dx%d", name:gsub("[%s%-]", "_"), frame.x, frame.y, frame.w, frame.h)
+    -- Use the persistent UUID provided by Hammerspoon as the stable key.
+    return screen:getUUID()
 end
 
 -- Get or create stable monitor ID
@@ -48,39 +46,32 @@ end
 
 -- Get screen by monitor ID
 function monitor_manager.get_screen(monitor_id)
-    for _, data in pairs(monitors.registry) do
+    local monitor_uuid = nil
+    -- Find the UUID associated with the logical monitor ID
+    for uuid, data in pairs(monitors.registry) do
         if data.logical_id == monitor_id then
-            -- Find current screen with this system ID
-            for _, screen_obj in ipairs(hs_screen.allScreens()) do
-                if screen_obj:id() == data.system_id then
-                    return screen_obj
-                end
-            end
-            -- If not found by system_id, try to find by key
-            for _, screen_obj in ipairs(hs_screen.allScreens()) do
-                if get_monitor_key(screen_obj) == data.key then
-                    debug_log("Found monitor", monitor_id, "by key after system_id mismatch. Updating registry.")
-                    -- Update the registry with the new system_id
-                    monitors.registry[data.key].system_id = screen_obj:id()
-                    monitors.registry[data.key].frame = screen_obj:frame()
-                    monitors.registry[data.key].name = screen_obj:name()
-                    return screen_obj
-                end
-            end
-            debug_log("Could not find screen for monitor_id:", monitor_id, "system_id:", data.system_id)
-            return nil
+            monitor_uuid = uuid
+            break
         end
     end
-    debug_log("Monitor ID not found in registry:", monitor_id)
-    return nil
+
+    if monitor_uuid then
+        -- Find the active screen object that matches the found UUID.
+        -- hs.screen.find() returns the screen object or nil if not found/connected.
+        return hs_screen.find(monitor_uuid)
+    end
+
+    debug_log("Could not find screen for monitor_id:", monitor_id)
+    return nil -- Not found in registry or not currently connected
 end
 
 -- Reinitialize monitor registry on screen changes
 function monitor_manager.reinitialize_monitors(all_screens, log_func)
     debug_log = log_func or debug_log
-    debug_log("Reinitializing monitor registry...")
-    monitors.registry = {} -- Clear the old registry
-    monitors.next_logical_id = 1
+    debug_log("Updating monitor registry...")
+    -- By not clearing the registry, we preserve logical IDs for monitors that
+    -- might be temporarily disconnected. get_id will create new entries for
+    -- new monitors and update existing ones for those that are still connected.
     for _, screen_obj in ipairs(all_screens) do
         monitor_manager.get_id(screen_obj) -- Re-register all currently active monitors
     end
