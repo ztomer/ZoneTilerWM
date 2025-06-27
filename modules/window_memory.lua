@@ -189,16 +189,9 @@ function window_memory.get_remembered_position(app_name, monitor_id)
         return nil
     end
 
-    -- Check for position on current monitor first
+    -- Check for position on the specified monitor
     if positions[app_name] and positions[app_name][monitor_id] then
         return positions[app_name][monitor_id]
-    end
-
-    -- Check for position on any monitor as fallback
-    if positions[app_name] then
-        for _, position in pairs(positions[app_name]) do
-            return position -- Return first found position
-        end
     end
 
     return nil

@@ -114,16 +114,17 @@ function tiler.attempt_reposition_existing_window(window)
         return
     end
     local screen = window:screen()
-    if not zone_calculator.has_zones(monitor_id) then
-        debug_log("handle_window_created: Zones not initialized yet for monitor", monitor_id, ". Cannot place.")
-        return
-    end
-
     if not screen then
         debug_log("attempt_reposition_existing_window: Window '", app_name, "' has no screen.")
         return
     end
     local monitor_id = monitor_manager.get_id(screen)
+    if not zone_calculator.has_zones(monitor_id) then
+        debug_log("attempt_reposition_existing_window: Zones not initialized yet for monitor ", monitor_id,
+            ". Cannot place.")
+        return
+    end
+
     debug_log("Attempting to reposition existing window:", app_name, "on monitor:", monitor_id, "(", screen:name(), ")")
 
     -- 1. Try persisted remembered position from window_memory
