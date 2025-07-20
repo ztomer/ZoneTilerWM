@@ -208,10 +208,9 @@ local function handle_window_created(window)
     debug_log("handle_window_created init:", window:id(), "App:",
         window:application() and window:application():name() or "N/A")
 
-    -- Consolidated window placement logic in tiler.lua:
     -- 1. If window_memory is enabled and has a position, use that.
     -- 2. Otherwise, use smart placement (if enabled).
-    hs_timer.doAfter(0.5, function() -- Slightly longer delay to ensure zones are initialized
+    hs_timer.doAfter(0.05, function()
         local screen = window:screen()
         local monitor_id = screen and monitor_manager.get_id(screen)
 
@@ -231,7 +230,7 @@ local function handle_window_created(window)
             -- Delay to allow window to fully initialize AND for window_memory's async part to potentially run.
             -- window_memory.on_window_created now has an internal 0.5s + 0.1s timer.
             -- This delay should be longer.
-            hs_timer.doAfter(0.8, function()
+            hs_timer.doAfter(0.1, function()
                 -- Recheck window state
                 local app_name = window:application() and window:application():name() or "UnknownApp"
                 debug_log("[Tiler::handle_window_created] In final timer for:", app_name, "ID:", window:id(),
@@ -278,7 +277,7 @@ local function handle_screen_change()
     debug_log("Immediately reinitialized monitors and zones. Focus cycle invalidated.")
 
     -- Delayed window repositioning to allow screens and windows to settle
-    hs_timer.doAfter(0.5, function()
+    hs_timer.doAfter(0.1, function()
         -- Attempt to reposition all existing windows if configured
         if config.tiler.reposition_on_screen_change then
             debug_log("Attempting to reposition windows after screen change (delayed)...")
