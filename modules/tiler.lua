@@ -178,7 +178,7 @@ function tiler.attempt_reposition_existing_window(window)
         debug_log("Attempting smart placement for", app_name, "after screen change (memory attempt inconclusive).")
         -- smart_placer.place_window will check if the window is already in a tiler zone.
         -- A small delay might help if the OS is still moving windows.
-        hs_timer.doAfter(0.1, function()
+        hs_timer.doAfter(config.tiler.delays.smart_placement_reposition_sec, function()
             smart_placer.place_window(window)
         end)
     end
@@ -210,7 +210,7 @@ local function handle_window_created(window)
 
     -- 1. If window_memory is enabled and has a position, use that.
     -- 2. Otherwise, use smart placement (if enabled).
-    hs_timer.doAfter(0.05, function()
+    hs_timer.doAfter(config.tiler.delays.new_window_initial_sec, function()
         local screen = window:screen()
         local monitor_id = screen and monitor_manager.get_id(screen)
 
@@ -228,9 +228,9 @@ local function handle_window_created(window)
 
         if window and window:isStandard() then
             -- Delay to allow window to fully initialize AND for window_memory's async part to potentially run.
-            -- window_memory.on_window_created now has an internal 0.5s + 0.1s timer.
+            -- window_memory.on_window_positioned has its own settle_delay_sec.
             -- This delay should be longer.
-            hs_timer.doAfter(0.1, function()
+            hs_timer.doAfter(config.tiler.delays.new_window_placement_sec, function()
                 -- Recheck window state
                 local app_name = window:application() and window:application():name() or "UnknownApp"
                 debug_log("[Tiler::handle_window_created] In final timer for:", app_name, "ID:", window:id(),
@@ -277,7 +277,7 @@ local function handle_screen_change()
     debug_log("Immediately reinitialized monitors and zones. Focus cycle invalidated.")
 
     -- Delayed window repositioning to allow screens and windows to settle
-    hs_timer.doAfter(0.1, function()
+    hs_timer.doAfter(config.tiler.delays.screen_change_reposition_sec, function()
         -- Attempt to reposition all existing windows if configured
         if config.tiler.reposition_on_screen_change then
             debug_log("Attempting to reposition windows after screen change (delayed)...")
@@ -306,6 +306,26 @@ function tiler.start()
 
     tiler.debug = config.tiler.debug
     tiler.margins = config.tiler.margins
+
+    -- Set default delay values if not provided in config.lua
+    if not config.tiler.delays then
+        config.tiler.delays = {}
+    end
+    if config.tiler.delays.screen_change_reposition_sec == nil then
+        config.tiler.delays.screen_change_reposition_sec = 0.1
+    end
+    if config.tiler.delays.new_window_initial_sec == nil then
+        config.tiler.delays.new_window_initial_sec = 0.05
+    end
+    if config.tiler.delays.new_window_placement_sec == nil then
+        config.tiler.delays.new_window_placement_sec = 0.1
+    end
+    if config.tiler.delays.smart_placement_reposition_sec == nil then
+        config.tiler.delays.smart_placement_reposition_sec = 0.1
+    end
+    if config.tiler.delays.flash_on_focus_duration_sec == nil then
+        config.tiler.delays.flash_on_focus_duration_sec = 0.2
+    end
 
     -- Pre-process problem apps list for efficient lookup
     tiler.processed_problem_apps = {}

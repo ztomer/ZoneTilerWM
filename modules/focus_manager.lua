@@ -287,7 +287,7 @@ function focus_manager.cycle_windows_in_zone(focused_window_before_call, target_
                 }
             })
             flash:show()
-            hs_timer.doAfter(0.2, function()
+            hs_timer.doAfter(config.tiler.delays.flash_on_focus_duration_sec, function()
                 flash:delete()
             end)
         end

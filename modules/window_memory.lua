@@ -315,8 +315,7 @@ function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_i
     }
 
     -- Start a new timer. When it fires, it will commit the learning.
-    local settle_delay_sec = (config.window_memory and config.window_memory.settle_delay_sec) or 2.0
-    pending_learning[window_id].timer = hs.timer.doAfter(settle_delay_sec, function()
+    pending_learning[window_id].timer = hs.timer.doAfter(config.window_memory.settle_delay_sec, function()
         -- The timer fired, so the window has "settled".
         local learn_data = pending_learning[window_id] and pending_learning[window_id].data
         if learn_data then
@@ -422,6 +421,15 @@ function window_memory.init(tiler_module)
     tiler = tiler_module
     window_memory.debug = config.window_memory and config.window_memory.debug or false
 
+    -- Set default values for timeouts if not provided in config.lua.
+    -- This makes the config values the single source of truth for the module.
+    if config.window_memory.settle_delay_sec == nil then
+        config.window_memory.settle_delay_sec = 2.0
+    end
+    if config.window_memory.save_interval_sec == nil then
+        config.window_memory.save_interval_sec = 0 -- 0 means disabled
+    end
+
     -- Set up integration with tiler
     tiler.set_window_memory(window_memory)
 
@@ -429,7 +437,7 @@ function window_memory.init(tiler_module)
     load_positions()
 
     -- Periodic saving
-    local save_interval = config.window_memory and config.window_memory.save_interval_sec or 0
+    local save_interval = config.window_memory.save_interval_sec
     if save_interval > 0 then
         if save_timer then
             save_timer:stop()
