@@ -76,6 +76,7 @@ config.pomodoro = {
 config.tiler = {
     debug = true,
     reposition_on_screen_change = true, -- or false if you want to disable it by default
+    center_modals = true, -- Automatically center modal dialogs
     modifier = {"ctrl", "cmd"},
     focus_modifier = {"shift", "ctrl", "cmd"},
 

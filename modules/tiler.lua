@@ -259,6 +259,16 @@ local function handle_window_created(window)
                 end
 
             end)
+        elseif window and config.tiler.center_modals then
+            -- Handle non-standard windows, like modal dialogs
+            local subrole = window:subrole()
+            if subrole == "AXDialog" or subrole == "AXSystemDialog" then
+                local app_name = window:application() and window:application():name() or "N/A"
+                debug_log("Centering modal dialog for app:", app_name, "Title:", window:title())
+                -- Center on its current screen. The small delay from new_window_initial_sec helps ensure
+                -- the window has been placed by the OS before we move it.
+                window:centerOnScreen()
+            end
         end
     end)
 end
