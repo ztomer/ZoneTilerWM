@@ -29,6 +29,9 @@ pom.var = {
     max_time_sec = pom.config.work_period_sec
 }
 
+pom.menu = nil
+pom.timer = nil
+
 --------------------------------------------------------------------------------
 -- Color bar for pomodoor
 --------------------------------------------------------------------------------
@@ -77,7 +80,7 @@ local function pom_update_display()
     local time_min = math.floor((pom.var.time_left / 60))
     local time_sec = pom.var.time_left - (time_min * 60)
     local str = string.format("[%s|%02d:%02d|#%02d]", pom.var.curr_active_type, time_min, time_sec, pom.var.work_count)
-    pom_menu:setTitle(str)
+    pom.menu:setTitle(str)
 end
 
 -- stop the clock
@@ -91,22 +94,22 @@ function pom.disable()
 
     if (pom.var.disable_count == 0) then
         if (pom_was_active) then
-            pom_timer:stop()
+            pom.timer:stop()
         end
     elseif (pom.var.disable_count == 1) then
         pom.var.time_left = pom.config.work_period_sec
         pom.var.curr_active_type = "work"
         pom_update_display()
     elseif (pom.var.disable_count >= 2) then
-        if pom_menu == nil then
+        if pom.menu == nil then
             pom.var.disable_count = 2
             return
         end
 
-        pom_menu:delete()
-        pom_menu = nil
-        pom_timer:stop()
-        pom_timer = nil
+        pom.menu:delete()
+        pom.menu = nil
+        pom.timer:stop()
+        pom.timer = nil
         pom_del_indicators()
     end
 
@@ -150,8 +153,8 @@ local function pom_update_menu()
 end
 
 local function pom_create_menu(pom_origin)
-    if pom_menu == nil then
-        pom_menu = hs.menubar.new()
+    if pom.menu == nil then
+        pom.menu = hs.menubar.new()
         pom.bar.c_left = hs.drawing.rectangle(hs.geometry.rect(0, 0, 0, 0))
         pom.bar.c_used = hs.drawing.rectangle(hs.geometry.rect(0, 0, 0, 0))
     end
@@ -165,10 +168,10 @@ function pom.enable()
     end
 
     pom_create_menu()
-    pom_timer = hs.timer.new(1, pom_update_menu)
+    pom.timer = hs.timer.new(1, pom_update_menu)
 
     pom.var.is_active = true
-    pom_timer:start()
+    pom.timer:start()
 end
 
 -- reset work count
