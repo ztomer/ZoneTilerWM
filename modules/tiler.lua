@@ -257,8 +257,24 @@ local function handle_window_created(window)
                         smart_placer.place_window(window)
                     end
                 end
-
             end)
+        elseif window and config.window_handling and config.window_handling.modal_dialog_behavior == "center" then
+            -- Handle non-standard windows, like modal dialogs
+            local subrole = window:subrole()
+            if subrole == "AXDialog" or subrole == "AXSystemDialog" then
+                local app_name = window:application() and window:application():name() or "N/A"
+                debug_log("Centering modal dialog for app:", app_name, "Title:", window:title())
+                -- Center on its current screen. The small delay from new_window_initial_sec helps ensure
+                -- the window has been placed by the OS before we move it.
+                window:centerOnScreen()
+            end
+        elseif window and config.window_handling and config.window_handling.modal_dialog_behavior == "tile" then
+            -- Treat modal dialogs as regular windows and apply tiling
+            local subrole = window:subrole()
+            if subrole == "AXDialog" or subrole == "AXSystemDialog" then
+                local app_name = window:application() and window:application():name() or "N/A"
+                smart_placer.place_window(window)
+            end
         elseif window and config.tiler.center_modals then
             -- Handle non-standard windows, like modal dialogs
             local subrole = window:subrole()
@@ -353,6 +369,9 @@ function tiler.start()
     window_state_manager.init(window_memory, debug_log) -- window_memory might be nil initially
     smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
+
+    -- remove center modals, no longer necessary
+    config.tiler.center_modals = nil
 
     for _, screen_obj in ipairs(hs_screen.allScreens()) do
         local monitor_id = monitor_manager.get_id(screen_obj)

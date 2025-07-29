@@ -300,7 +300,11 @@ config.tiler = {
     }
 }
 
--- Window memory settings
+-- Window handling settings
+config.window_handling = {
+    modal_dialog_behavior = "ignore" -- "center", "tile", or "ignore". Default: "ignore"
+}
+
 config.window_memory = {
     enabled = true, -- Enable/disable window memory
     debug = true, -- Enable debug logging
