@@ -6,7 +6,8 @@ Hierarchy: Monitor → Zone → Tile
 - Each monitor has unique stable ID
 - Each zone is a collection of tiles (window positions)
 - Cross-monitor movement preserves zone+tile or uses cache
-]] local config = require "config"
+]]
+local config = require "config"
 local tiler = {}
 local hs_window = hs.window -- Cache for frequent use
 local hs_screen = hs.screen
@@ -26,9 +27,7 @@ local window_actions = require "modules.window_actions"
 
 -- Debug logging
 local function debug_log(...)
-    if not tiler.debug then
-        return
-    end
+    if not tiler.debug then return end
     local args = {...}
     local string_args = {}
     for i, v in ipairs(args) do
@@ -215,8 +214,7 @@ local function handle_window_created(window)
             if window and config.window_handling and config.window_handling.modal_dialog_behavior == "center" then
                 local subrole = window:subrole()
                 if subrole == "AXDialog" or subrole == "AXSystemDialog" then
-                    debug_log("Centering modal dialog for app:",
-                        window:application() and window:application():name() or "N/A")
+                    debug_log("Centering modal dialog for app:", window:application() and window:application():name() or "N/A")
                     window:centerOnScreen()
                 end
             end
@@ -224,15 +222,12 @@ local function handle_window_created(window)
         end
 
         local screen = window:screen()
-        if not screen then
-            return
-        end
+        if not screen then return end
         local monitor_id = monitor_manager.get_id(screen)
 
         -- Lazily initialize zones if a window appears on a new monitor
         if not zone_calculator.has_zones(monitor_id) then
-            debug_log("handle_window_created: Zones not initialized for monitor", monitor_id, screen:name(),
-                ". Initializing now.")
+            debug_log("handle_window_created: Zones not initialized for monitor", monitor_id, screen:name(), ". Initializing now.")
             zone_calculator.create_for_monitor(monitor_id, screen)
         end
 
@@ -244,10 +239,8 @@ local function handle_window_created(window)
         if window_memory and window_memory.should_position_window(window) then
             local remembered = window_memory.get_remembered_position(app_name, monitor_id)
             if remembered and remembered.zone_key and remembered.tile_index then
-                debug_log("handle_window_created: Attempting window_memory placement for", app_name, "to zone",
-                    remembered.zone_key, "tile", remembered.tile_index)
-                placed = tiler.position_window_from_memory(window, monitor_id, remembered.zone_key,
-                    remembered.tile_index)
+                debug_log("handle_window_created: Attempting window_memory placement for", app_name, "to zone", remembered.zone_key, "tile", remembered.tile_index)
+                placed = tiler.position_window_from_memory(window, monitor_id, remembered.zone_key, remembered.tile_index)
             end
         end
 
@@ -336,11 +329,25 @@ function tiler.start()
 
     local modifier = config.tiler.modifier
     local focus_modifier = config.tiler.focus_modifier
-    local zone_keys = config.tiler.zone_keys or {}
 
-    debug_log("Registering hotkeys for zone keys:", table.concat(zone_keys, ", "))
+    local all_zone_keys = {}
+    if config.tiler.layouts then
+        for _, layout_config in pairs(config.tiler.layouts) do
+            for zone_key, _ in pairs(layout_config) do
+                if zone_key ~= "default" then
+                    all_zone_keys[zone_key] = true
+                end
+            end
+        end
+    end
 
-    for _, zone_key_str in ipairs(zone_keys) do
+    local zone_key_list_for_debug = {}
+    for zk, _ in pairs(all_zone_keys) do
+        table.insert(zone_key_list_for_debug, zk)
+    end
+    debug_log("Registering hotkeys for zone keys:", table.concat(zone_key_list_for_debug, ", "))
+
+    for zone_key_str, _ in pairs(all_zone_keys) do
         hs_hotkey.bind(modifier, zone_key_str, function()
             tiler.move_window_to_zone(zone_key_str)
         end)
