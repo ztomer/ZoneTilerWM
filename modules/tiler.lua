@@ -26,15 +26,16 @@ local window_actions = require "modules.window_actions"
 
 -- Debug logging
 local function debug_log(...)
-    if tiler.debug then
-        local args = {...}
-        local string_args = {}
-        for i, v in ipairs(args) do
-            string_args[i] = tostring(v)
-        end
-        local message = table.concat(string_args, " ")
-        print("[Tiler] " .. message)
+    if not tiler.debug then
+        return
     end
+    local args = {...}
+    local string_args = {}
+    for i, v in ipairs(args) do
+        string_args[i] = tostring(v)
+    end
+    local message = table.concat(string_args, " ")
+    print("[Tiler] " .. message)
 end
 
 -- Expose monitors for window_memory
@@ -204,87 +205,56 @@ local function handle_window_destroyed(window)
 end
 
 local function handle_window_created(window)
-    -- 1. Let window_memory attempt to place the new window based on its rules (async)
     debug_log("handle_window_created init:", window:id(), "App:",
         window:application() and window:application():name() or "N/A")
 
-    -- 1. If window_memory is enabled and has a position, use that.
-    -- 2. Otherwise, use smart placement (if enabled).
-    hs_timer.doAfter(config.tiler.delays.new_window_initial_sec, function()
-        local screen = window:screen()
-        local monitor_id = screen and monitor_manager.get_id(screen)
+    -- Delay to allow window to fully initialize and be placed by the OS.
+    hs_timer.doAfter(config.tiler.delays.new_window_placement_sec, function()
+        if not window or not window:isStandard() or window:isMinimized() then
+            -- Handle modal dialogs or other non-standard windows if configured
+            if window and config.window_handling and config.window_handling.modal_dialog_behavior == "center" then
+                local subrole = window:subrole()
+                if subrole == "AXDialog" or subrole == "AXSystemDialog" then
+                    debug_log("Centering modal dialog for app:",
+                        window:application() and window:application():name() or "N/A")
+                    window:centerOnScreen()
+                end
+            end
+            return -- Not a window we should tile
+        end
 
+        local screen = window:screen()
         if not screen then
             return
         end
+        local monitor_id = monitor_manager.get_id(screen)
 
+        -- Lazily initialize zones if a window appears on a new monitor
         if not zone_calculator.has_zones(monitor_id) then
-            -- This can happen if a window is created on a new monitor before the screen_watcher event fires.
-            -- We can initialize them lazily here.
             debug_log("handle_window_created: Zones not initialized for monitor", monitor_id, screen:name(),
                 ". Initializing now.")
             zone_calculator.create_for_monitor(monitor_id, screen)
         end
 
-        if window and window:isStandard() then
-            -- Delay to allow window to fully initialize AND for window_memory's async part to potentially run.
-            -- window_memory.on_window_positioned has its own settle_delay_sec.
-            -- This delay should be longer.
-            hs_timer.doAfter(config.tiler.delays.new_window_placement_sec, function()
-                -- Recheck window state
-                local app_name = window:application() and window:application():name() or "UnknownApp"
-                debug_log("[Tiler::handle_window_created] In final timer for:", app_name, "ID:", window:id(),
-                    "isStandard:", window:isStandard(), "isMinimized:", window:isMinimized(), "monitor:",
-                    monitor_id or "N/A")
+        local app_name = window:application():name()
+        debug_log("[Tiler::handle_window_created] In timer for:", app_name, "ID:", window:id())
 
-                if window:isStandard() and not window:isMinimized() and monitor_id then
-                    local placed = false
+        -- 1. Try window_memory placement
+        local placed = false
+        if window_memory and window_memory.should_position_window(window) then
+            local remembered = window_memory.get_remembered_position(app_name, monitor_id)
+            if remembered and remembered.zone_key and remembered.tile_index then
+                debug_log("handle_window_created: Attempting window_memory placement for", app_name, "to zone",
+                    remembered.zone_key, "tile", remembered.tile_index)
+                placed = tiler.position_window_from_memory(window, monitor_id, remembered.zone_key,
+                    remembered.tile_index)
+            end
+        end
 
-                    -- 1. Try window_memory placement if available
-                    if window_memory and window_memory.should_position_window(window) then
-                        local remembered = window_memory.get_remembered_position(app_name, monitor_id)
-                        if remembered and remembered.zone_key and remembered.tile_index then
-                            debug_log("handle_window_created: Attempting window_memory placement for", app_name,
-                                "to zone", remembered.zone_key, "tile", remembered.tile_index)
-                            placed = tiler.position_window_from_memory(window, monitor_id, remembered.zone_key,
-                                remembered.tile_index)
-                        end
-                    end
-
-                    -- 2. If not placed by window_memory, try smart placement
-                    if not placed and config.tiler.smart_placement and config.tiler.smart_placement.enabled then
-                        debug_log("handle_window_created: Attempting smart placement for", app_name)
-                        smart_placer.place_window(window)
-                    end
-                end
-            end)
-        elseif window and config.window_handling and config.window_handling.modal_dialog_behavior == "center" then
-            -- Handle non-standard windows, like modal dialogs
-            local subrole = window:subrole()
-            if subrole == "AXDialog" or subrole == "AXSystemDialog" then
-                local app_name = window:application() and window:application():name() or "N/A"
-                debug_log("Centering modal dialog for app:", app_name, "Title:", window:title())
-                -- Center on its current screen. The small delay from new_window_initial_sec helps ensure
-                -- the window has been placed by the OS before we move it.
-                window:centerOnScreen()
-            end
-        elseif window and config.window_handling and config.window_handling.modal_dialog_behavior == "tile" then
-            -- Treat modal dialogs as regular windows and apply tiling
-            local subrole = window:subrole()
-            if subrole == "AXDialog" or subrole == "AXSystemDialog" then
-                local app_name = window:application() and window:application():name() or "N/A"
-                smart_placer.place_window(window)
-            end
-        elseif window and config.tiler.center_modals then
-            -- Handle non-standard windows, like modal dialogs
-            local subrole = window:subrole()
-            if subrole == "AXDialog" or subrole == "AXSystemDialog" then
-                local app_name = window:application() and window:application():name() or "N/A"
-                debug_log("Centering modal dialog for app:", app_name, "Title:", window:title())
-                -- Center on its current screen. The small delay from new_window_initial_sec helps ensure
-                -- the window has been placed by the OS before we move it.
-                window:centerOnScreen()
-            end
+        -- 2. If not placed by window_memory, try smart placement
+        if not placed and config.tiler.smart_placement and config.tiler.smart_placement.enabled then
+            debug_log("handle_window_created: Attempting smart placement for", app_name)
+            smart_placer.place_window(window)
         end
     end)
 end
@@ -294,7 +264,7 @@ local function handle_screen_change()
 
     -- Immediate updates for monitor registry and zone definitions
     monitor_manager.reinitialize_monitors(hs_screen.allScreens(), debug_log)
-    zone_calculator.clear_all() -- Clear old zone calculations
+    zone_calculator.clear_all() -- Clear old zone calculations and layout cache
     for _, screen_obj in ipairs(hs_screen.allScreens()) do
         local monitor_id = monitor_manager.get_id(screen_obj)
         zone_calculator.create_for_monitor(monitor_id, screen_obj)
@@ -337,21 +307,10 @@ function tiler.start()
     if not config.tiler.delays then
         config.tiler.delays = {}
     end
-    if config.tiler.delays.screen_change_reposition_sec == nil then
-        config.tiler.delays.screen_change_reposition_sec = 0.1
-    end
-    if config.tiler.delays.new_window_initial_sec == nil then
-        config.tiler.delays.new_window_initial_sec = 0.05
-    end
-    if config.tiler.delays.new_window_placement_sec == nil then
-        config.tiler.delays.new_window_placement_sec = 0.1
-    end
-    if config.tiler.delays.smart_placement_reposition_sec == nil then
-        config.tiler.delays.smart_placement_reposition_sec = 0.1
-    end
-    if config.tiler.delays.flash_on_focus_duration_sec == nil then
-        config.tiler.delays.flash_on_focus_duration_sec = 0.2
-    end
+    config.tiler.delays.screen_change_reposition_sec = config.tiler.delays.screen_change_reposition_sec or 0.1
+    config.tiler.delays.new_window_placement_sec = config.tiler.delays.new_window_placement_sec or 0.15
+    config.tiler.delays.smart_placement_reposition_sec = config.tiler.delays.smart_placement_reposition_sec or 0.1
+    config.tiler.delays.flash_on_focus_duration_sec = config.tiler.delays.flash_on_focus_duration_sec or 0.2
 
     -- Pre-process problem apps list for efficient lookup
     tiler.processed_problem_apps = {}
@@ -370,9 +329,6 @@ function tiler.start()
     smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
 
-    -- remove center modals, no longer necessary
-    config.tiler.center_modals = nil
-
     for _, screen_obj in ipairs(hs_screen.allScreens()) do
         local monitor_id = monitor_manager.get_id(screen_obj)
         zone_calculator.create_for_monitor(monitor_id, screen_obj)
@@ -380,25 +336,11 @@ function tiler.start()
 
     local modifier = config.tiler.modifier
     local focus_modifier = config.tiler.focus_modifier
+    local zone_keys = config.tiler.zone_keys or {}
 
-    local all_zone_keys = {}
-    if config.tiler.layouts then
-        for _, layout_config in pairs(config.tiler.layouts) do
-            for zone_key, _ in pairs(layout_config) do
-                if zone_key ~= "default" then
-                    all_zone_keys[zone_key] = true
-                end
-            end
-        end
-    end
+    debug_log("Registering hotkeys for zone keys:", table.concat(zone_keys, ", "))
 
-    local zone_key_list_for_debug = {}
-    for zk, _ in pairs(all_zone_keys) do
-        table.insert(zone_key_list_for_debug, zk)
-    end
-    debug_log("Registering hotkeys for zone keys:", table.concat(zone_key_list_for_debug, ", "))
-
-    for zone_key_str, _ in pairs(all_zone_keys) do
+    for _, zone_key_str in ipairs(zone_keys) do
         hs_hotkey.bind(modifier, zone_key_str, function()
             tiler.move_window_to_zone(zone_key_str)
         end)
@@ -417,11 +359,9 @@ function tiler.start()
     end)
 
     -- Watch for window events
-    -- Subscribe to both windowCreated and windowOpened for new windows, as some apps might trigger one more reliably.
-    local window_watcher = hs_window.filter.new() -- Watch all windows for the specified events.
-    -- The callback for these events is (windowObject, applicationNameString, eventTypeString)
+    local window_watcher = hs_window.filter.new()
     window_watcher:subscribe({hs.window.filter.windowCreated, hs.window.filter.windowOpened}, handle_window_created)
-    window_watcher:subscribe(hs_window.filter.windowDestroyed, handle_window_destroyed)
+    window_watcher:subscribe(hs.window.filter.windowDestroyed, handle_window_destroyed)
 
     local screen_watcher = hs.screen.watcher.new(handle_screen_change):start()
 

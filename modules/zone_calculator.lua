@@ -250,6 +250,9 @@ end
 -- Clear all calculated zones (used on screen change)
 function zone_calculator.clear_all()
     zones.by_monitor = {}
+    if layout_cache then
+        layout_cache:clear()
+    end
 end
 
 -- Check if zones exist for a monitor
@@ -258,7 +261,7 @@ function zone_calculator.has_zones(monitor_id)
         return true
     end
     return false
-end
+}
 
 -- Debug function to inspect a specific zone's tiles
 function zone_calculator.debug_zone_tiles(monitor_id, zone_key)
@@ -290,6 +293,7 @@ function zone_calculator.init(cfg, margins_cfg, log_func)
     config = cfg
     margins = margins_cfg
     debug_log = log_func or debug_log
+    layout_cache = lru_cache.new(10) -- Cache up to 10 monitor layouts
     debug_log("ZoneCalculator initialized")
 end
 
