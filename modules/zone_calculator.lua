@@ -261,7 +261,7 @@ function zone_calculator.has_zones(monitor_id)
         return true
     end
     return false
-}
+end
 
 -- Debug function to inspect a specific zone's tiles
 function zone_calculator.debug_zone_tiles(monitor_id, zone_key)
