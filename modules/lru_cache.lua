@@ -254,33 +254,18 @@ end
 -- Create a memoized version of a function using this cache
 function lru_cache:memoize(func)
     return function(...)
-        -- Create a key from the arguments
-        local args = {...}
-        local key = ""
-
-        for i, arg in ipairs(args) do
-            -- Simple serialization for basic types
-            if type(arg) == "table" then
-                -- For tables, we use a simple recursive approach
-                -- This won't handle cycles or complex objects well
-                key = key .. "T" .. tostring(i) .. "{"
-                for k, v in pairs(arg) do
-                    key = key .. tostring(k) .. ":" .. tostring(v) .. ","
-                end
-                key = key .. "}"
-            else
-                key = key .. tostring(arg) .. "|"
-            end
-        end
+        -- Create a robust key from the arguments using the key_maker utility.
+        -- Note: This part is not O(1) if arguments include tables, due to key sorting.
+        local key = lru_cache.key_maker(...)
 
         -- Check cache
-        local result = self:get(key)
-        if result ~= nil then
-            return result
+        local cached_result = self:get(key)
+        if cached_result ~= nil then
+            return cached_result
         end
 
         -- Calculate, cache, and return
-        result = func(...)
+        local result = func(...)
         self:set(key, result)
         return result
     end
@@ -288,12 +273,12 @@ end
 
 -- Return a serialized version of a key suitable for caching
 function lru_cache.key_maker(...)
+    local key_parts = {}
     local args = {...}
-    local key = ""
 
     for i, arg in ipairs(args) do
         if type(arg) == "table" then
-            key = key .. "T" .. tostring(i) .. "{"
+            table.insert(key_parts, "T" .. tostring(i) .. "{")
             -- Sort keys for consistent serialization
             local sorted_keys = {}
             for k in pairs(arg) do
@@ -303,15 +288,15 @@ function lru_cache.key_maker(...)
 
             for _, k in ipairs(sorted_keys) do
                 local v = arg[k]
-                key = key .. tostring(k) .. ":" .. tostring(v) .. ","
+                table.insert(key_parts, tostring(k) .. ":" .. tostring(v) .. ",")
             end
-            key = key .. "}"
+            table.insert(key_parts, "}")
         else
-            key = key .. tostring(arg) .. "|"
+            table.insert(key_parts, tostring(arg) .. "|")
         end
     end
 
-    return key
+    return table.concat(key_parts)
 end
 
 -- Return the module

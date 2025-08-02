@@ -1,6 +1,7 @@
 -- zone_calculator.lua
 -- Manages zone definitions, layouts, and calculates tile frames for each monitor.
 local hs_screen = hs.screen
+local lru_cache = require "modules.lru_cache"
 
 local zone_calculator = {}
 
@@ -9,6 +10,7 @@ local config = nil -- Set in init
 local margins = nil -- Set in init
 local debug_log = function(...)
 end -- Placeholder, will be set in init
+local layout_cache = nil -- To be initialized in init()
 
 local zones = {
     -- Active zones: monitor_id -> zone_key -> tiles[]
