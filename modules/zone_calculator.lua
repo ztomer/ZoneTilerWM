@@ -118,8 +118,8 @@ local function create_tile(screen, coords, rows, cols)
     return nil
 end
 
--- Get zone layout for screen (exposed for smart_placer)
-function zone_calculator.get_layout_config(screen)
+-- Get zone layout for screen (uncached version)
+local function get_layout_config_uncached(screen)
     local frame = screen:frame()
     local name = screen:name()
     local is_portrait = frame.h > frame.w
@@ -127,7 +127,6 @@ function zone_calculator.get_layout_config(screen)
     -- Check custom screens first
     if config.tiler.custom_screens then
         for screen_name_pattern, custom_config in pairs(config.tiler.custom_screens) do
-            -- Allow exact match or pattern match for custom_screens key
             if name == screen_name_pattern or name:match(screen_name_pattern) then
                 debug_log("Using custom screen layout for:", name, "->", custom_config.layout)
                 return config.tiler.grids[custom_config.layout], custom_config.layout
@@ -174,6 +173,24 @@ function zone_calculator.get_layout_config(screen)
     end
     debug_log("Using default layout for screen:", name, "->", layout_key, "Portrait:", is_portrait)
     return config.tiler.grids[layout_key], layout_key
+end
+
+-- Get zone layout for screen (exposed for smart_placer)
+function zone_calculator.get_layout_config(screen)
+    local monitor_id = screen:getUUID()
+    local cached = layout_cache:get(monitor_id)
+    if cached then
+        return cached.grid_config, cached.layout_key
+    end
+
+    local grid_config, layout_key = get_layout_config_uncached(screen)
+    if grid_config and layout_key then
+        layout_cache:set(monitor_id, {
+            grid_config = grid_config,
+            layout_key = layout_key
+        })
+    end
+    return grid_config, layout_key
 end
 
 -- Initialize zones for a monitor
