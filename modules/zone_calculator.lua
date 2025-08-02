@@ -118,63 +118,6 @@ local function create_tile(screen, coords, rows, cols)
     return nil
 end
 
--- Get zone layout for screen (uncached version)
-local function get_layout_config_uncached(screen)
-    local frame = screen:frame()
-    local name = screen:name()
-    local is_portrait = frame.h > frame.w
-
-    -- Check custom screens first
-    if config.tiler.custom_screens then
-        for screen_name_pattern, custom_config in pairs(config.tiler.custom_screens) do
-            if name == screen_name_pattern or name:match(screen_name_pattern) then
-                debug_log("Using custom screen layout for:", name, "->", custom_config.layout)
-                return config.tiler.grids[custom_config.layout], custom_config.layout
-            end
-        end
-    end
-
-    -- Check pattern matches
-    if config.tiler.screen_detection and config.tiler.screen_detection.patterns then
-        for pattern, layout_key in pairs(config.tiler.screen_detection.patterns) do
-            if name:match(pattern) then
-                debug_log("Screen name", name, "matched pattern", pattern, "-> using layout", layout_key)
-                return config.tiler.grids[layout_key], layout_key
-            end
-        end
-    end
-
-    -- Default based on resolution and orientation
-    local layout_key
-    if is_portrait then
-        if config.tiler.screen_detection and config.tiler.screen_detection.portrait then
-            if frame.h >= (config.tiler.screen_detection.portrait.large and
-                config.tiler.screen_detection.portrait.large.min_height_for_layout_check or 2000) then
-                layout_key = config.tiler.screen_detection.portrait.large.layout
-            else
-                layout_key = config.tiler.screen_detection.portrait.small.layout
-            end
-        else -- Fallback if portrait config is missing
-            layout_key = frame.w >= 1440 and "1x3" or "1x2"
-        end
-    else
-        local aspect_ratio = frame.w / frame.h
-        if frame.w >= 3840 then
-            layout_key = "4x3"
-        elseif frame.w >= 3440 or aspect_ratio > 2.0 then
-            layout_key = "4x3"
-        elseif frame.w >= 2560 then
-            layout_key = "3x3"
-        elseif frame.w >= 1920 then
-            layout_key = "3x2"
-        else
-            layout_key = "2x2"
-        end
-    end
-    debug_log("Using default layout for screen:", name, "->", layout_key, "Portrait:", is_portrait)
-    return config.tiler.grids[layout_key], layout_key
-end
-
 -- Get zone layout for screen (exposed for smart_placer)
 function zone_calculator.get_layout_config(screen)
     local monitor_id = screen:getUUID()
@@ -183,7 +126,65 @@ function zone_calculator.get_layout_config(screen)
         return cached.grid_config, cached.layout_key
     end
 
-    local grid_config, layout_key = get_layout_config_uncached(screen)
+    -- Uncached logic starts here
+    local frame = screen:frame()
+    local name = screen:name()
+    local is_portrait = frame.h > frame.w
+    local layout_key
+
+    -- Check custom screens first
+    if config.tiler.custom_screens then
+        for screen_name_pattern, custom_config in pairs(config.tiler.custom_screens) do
+            if name == screen_name_pattern or name:match(screen_name_pattern) then
+                debug_log("Using custom screen layout for:", name, "->", custom_config.layout)
+                layout_key = custom_config.layout
+            end
+        end
+    end
+
+    -- Check pattern matches
+    if not layout_key and config.tiler.screen_detection and config.tiler.screen_detection.patterns then
+        for pattern, l_key in pairs(config.tiler.screen_detection.patterns) do
+            if name:match(pattern) then
+                debug_log("Screen name", name, "matched pattern", pattern, "-> using layout", l_key)
+                layout_key = l_key
+                break -- Found a match
+            end
+        end
+    end
+
+    -- Default based on resolution and orientation
+    if not layout_key then
+        if is_portrait then
+            if config.tiler.screen_detection and config.tiler.screen_detection.portrait then
+                if frame.h >= (config.tiler.screen_detection.portrait.large and
+                    config.tiler.screen_detection.portrait.large.min_height_for_layout_check or 2000) then
+                    layout_key = config.tiler.screen_detection.portrait.large.layout
+                else
+                    layout_key = config.tiler.screen_detection.portrait.small.layout
+                end
+            else -- Fallback if portrait config is missing
+                layout_key = frame.w >= 1440 and "1x3" or "1x2"
+            end
+        else
+            local aspect_ratio = frame.w / frame.h
+            if frame.w >= 3840 then
+                layout_key = "4x3"
+            elseif frame.w >= 3440 or aspect_ratio > 2.0 then
+                layout_key = "4x3"
+            elseif frame.w >= 2560 then
+                layout_key = "3x3"
+            elseif frame.w >= 1920 then
+                layout_key = "3x2"
+            else
+                layout_key = "2x2"
+            end
+        end
+    end
+
+    debug_log("Using default layout for screen:", name, "->", layout_key, "Portrait:", is_portrait)
+    local grid_config = config.tiler.grids[layout_key]
+
     if grid_config and layout_key then
         layout_cache:set(monitor_id, {
             grid_config = grid_config,
