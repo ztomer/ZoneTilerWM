@@ -25,6 +25,7 @@ The project is organized into several key files and directories:
 - **`window_memory.lua`**: Remembers the position, size, and layout of windows so they can be restored across application restarts or system reboots.
 - **`monitor_manager.lua`**: Handles multi-monitor setups, allowing for different layouts and behaviors on each monitor.
 - **`smart_placer.lua`**: Provides logic for intelligently placing new windows in sensible locations.
+- **`placement_strategy.lua`**: Determines the best tile for a window based on a chosen strategy (e.g., rotation, largest free space).
 - **`app_switcher.lua`**: Implements a custom application switcher.
 - **`lru_cache.lua`**: A utility module providing a Least Recently Used (LRU) cache, likely used by other modules like the `app_switcher`.
 - **`pomodoor.lua`**: A Pomodoro timer integrated into the window manager.
