@@ -200,26 +200,22 @@ function window_actions.move_window_to_zone(window, zone_key)
         end
     end
 
-    local tile_index_to_apply = 1 -- 1-based index
-    if current_pos and current_pos.zone_key == zone_key and current_pos.monitor_id == monitor_id then
-        -- Cycle within the same zone
-        tile_index_to_apply = (current_pos.tile_index % #zone_tiles) + 1
-    else
-        -- Moving to a NEW zone. Check for a preferred tile.
-        if window_memory_module then
-            local app_name = window:application():name()
-            local preferred_tile = window_memory_module.get_preferred_tile(app_name, monitor_id, zone_key)
-            if preferred_tile and zone_tiles[preferred_tile] then
-                tile_index_to_apply = preferred_tile
-                debug_log("Using preferred tile", tile_index_to_apply, "for", app_name, "in new zone", zone_key)
-            end
-        end
+    local grid_config, _ = zone_calculator.get_layout_config(screen_obj)
+    local zone_windows = window_state_manager.get_windows_in_zone(monitor_id, zone_key)
+    local tile_to_apply = placement_strategy.find_best_tile(window, zone_key, zone_windows, {grid = grid_config}, zone_tiles)
+
+    if not tile_to_apply then
+        debug_log("No suitable tile found by placement strategy for zone", zone_key)
+        return false
     end
 
-    local tile_to_apply = zone_tiles[tile_index_to_apply]
-    if not tile_to_apply then
-        debug_log("Tile index", tile_index_to_apply, "out of bounds for zone", zone_key)
-        return false
+    -- Find the index of the chosen tile to store in window_state
+    local tile_index_to_apply = 1
+    for i, tile in ipairs(zone_tiles) do
+        if tile == tile_to_apply then
+            tile_index_to_apply = i
+            break
+        end
     end
 
     if apply_tile(window, tile_to_apply, screen_obj) then
@@ -390,11 +386,12 @@ function window_actions.move_window_to_monitor(window, direction)
 end
 
 -- Initialize the module
-function window_actions.init(cfg, mm, zc, wsm, problem_apps_list, log_func)
+function window_actions.init(cfg, mm, zc, wsm, ps, problem_apps_list, log_func)
     config = cfg
     monitor_manager = mm
     zone_calculator = zc
     window_state_manager = wsm
+    placement_strategy = ps
     processed_problem_apps = problem_apps_list
     debug_log = log_func or debug_log
     debug_log("WindowActions initialized")

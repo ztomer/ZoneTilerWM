@@ -24,6 +24,7 @@ local window_state_manager = require "modules.window_state_manager"
 local smart_placer = require "modules.smart_placer"
 local focus_manager = require "modules.focus_manager"
 local window_actions = require "modules.window_actions"
+local placement_strategy = require "modules.placement_strategy"
 
 -- Debug logging
 local function debug_log(...)
@@ -316,9 +317,31 @@ function tiler.start()
     -- Initialize sub-modules
     monitor_manager.init(debug_log)
     zone_calculator.init(config, tiler.margins, debug_log)
-    window_actions.init(config, monitor_manager, zone_calculator, window_state_manager, tiler.processed_problem_apps,
+    window_state_manager.init(window_memory, zone_calculator, debug_log) -- window_memory might be nil initially
+
+    local tiler_utils = {
+        get_tile_for_window = function(win)
+            return window_state_manager.get_tile(win:id())
+        end,
+        get_grid_coords_for_tile = function(tile, window)
+            local screen = window:screen()
+            if not screen then return nil end
+            local grid_config, _ = zone_calculator.get_layout_config(screen)
+            if not grid_config then return nil end
+            return zone_calculator.get_grid_coords_for_tile(screen, tile, grid_config.rows, grid_config.cols)
+        end,
+        create_tile_from_grid_coords = function(grid_coords, window)
+            local screen = window:screen()
+            if not screen then return nil end
+            local grid_config, _ = zone_calculator.get_layout_config(screen)
+            if not grid_config then return nil end
+            return zone_calculator.create_tile_from_grid_coords(screen, grid_coords, grid_config.rows, grid_config.cols)
+        end
+    }
+    placement_strategy.init(config, tiler_utils, window_state_manager, debug_log)
+
+    window_actions.init(config, monitor_manager, zone_calculator, window_state_manager, placement_strategy, tiler.processed_problem_apps,
         debug_log)
-    window_state_manager.init(window_memory, debug_log) -- window_memory might be nil initially
     smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
 

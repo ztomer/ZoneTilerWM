@@ -77,41 +77,12 @@ local function create_tile(screen, coords, rows, cols)
             local col_end = col_end_char ~= "" and (string.byte(col_end_char) - string.byte('a') + 1) or col_start
             local row_end = row_end_str ~= "" and tonumber(row_end_str) or row_start
 
-            local col_width = w / cols
-            local row_height = h / rows
-            local tile_x = x + (col_start - 1) * col_width
-            local tile_y = y + (row_start - 1) * row_height
-            local tile_w = (col_end - col_start + 1) * col_width
-            local tile_h = (row_end - row_start + 1) * row_height
-
-            if margins and margins.enabled then
-                local margin = margins.size or 0
-                local apply_left_margin = (col_start == 1 and margins.screen_edge) or (col_start > 1)
-                local apply_top_margin = (row_start == 1 and margins.screen_edge) or (row_start > 1)
-                local apply_right_margin = (col_end == cols and margins.screen_edge) or (col_end < cols)
-                local apply_bottom_margin = (row_end == rows and margins.screen_edge) or (row_end < rows)
-
-                if apply_left_margin then
-                    tile_x = tile_x + margin
-                    tile_w = tile_w - margin
-                end
-                if apply_top_margin then
-                    tile_y = tile_y + margin
-                    tile_h = tile_h - margin
-                end
-                if apply_right_margin then
-                    tile_w = tile_w - margin
-                end
-                if apply_bottom_margin then
-                    tile_h = tile_h - margin
-                end
-            end
-            return {
-                x = tile_x,
-                y = tile_y,
-                w = tile_w,
-                h = tile_h
-            }
+            return zone_calculator.create_tile_from_grid_coords(screen, {
+                col_start = col_start,
+                row_start = row_start,
+                num_cols = col_end - col_start + 1,
+                num_rows = row_end - row_start + 1
+            }, rows, cols)
         end
     end
     debug_log("Could not create tile for coords:", coords, "on screen", screen:name())
@@ -287,6 +258,94 @@ function zone_calculator.debug_zone_tiles(monitor_id, zone_key)
     for i, tile in ipairs(zone_tiles) do
         print(string.format("  Tile %d: x=%.1f, y=%.1f, w=%.1f, h=%.1f", i, tile.x, tile.y, tile.w, tile.h))
     end
+end
+
+-- Create a tile from numeric grid coordinates
+function zone_calculator.create_tile_from_grid_coords(screen, grid_coords, rows, cols)
+    local frame = screen:frame()
+    local w, h, x, y = frame.w, frame.h, frame.x, frame.y
+
+    local col_start = grid_coords.col_start
+    local row_start = grid_coords.row_start
+    local col_end = grid_coords.col_start + grid_coords.num_cols - 1
+    local row_end = grid_coords.row_start + grid_coords.num_rows - 1
+
+    local col_width = w / cols
+    local row_height = h / rows
+    local tile_x = x + (col_start - 1) * col_width
+    local tile_y = y + (row_start - 1) * row_height
+    local tile_w = (col_end - col_start + 1) * col_width
+    local tile_h = (row_end - row_start + 1) * row_height
+
+    if margins and margins.enabled then
+        local margin = margins.size or 0
+        local apply_left_margin = (col_start == 1 and margins.screen_edge) or (col_start > 1)
+        local apply_top_margin = (row_start == 1 and margins.screen_edge) or (row_start > 1)
+        local apply_right_margin = (col_end == cols and margins.screen_edge) or (col_end < cols)
+        local apply_bottom_margin = (row_end == rows and margins.screen_edge) or (row_end < rows)
+
+        if apply_left_margin then
+            tile_x = tile_x + margin
+            tile_w = tile_w - margin
+        end
+        if apply_top_margin then
+            tile_y = tile_y + margin
+            tile_h = tile_h - margin
+        end
+        if apply_right_margin then
+            tile_w = tile_w - margin
+        end
+        if apply_bottom_margin then
+            tile_h = tile_h - margin
+        end
+    end
+    return {
+        x = tile_x,
+        y = tile_y,
+        w = tile_w,
+        h = tile_h
+    }
+end
+
+-- Get grid coordinates for a given tile frame
+function zone_calculator.get_grid_coords_for_tile(screen, tile, rows, cols)
+    local frame = screen:frame()
+    local w, h, x, y = frame.w, frame.h, frame.x, frame.y
+
+    local col_width = w / cols
+    local row_height = h / rows
+
+    -- Reverse calculate the grid coordinates from the tile frame
+    -- This needs to account for margins
+    local margin = (margins and margins.enabled) and margins.size or 0
+
+    -- Find the closest grid cell for the top-left corner
+    local col_start = math.floor((tile.x - x) / col_width + 0.5) + 1
+    local row_start = math.floor((tile.y - y) / row_height + 0.5) + 1
+
+    -- Find the closest grid cell for the bottom-right corner
+    local col_end = math.floor((tile.x - x + tile.w) / col_width + 0.5) + 1
+    local row_end = math.floor((tile.y - y + tile.h) / row_height + 0.5) + 1
+
+    -- Adjust for margins (this is tricky and might need refinement)
+    -- A simple heuristic: if a tile edge is very close to a margin line, adjust it
+    -- For now, we'll stick to the geometric calculation and refine if needed.
+
+    local num_cols = col_end - col_start
+    local num_rows = row_end - row_start
+
+    -- Basic validation
+    if col_start < 1 or row_start < 1 or col_end > cols or row_end > rows or num_cols < 1 or num_rows < 1 then
+        debug_log("Could not accurately determine grid coordinates for tile.")
+        return nil
+    end
+
+    return {
+        col_start = col_start,
+        row_start = row_start,
+        num_cols = num_cols,
+        num_rows = num_rows
+    }
 end
 
 -- Initialize the module

@@ -285,6 +285,7 @@ config.tiler = {
     focus_cycle_all_tiles = false, -- If true, cycles through all tiles in zone, not just current tile
 
     -- Timing and delay settings (in seconds)
+    -- Timing and delay settings (in seconds)
     delays = {
         screen_change_reposition_sec = 0.1, -- Delay before repositioning windows after screen change
         new_window_initial_sec = 0.05, -- Initial delay after a window is created before processing
@@ -292,6 +293,9 @@ config.tiler = {
         smart_placement_reposition_sec = 0.1, -- Delay for smart placement during repositioning events
         flash_on_focus_duration_sec = 0.2 -- Duration of the visual flash when cycling focus
     },
+
+    -- Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'
+    placement_strategy = 'hybrid',
 
     -- Cache settings
     cache_size = {
