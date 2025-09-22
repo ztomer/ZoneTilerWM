@@ -202,7 +202,9 @@ function window_actions.move_window_to_zone(window, zone_key)
 
     local grid_config, _ = zone_calculator.get_layout_config(screen_obj)
     local zone_windows = window_state_manager.get_windows_in_zone(monitor_id, zone_key)
-    local tile_to_apply = placement_strategy.find_best_tile(window, zone_key, zone_windows, {grid = grid_config}, zone_tiles)
+    local tile_to_apply = placement_strategy.find_best_tile(window, zone_key, zone_windows, {
+        grid = grid_config
+    }, zone_tiles)
 
     if not tile_to_apply then
         debug_log("No suitable tile found by placement strategy for zone", zone_key)
@@ -383,6 +385,59 @@ function window_actions.move_window_to_monitor(window, direction)
     end
     window_state_manager.cleanup(window_id) -- Clean up tiler state if not successfully tiled
     return true
+end
+
+function window_actions.toggle_zen_mode(focused_win)
+    if not focused_win then
+        debug_log("Zen: No focused window, aborting.")
+        return
+    end
+
+    local original_animation_duration = hs.window.animationDuration
+    hs.window.animationDuration = 0
+
+    if window_state_manager.is_zen_mode_active() then
+        -- EXITING ZEN MODE
+        debug_log("Zen: Deactivating...")
+        local windows_to_unminimize, zen_window = window_state_manager.deactivate_zen_mode()
+
+        for _, win in ipairs(windows_to_unminimize) do
+            pcall(function()
+                win:unminimize()
+            end)
+        end
+
+        -- After a delay to let windows restore, focus the original zen window.
+        hs.timer.doAfter(0.05, function()
+            if zen_window then
+                zen_window:focus()
+            end
+        end)
+        debug_log("Zen: Deactivated, unminimized " .. #windows_to_unminimize .. " windows.")
+
+    else
+        -- ENTERING ZEN MODE
+        debug_log("Zen: Activating for window: " .. focused_win:title())
+        local visible_windows = hs.window.visibleWindows()
+        local windows_to_minimize = {}
+
+        for _, win in ipairs(visible_windows) do
+            if win:id() ~= focused_win:id() then
+                table.insert(windows_to_minimize, win)
+            end
+        end
+
+        for _, win in ipairs(windows_to_minimize) do
+            pcall(function()
+                win:minimize()
+            end)
+        end
+
+        window_state_manager.activate_zen_mode(windows_to_minimize, focused_win)
+        debug_log("Zen: Activated, minimized " .. #windows_to_minimize .. " windows.")
+    end
+
+    hs.window.animationDuration = original_animation_duration
 end
 
 -- Initialize the module

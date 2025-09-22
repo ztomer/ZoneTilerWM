@@ -28,8 +28,8 @@ ZoneTilerWM is a modular and powerful tiling window manager for macOS, built on 
 
 * [x] Application-aware layouts (save preferred zones per app)
 * [x] Automatically arrange windows on launch
+* [x] Zen mode (minimize all but active window)
 * [ ] Dynamic resizing of rows and columns
-* [ ] Zen mode (minimize all but active window)
 * [ ] Adaptive window sizing based on content
 * [ ] Persistent layout save/load
 * [ ] Support for macOS Spaces
@@ -139,6 +139,7 @@ Grid is mapped to your keyboard:
 
 ### Utility
 
+* `Hyper+\` → Toggle Zen mode (hides all other windows)
 * `Hyper+-` → Show window hints
 * `Hyper+=` → Open Activity Monitor
 * `Shift+Ctrl+Cmd+R` → Reload config

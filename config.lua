@@ -6,7 +6,8 @@ config.keys = {
     mash = {"ctrl", "cmd"},
     mash_app = {"shift", "ctrl"},
     mash_shift = {"shift", "ctrl", "cmd"},
-    HYPER = {"shift", "ctrl", "alt", "cmd"}
+    HYPER = {"shift", "ctrl", "alt", "cmd"},
+    zen = '\\'
 }
 
 -- Application switcher settings

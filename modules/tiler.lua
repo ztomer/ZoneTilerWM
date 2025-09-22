@@ -81,6 +81,15 @@ function tiler.focus_zone_windows(target_zone_key)
     return focus_manager.cycle_windows_in_zone(focused_window_before_call, target_zone_key)
 end
 
+function tiler.toggle_zen_mode()
+    local focused_window = hs.window.focusedWindow()
+    if not focused_window then
+        debug_log("No focused window for toggle_zen_mode")
+        return
+    end
+    window_actions.toggle_zen_mode(focused_window)
+end
+
 -- Debug function to inspect a specific zone
 function tiler.debug_zone(zone_key)
     local fe = hs_window.focusedWindow()
@@ -386,6 +395,10 @@ function tiler.start()
     end)
     hs_hotkey.bind(modifier, ";", function()
         tiler.move_window_to_monitor("previous")
+    end)
+
+    hs_hotkey.bind(config.keys.HYPER, config.keys.zen, function()
+        tiler.toggle_zen_mode()
     end)
 
     -- Watch for window events

@@ -13,6 +13,10 @@ local window_state = {
     app_memory = {}
 }
 
+local zen_mode_active = false
+local zen_hidden_windows = {}
+local zen_focused_window = nil
+
 local window_memory_module = nil -- Reference to the window_memory module
 local debug_log = function(...)
 end -- Placeholder, will be set in init
@@ -93,6 +97,27 @@ function window_state_manager.get_windows_in_zone(monitor_id, zone_key)
         end
     end
     return windows_in_zone
+end
+
+function window_state_manager.is_zen_mode_active()
+    return zen_mode_active
+end
+
+function window_state_manager.activate_zen_mode(hidden_wins, focused_win)
+    zen_mode_active = true
+    zen_hidden_windows = hidden_wins
+    zen_focused_window = focused_win
+    debug_log("Zen mode activated, hiding " .. #hidden_wins .. " windows.")
+end
+
+function window_state_manager.deactivate_zen_mode()
+    zen_mode_active = false
+    local previously_hidden = zen_hidden_windows
+    local previously_focused = zen_focused_window
+    zen_hidden_windows = {}
+    zen_focused_window = nil
+    debug_log("Zen mode deactivated.")
+    return previously_hidden, previously_focused
 end
 
 -- Initialize the module
