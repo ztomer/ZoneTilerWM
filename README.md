@@ -4,13 +4,13 @@ ZoneTilerWM is a modular and powerful tiling window manager for macOS, built on 
 
 ## Core Values
 
-*   **Cognitive Offloading via Smart Memory:** The most significant outcome is how the system learns and automates window placement. It remembers where you prefer to place each application, so over time, your workspace organizes itself with minimal intervention. This goes beyond simple layout management and actively reduces the user's cognitive load.
+* **Cognitive Offloading via Smart Memory:** The most significant outcome is how the system learns and automates window placement. It remembers where you prefer to place each application, so over time, your workspace organizes itself with minimal intervention. This goes beyond simple layout management and actively reduces the user's cognitive load.
 
-*   **Seamless Multi-Monitor Experience:** The "Smart Screen Detection" provides a "plug-and-play" feel for complex monitor setups. Users don't need to manually configure layouts every time they connect a new display; the system intelligently adapts based on screen size, brand, and even orientation, making it ideal for people who frequently switch between different work environments (e.g., office, home, mobile).
+* **Seamless Multi-Monitor Experience:** The "Smart Screen Detection" provides a "plug-and-play" feel for complex monitor setups. Users don't need to manually configure layouts every time they connect a new display; the system intelligently adapts based on screen size, brand, and even orientation, making it ideal for people who frequently switch between different work environments (e.g., office, home, mobile).
 
-*   **Integrated Productivity Discipline:** By building a Pomodoro timer directly into the window manager, it integrates a popular time management technique into the user's core workflow. This is unique because it treats productivity discipline as a first-class citizen of the desktop experience, rather than a separate, add-on application.
+* **Integrated Productivity Discipline:** By building a Pomodoro timer directly into the window manager, it integrates a popular time management technique into the user's core workflow. This is unique because it treats productivity discipline as a first-class citizen of the desktop experience, rather than a separate, add-on application.
 
-*   **Intuitive, Kinesthetic Control:** The zone-based tiling system, which maps a grid directly to keyboard keys, creates a strong physical and mental connection between the user's hands and the window layout. This allows for a highly intuitive and "eyes-free" operation, where managing windows becomes a matter of muscle memory rather than a visual drag-and-drop task.
+* **Intuitive, Kinesthetic Control:** The zone-based tiling system, which maps a grid directly to keyboard keys, creates a strong physical and mental connection between the user's hands and the window layout. This allows for a highly intuitive and "eyes-free" operation, where managing windows becomes a matter of muscle memory rather than a visual drag-and-drop task.
 
 ## Implemented Features
 

@@ -6,6 +6,7 @@ local pom = require "modules.pomodoor"
 local tiler = require "modules.tiler"
 local appSwitcher = require "modules.app_switcher"
 local window_memory = require "modules.window_memory"
+local audio_switcher = require "modules.audio_switcher"
 
 -- Get key combinations from config
 local mash = config.keys.mash
@@ -66,6 +67,9 @@ local function init()
 
     -- Initialize app switching
     appSwitcher.init_bindings(config.appCuts, config.hyperAppCuts, mash_app, HYPER)
+
+    -- Initialize audio switcher
+    audio_switcher.init(config, print)
 
     -- Initialize custom keybindings
     init_custom_binding()
