@@ -6,6 +6,7 @@ local hs_urlevent = hs.urlevent
 local hs_http = hs.http
 local hs_timer = hs.timer
 local hs_applescript = hs.applescript
+local hs_fs = hs.fs
 
 local audio_switcher = {}
 
@@ -13,6 +14,7 @@ local audio_switcher = {}
 local config = nil
 local debug_log = function(...)
 end
+local is_soundsource_installed = false
 
 -- Log all available output device names
 function audio_switcher.log_devices()
@@ -26,19 +28,21 @@ end
 
 -- Set the SoundSource preset for a given device
 local function set_soundsource_preset(device_name)
+    if not is_soundsource_installed then
+        return -- SoundSource not installed
+    end
+
     if not (config.audio_switcher.soundsource_presets) then
         return -- No presets configured
     end
 
     local preset_name = config.audio_switcher.soundsource_presets[device_name]
     if preset_name then
-        local script = string.format(
-            'tell application "SoundSource" to set current preset of (first audio effect whose name is "%s") to preset "%s"',
-            device_name, preset_name)
+        local script = string.format('tell application "SoundSource" to apply preset "%s"', preset_name)
+        debug_log("Audio Switcher: Executing AppleScript: " .. script)
         local ok, result, raw = hs.applescript.applescript(script)
         if ok then
-            debug_log("Audio Switcher: Successfully applied SoundSource preset '" .. preset_name .. "' for device '" ..
-                          device_name .. "'")
+            debug_log("Audio Switcher: Successfully applied SoundSource preset '" .. preset_name .. "'")
         else
             debug_log("Audio Switcher: FAILED to apply SoundSource preset. Error: " .. tostring(result))
         end
@@ -56,7 +60,7 @@ local function set_output_device(device)
         local success = device:setDefaultOutputDevice()
         if success then
             debug_log("Audio Switcher: Successfully set output to '" .. device:name() .. "'")
-            -- set_soundsource_preset(device:name())
+            set_soundsource_preset(device:name())
         else
             debug_log("Audio Switcher: FAILED to set output to '" .. device:name() .. "'")
         end
@@ -119,6 +123,13 @@ function audio_switcher.init(cfg, log_fn)
         config.audio_switcher.hotkey) then
         debug_log("Audio Switcher: Configuration missing or invalid.")
         return
+    end
+
+    is_soundsource_installed = hs_fs.appExists("SoundSource")
+    if is_soundsource_installed then
+        debug_log("Audio Switcher: SoundSource installation detected.")
+    else
+        debug_log("Audio Switcher: SoundSource not found. Preset functionality will be disabled.")
     end
 
     local hotkey_config = config.audio_switcher.hotkey
