@@ -14,6 +14,7 @@ config.keys = {
 config.audio_switcher = {
     devices = {"Audioengine 2+", "Bose QC35 II"},
     hotkey = {config.keys.HYPER, "'"},
+    set_preset_shortcut = "SoundSourceSwitcher",
     soundsource_presets = {
         ["Audioengine 2+"] = "AudioEngine_A2_Plus",
         ["Bose QC35 II"] = "Bose QuietComfort 35 || [Crinnacle]"
