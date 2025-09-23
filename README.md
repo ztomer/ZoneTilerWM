@@ -19,6 +19,7 @@ ZoneTilerWM is a modular and powerful tiling window manager for macOS, built on 
 * **Multi-Screen Support**: Move and focus windows across screens with ease.
 * **Focus Control**: Instantly switch focus within a zone or across monitors using intuitive shortcuts.
 * **Application Switching**: Bind hotkeys to launch or toggle commonly used applications.
+* **Audio Device Integration**: Manually cycle audio devices with a hotkey, and automatically trigger a macOS Shortcut on device change (e.g., to set SoundSource presets).
 * **Adaptive Window Memory**: Intelligently learns and remembers your preferred window positions for each application. New windows are automatically placed in their last known or most frequent tile, and layouts are restored across sessions.
 * **Pomodoro Timer**: Visual work/rest timer with screen indicators.
 * **Modular Architecture**: Easy to maintain, configure, and extend.

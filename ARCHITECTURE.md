@@ -101,6 +101,7 @@ graph TD
 
 ### Utility & Features
 *   **`app_switcher.lua`**: Handles the logic for launching and focusing applications via dedicated hotkeys, including workarounds for ambiguously named apps.
+*   **`audio_switcher.lua`**: Provides two functions for managing audio outputs. First, it allows manual cycling through a predefined list of audio devices via a hotkey. Second, it automatically listens for changes to the system's default audio output device and triggers a user-defined macOS Shortcut. This is configured in `config.lua` via the `shortcut_callback` key.
 *   **`pomodoor.lua`**: Implements the self-contained Pomodoro timer feature, including the menubar display and visual indicators.
 *   **`lru_cache.lua`**: A generic, reusable Least Recently Used (LRU) cache utility.
 

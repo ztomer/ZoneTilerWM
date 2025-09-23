@@ -14,11 +14,10 @@ config.keys = {
 config.audio_switcher = {
     devices = {"Audioengine 2+", "Bose QC35 II"},
     hotkey = {config.keys.HYPER, "'"},
-    set_preset_shortcut = "SoundSourceSwitcher",
-    soundsource_presets = {
-        ["Audioengine 2+"] = "AudioEngine_A2_Plus",
-        ["Bose QC35 II"] = "Bose QuietComfort 35 || [Crinnacle]"
-    }
+    -- Name of the macOS Shortcut to run when the default audio device changes.
+    -- The shortcut should contain its own logic to detect the device and act accordingly.
+    -- An empty string "" will disable the callback.
+    shortcut_callback = "SoundSourceSwitcher"
 }
 
 -- Application switcher settings

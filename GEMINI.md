@@ -27,6 +27,7 @@ The project is organized into several key files and directories:
 - **`smart_placer.lua`**: Provides logic for intelligently placing new windows in sensible locations.
 - **`placement_strategy.lua`**: Determines the best tile for a window based on a chosen strategy (e.g., rotation, largest free space).
 - **`app_switcher.lua`**: Implements a custom application switcher.
+- **`audio_switcher.lua`**: Handles manual cycling of audio devices and can automatically trigger a generic macOS Shortcut on device change, configured via `shortcut_callback`.
 - **`lru_cache.lua`**: A utility module providing a Least Recently Used (LRU) cache, likely used by other modules like the `app_switcher`.
 - **`pomodoor.lua`**: A Pomodoro timer integrated into the window manager.
 
