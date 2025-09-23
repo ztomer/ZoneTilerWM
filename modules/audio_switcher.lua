@@ -12,7 +12,6 @@ local audio_switcher = {}
 local config = nil
 local debug_log = function(...)
 end
-local is_soundsource_installed = false
 -- Keep a reference to the watcher in the module table to prevent garbage collection
 audio_switcher.device_watcher = nil
 
@@ -26,25 +25,22 @@ function audio_switcher.log_devices()
     debug_log("------------------------------------")
 end
 
--- Runs the user-defined SoundSource shortcut via AppleScript
-local function run_soundsource_shortcut()
-    if not is_soundsource_installed then
-        return -- SoundSource not installed
-    end
-
-    local shortcut_name = config.audio_switcher.set_preset_shortcut
-    if shortcut_name then
+-- Runs the user-defined shortcut when the audio device changes.
+local function run_device_change_shortcut()
+    local shortcut_name = config.audio_switcher.shortcut_callback
+    -- Check for nil or empty string before running
+    if shortcut_name and shortcut_name ~= "" then
         debug_log("Audio Switcher: Running shortcut via AppleScript: " .. shortcut_name)
         local script = string.format('tell application "Shortcuts" to run shortcut "%s"', shortcut_name)
         local ok, result = hs_applescript.applescript(script)
 
         if ok then
-            debug_log("Audio Switcher: Successfully ran shortcut via AppleScript.")
+            debug_log("Audio Switcher: Successfully ran shortcut '" .. shortcut_name .. "'")
         else
-            debug_log("Audio Switcher: FAILED to run shortcut via AppleScript. Error: " .. tostring(result))
+            debug_log("Audio Switcher: FAILED to run shortcut '" .. shortcut_name .. "'. Error: " .. tostring(result))
         end
     else
-        debug_log("Audio Switcher: `config.audio_switcher.set_preset_shortcut` is not defined.")
+        debug_log("Audio Switcher: `shortcut_callback` is not defined or is empty. Doing nothing.")
     end
 end
 
@@ -114,8 +110,8 @@ end
 
 -- Callback for device watcher
 local function device_watcher_callback(...)
-    debug_log("Audio Switcher: Device change detected, running shortcut.")
-    run_soundsource_shortcut()
+    debug_log("Audio Switcher: Device change detected.")
+    run_device_change_shortcut()
 end
 
 -- Initialize the module
@@ -133,23 +129,17 @@ function audio_switcher.init(cfg, log_fn)
         debug_log("Audio Switcher: Manual cycling not configured or disabled.")
     end
 
-    -- SoundSource preset watcher
-    is_soundsource_installed = hs.application.get("SoundSource") ~= nil
-    if is_soundsource_installed then
-        debug_log("Audio Switcher: SoundSource installation detected.")
-        if config and config.audio_switcher and config.audio_switcher.set_preset_shortcut then
-            audio_switcher.device_watcher = hs_audiodevice.watcher
-            audio_switcher.device_watcher.setCallback(device_watcher_callback)
-            audio_switcher.device_watcher.start()
-            debug_log("Audio Switcher: SoundSource preset watcher started.")
+    -- Device change watcher
+    if config and config.audio_switcher and config.audio_switcher.shortcut_callback then
+        audio_switcher.device_watcher = hs_audiodevice.watcher
+        audio_switcher.device_watcher.setCallback(device_watcher_callback)
+        audio_switcher.device_watcher.start()
+        debug_log("Audio Switcher: Device change watcher started.")
 
-            -- Immediately run shortcut on startup
-            run_soundsource_shortcut()
-        else
-            debug_log("Audio Switcher: `config.audio_switcher.set_preset_shortcut` not configured. Watcher not started.")
-        end
+        -- Immediately run shortcut on startup
+        run_device_change_shortcut()
     else
-        debug_log("Audio Switcher: SoundSource not found. Preset functionality will be disabled.")
+        debug_log("Audio Switcher: `config.audio_switcher.shortcut_callback` not configured. Watcher not started.")
     end
 
     debug_log("Audio Switcher initialized.")
