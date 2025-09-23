@@ -1,12 +1,10 @@
 -- audio_switcher.lua
--- Cycles through a predefined list of audio output devices.
+-- Cycles through a predefined list of audio output devices and applies SoundSource presets.
 local hs_audiodevice = hs.audiodevice
 local hs_hotkey = hs.hotkey
-local hs_urlevent = hs.urlevent
-local hs_http = hs.http
-local hs_timer = hs.timer
 local hs_applescript = hs.applescript
-local hs_fs = hs.fs
+local hs_application = hs.application
+local hs_timer = hs.timer
 
 local audio_switcher = {}
 
@@ -15,6 +13,7 @@ local config = nil
 local debug_log = function(...)
 end
 local is_soundsource_installed = false
+local device_watcher = nil
 
 -- Log all available output device names
 function audio_switcher.log_devices()
@@ -60,14 +59,13 @@ local function set_output_device(device)
         local success = device:setDefaultOutputDevice()
         if success then
             debug_log("Audio Switcher: Successfully set output to '" .. device:name() .. "'")
-            set_soundsource_preset(device:name())
         else
             debug_log("Audio Switcher: FAILED to set output to '" .. device:name() .. "'")
         end
     end)
 end
 
--- Main toggle function
+-- Main toggle function for manual cycling
 function audio_switcher.toggle()
     debug_log("Audio Switcher: Toggle function called.")
     local configured_devices = config.audio_switcher.devices
@@ -114,28 +112,62 @@ function audio_switcher.toggle()
     end
 end
 
--- Initialize the module and bind the hotkey
+-- Callback for device watcher
+local function handle_device_change(change_type)
+    if change_type == "systemDeviceChanged" then
+        local new_device = hs.audiodevice.defaultOutputDevice()
+        if new_device then
+            debug_log("Audio Switcher: Default output device changed to: " .. new_device:name())
+            set_soundsource_preset(new_device:name())
+        end
+    end
+end
+
+-- Initialize the module
 function audio_switcher.init(cfg, log_fn)
     config = cfg
     debug_log = log_fn or debug_log
 
-    if not (config and config.audio_switcher and config.audio_switcher.devices and #config.audio_switcher.devices > 0 and
-        config.audio_switcher.hotkey) then
-        debug_log("Audio Switcher: Configuration missing or invalid.")
-        return
+    -- Hotkey for manual cycling
+    if config and config.audio_switcher and config.audio_switcher.devices and #config.audio_switcher.devices > 0 and
+        config.audio_switcher.hotkey then
+        local hotkey_config = config.audio_switcher.hotkey
+        hs_hotkey.bind(hotkey_config[1], hotkey_config[2], audio_switcher.toggle)
+        debug_log("Audio Switcher: Manual cycling hotkey enabled.")
+    else
+        debug_log("Audio Switcher: Manual cycling not configured or disabled.")
     end
 
-    is_soundsource_installed = hs_fs.appExists("SoundSource")
+    -- SoundSource preset watcher
+    is_soundsource_installed = hs.application.get("SoundSource") ~= nil
     if is_soundsource_installed then
         debug_log("Audio Switcher: SoundSource installation detected.")
+        if config and config.audio_switcher and config.audio_switcher.soundsource_presets then
+            device_watcher = hs.audiodevice.watcher.new(handle_device_change)
+            device_watcher:start()
+            debug_log("Audio Switcher: SoundSource preset watcher started.")
+
+            -- Immediately set preset for current device
+            local current_device = hs.audiodevice.defaultOutputDevice()
+            if current_device then
+                set_soundsource_preset(current_device:name())
+            end
+        else
+            debug_log("Audio Switcher: `soundsource_presets` not configured. Watcher not started.")
+        end
     else
         debug_log("Audio Switcher: SoundSource not found. Preset functionality will be disabled.")
     end
 
-    local hotkey_config = config.audio_switcher.hotkey
-    hs_hotkey.bind(hotkey_config[1], hotkey_config[2], audio_switcher.toggle)
-
     debug_log("Audio Switcher initialized.")
+end
+
+function audio_switcher.stop()
+    if device_watcher then
+        device_watcher:stop()
+        device_watcher = nil
+        debug_log("Audio Switcher: Watcher stopped.")
+    end
 end
 
 return audio_switcher
