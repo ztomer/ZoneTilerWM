@@ -17,7 +17,7 @@ config.audio_switcher = {
     -- Name of the macOS Shortcut to run when the default audio device changes.
     -- The shortcut should contain its own logic to detect the device and act accordingly.
     -- An empty string "" will disable the callback.
-    shortcut_callback = "SoundSourceSwitcher"
+    shortcut_callback = "SoundSourceSwitcherEx"
 }
 
 -- Application switcher settings
@@ -199,7 +199,7 @@ config.tiler = {
             ["y"] = {"a1:a2", "a1", "a1:b2"},
             ["h"] = {"a1:b3", "a1:a3", "a1:c3", "a2"},
             ["n"] = {"a3", "a2:a3", "a3:b3"},
-            ["u"] = {"b1:b3", "b1:b2", "b1"},
+            ["u"] = {"b1:b3", "b1:b2", "b1", "b1:c1"},
             ["j"] = {"b1:c3", "b1:b3", "b2", "b1:d3"},
             ["m"] = {"b1:b3", "b2:c3", "b3"},
             ["i"] = {"d1:d3", "d1:d2", "d1"},
