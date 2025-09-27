@@ -42,6 +42,7 @@ end
 tiler.monitors = monitor_manager -- Keep this for window_memory if it directly accesses tiler.monitors
 -- Expose window_state for window_memory
 tiler.window_state = window_state_manager -- Keep this for window_memory
+tiler.window_actions = window_actions
 
 ------------------------------------------
 -- Window Utility Functions

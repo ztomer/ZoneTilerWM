@@ -1,43 +1,29 @@
 # ZoneTilerWM
 
-ZoneTilerWM is a modular and powerful tiling window manager for macOS, built on top of Hammerspoon. It combines zone-based window organization, intelligent multi-monitor support, powerful keyboard navigation, and productivity tools like an integrated Pomodoro timer.
+ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement to your keyboard layout. It learns your preferences to automate window arrangement, reducing cognitive load and making window management a matter of muscle memory.
 
-## Core Values
+## Features
 
-* **Cognitive Offloading via Smart Memory:** The most significant outcome is how the system learns and automates window placement. It remembers where you prefer to place each application, so over time, your workspace organizes itself with minimal intervention. This goes beyond simple layout management and actively reduces the user's cognitive load.
+* **Zone-Based Tiling**: Arrange windows in a grid-based system mapped to your keyboard.
+* **Adaptive Window Memory**: Automatically places applications in their preferred zones.
+* **Target Space Optimization**: Intelligently assign windows to zones to maximize screen real estate.
+* **Multi-Monitor Support**: Intelligently adapts to different screen layouts and resolutions.
+* **Focus Management**: Quickly switch focus between windows and monitors.
+* **Application Launcher**: Bind hotkeys to launch or switch to your favorite apps.
+* **Audio Device Switching**: Cycle through audio devices with a hotkey.
+* **Pomodoro Timer**: A built-in Pomodoro timer to help you stay focused.
+* **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.lua` file.
 
-* **Seamless Multi-Monitor Experience:** The "Smart Screen Detection" provides a "plug-and-play" feel for complex monitor setups. Users don't need to manually configure layouts every time they connect a new display; the system intelligently adapts based on screen size, brand, and even orientation, making it ideal for people who frequently switch between different work environments (e.g., office, home, mobile).
+## Future Features
 
-* **Integrated Productivity Discipline:** By building a Pomodoro timer directly into the window manager, it integrates a popular time management technique into the user's core workflow. This is unique because it treats productivity discipline as a first-class citizen of the desktop experience, rather than a separate, add-on application.
-
-* **Intuitive, Kinesthetic Control:** The zone-based tiling system, which maps a grid directly to keyboard keys, creates a strong physical and mental connection between the user's hands and the window layout. This allows for a highly intuitive and "eyes-free" operation, where managing windows becomes a matter of muscle memory rather than a visual drag-and-drop task.
-
-## Implemented Features
-
-* **Zone-Based Window Management**: Define reusable window zones using a flexible grid-based coordinate system.
-* **Smart Screen Detection**: Automatically adapts to screen size, resolution, orientation, and known device patterns.
-* **Multi-Screen Support**: Move and focus windows across screens with ease.
-* **Focus Control**: Instantly switch focus within a zone or across monitors using intuitive shortcuts.
-* **Application Switching**: Bind hotkeys to launch or toggle commonly used applications.
-* **Audio Device Integration**: Manually cycle audio devices with a hotkey, and automatically trigger a macOS Shortcut on device change (e.g., to set SoundSource presets).
-* **Adaptive Window Memory**: Intelligently learns and remembers your preferred window positions for each application. New windows are automatically placed in their last known or most frequent tile, and layouts are restored across sessions.
-* **Pomodoro Timer**: Visual work/rest timer with screen indicators.
-* **Modular Architecture**: Easy to maintain, configure, and extend.
-* **Centralized Configuration**: All behavior is defined in a single `config.lua` file.
-
-## Still TODO
-
-* [x] Application-aware layouts (save preferred zones per app)
-* [x] Automatically arrange windows on launch
-* [x] Zen mode (minimize all but active window)
-* [ ] Dynamic resizing of rows and columns
-* [ ] Adaptive window sizing based on content
-* [ ] Persistent layout save/load
-* [ ] Support for macOS Spaces
-* [ ] Window stacking in zones
-* [ ] Visual grid overlay
-* [ ] Mouse-driven zone selection
-* [ ] Layout presets for workflows
+* Dynamic resizing of rows and columns
+* Adaptive window sizing based on content
+* Persistent layout save/load
+* Support for macOS Spaces
+* Window stacking in zones
+* Visual grid overlay
+* Mouse-driven zone selection
+* Layout presets for workflows
 
 ---
 

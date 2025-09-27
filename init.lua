@@ -7,6 +7,7 @@ local tiler = require "modules.tiler"
 local appSwitcher = require "modules.app_switcher"
 local window_memory = require "modules.window_memory"
 local audio_switcher = require "modules.audio_switcher"
+local layout_manager = require "modules.layout_manager"
 
 -- Get key combinations from config
 local mash = config.keys.mash
@@ -63,6 +64,10 @@ local function init()
     if config.window_memory and config.window_memory.enabled then
         window_memory.init(tiler)
         window_memory.setup_hotkeys() -- Optional, for manual capture/restore
+    end
+
+    if config.layout_manager and config.layout_manager.enabled then
+        layout_manager.init(tiler)
     end
 
     -- Initialize app switching

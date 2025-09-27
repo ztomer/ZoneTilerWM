@@ -352,4 +352,9 @@ config.window_memory = {
     }
 }
 
+config.layout_manager = {
+    enabled = true,
+    debug = true
+}
+
 return config
