@@ -338,7 +338,7 @@ config.window_memory = {
 
     -- Apps to exclude from window memory
     excluded_apps = {"System Settings", "System Preferences", "Activity Monitor", "Calculator", "Photo Booth",
-                     "Hammerspoon", "KeyCastr", "Installer"},
+                     "Hammerspoon", "KeyCastr", "Installer", "SupaSidebar"},
 
     -- Fallback auto-tiling settings (used when no cached position exists)
     auto_tile_fallback = true,
