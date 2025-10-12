@@ -1,12 +1,9 @@
---[[
-Simplified Zone Tiler for Hammerspoon
-====================================
-
-Hierarchy: Monitor → Zone → Tile
-- Each monitor has unique stable ID
-- Each zone is a collection of tiles (window positions)
-- Cross-monitor movement preserves zone+tile or uses cache
-]]
+--- The core tiling engine for ZoneTilerWM.
+-- This module acts as the central coordinator, integrating various sub-modules
+-- to manage window placement, focus, and state. It initializes all components,
+-- binds hotkeys, and handles system-level events like window creation,
+-- destruction, and screen changes.
+-- @module tiler
 local config = require "config"
 local tiler = {}
 local hs_window = hs.window -- Cache for frequent use
@@ -48,7 +45,10 @@ tiler.window_actions = window_actions
 -- Window Utility Functions
 ------------------------------------------
 
--- Move window to zone/tile
+--- Moves the currently focused window to a specified zone.
+-- This is a primary user-facing function, typically bound to a hotkey.
+-- @param zone_key (string) The key identifying the target zone (e.g., "1", "top_left").
+-- @return (boolean) `true` if successful, `false` otherwise.
 function tiler.move_window_to_zone(zone_key)
     local window = hs_window.focusedWindow()
     if not window then
@@ -58,12 +58,21 @@ function tiler.move_window_to_zone(zone_key)
     return window_actions.move_window_to_zone(window, zone_key)
 end
 
--- Position window from memory (called by window_memory)
+--- Positions a window based on data from the `window_memory` module.
+-- This is called during window creation or repositioning events to restore a window
+-- to its last known tiled position.
+-- @param window (hs.window) The window object to position.
+-- @param monitor_id (string) The stable ID of the target monitor.
+-- @param zone_key (string) The key of the zone to place the window in.
+-- @param tile_index (number) The index of the tile within the zone.
+-- @return (boolean) `true` if the window was successfully positioned, `false` otherwise.
 function tiler.position_window_from_memory(window, monitor_id, zone_key, tile_index)
     return window_actions.position_window_from_memory(window, monitor_id, zone_key, tile_index)
 end
 
--- Move window to next/previous monitor
+--- Moves the focused window to the next or previous monitor.
+-- @param direction (string) Either "next" or "previous".
+-- @return (boolean) `true` if successful, `false` otherwise.
 function tiler.move_window_to_monitor(direction)
     local window = hs_window.focusedWindow()
     if not window then
@@ -72,7 +81,11 @@ function tiler.move_window_to_monitor(direction)
     return window_actions.move_window_to_monitor(window, direction)
 end
 
--- Main focus cycling function
+--- Cycles focus through windows within a specific zone.
+-- If a `target_zone_key` is provided, it cycles focus among windows in that zone.
+-- Otherwise, it cycles through windows in the zone of the currently focused window.
+-- @param target_zone_key (string|nil) The key of the zone to focus, or `nil` to use the current window's zone.
+-- @return (boolean) `true` if focus was changed, `false` otherwise.
 function tiler.focus_zone_windows(target_zone_key)
     local focused_window_before_call = hs_window.focusedWindow()
     if not focused_window_before_call then
@@ -82,6 +95,7 @@ function tiler.focus_zone_windows(target_zone_key)
     return focus_manager.cycle_windows_in_zone(focused_window_before_call, target_zone_key)
 end
 
+--- Toggles "Zen Mode" for the focused window, maximizing it on its current screen.
 function tiler.toggle_zen_mode()
     local focused_window = hs.window.focusedWindow()
     if not focused_window then
@@ -91,7 +105,9 @@ function tiler.toggle_zen_mode()
     window_actions.toggle_zen_mode(focused_window)
 end
 
--- Debug function to inspect a specific zone
+--- Prints debugging information for a specific zone on the current monitor.
+-- This includes tile calculations and the list of windows currently in that zone.
+-- @param zone_key (string) The key of the zone to debug.
 function tiler.debug_zone(zone_key)
     local fe = hs_window.focusedWindow()
     if not fe then
@@ -113,7 +129,14 @@ function tiler.debug_zone(zone_key)
     focus_manager.debug_cycle_state()
 end
 
--- Attempt to reposition an existing window, e.g., after a screen change
+--- Attempts to reposition a window that already exists.
+-- This is primarily used after a screen change event to place windows that may have
+-- been moved by the OS. It tries to place the window using, in order:
+-- 1. Its persisted position from `window_memory`.
+-- 2. A configured application-specific default zone.
+-- 3. A global default zone.
+-- 4. The `smart_placer` module as a final fallback.
+-- @param window (hs.window) The window to reposition.
 function tiler.attempt_reposition_existing_window(window)
     if not window or not window:isStandard() or window:isMinimized() then
         return
@@ -198,6 +221,9 @@ end
 -- Event Handling
 ------------------------------------------
 
+--- Handles the `windowDestroyed` event.
+-- Cleans up the window's state from all relevant sub-modules.
+-- @param window (hs.window) The window object that was destroyed.
 local function handle_window_destroyed(window)
     if window then
         local app_name = "N/A"
@@ -214,6 +240,11 @@ local function handle_window_destroyed(window)
     end
 end
 
+--- Handles the `windowCreated` event.
+-- After a short delay to allow the window to initialize, it attempts to place
+-- the new window in an appropriate tile. It prioritizes `window_memory` placement
+-- and falls back to `smart_placer`.
+-- @param window (hs.window) The window object that was created.
 local function handle_window_created(window)
     debug_log("handle_window_created init:", window:id(), "App:",
         window:application() and window:application():name() or "N/A")
@@ -263,6 +294,9 @@ local function handle_window_created(window)
     end)
 end
 
+--- Handles screen layout change events.
+-- Re-initializes monitor configurations and zone calculations. After a delay,
+-- it attempts to reposition all existing windows to fit the new screen layout.
 local function handle_screen_change()
     debug_log("Screen configuration changed")
 
@@ -301,6 +335,14 @@ end
 -- Initialization
 ------------------------------------------
 
+--- Starts the tiler engine.
+-- This function performs all necessary initializations:
+-- - Sets up configuration and default values.
+-- - Initializes all sub-modules (`monitor_manager`, `zone_calculator`, etc.).
+-- - Creates zones for all currently available monitors.
+-- - Binds all hotkeys for window movement, focus, and other actions.
+-- - Subscribes to window and screen events.
+-- @return (table) The `tiler` module table.
 function tiler.start()
     debug_log("Starting tiler")
 
@@ -413,7 +455,10 @@ function tiler.start()
     return tiler
 end
 
--- Set window_memory reference (called from init)
+--- Injects the `window_memory` module as a dependency.
+-- This is called from `init.lua` after `window_memory` has been initialized,
+-- breaking a potential circular dependency.
+-- @param wm (table) The initialized `window_memory` module.
 function tiler.set_window_memory(wm)
     window_memory = wm
     if window_state_manager and window_state_manager.set_window_memory_module then

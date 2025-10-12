@@ -1,6 +1,9 @@
--- window_actions.lua
--- Contains core window manipulation functions like moving to zones, applying frames,
--- and handling problem applications.
+--- Contains the core window manipulation functions.
+-- This module provides the concrete implementations for actions performed on windows,
+-- such as moving them to zones, applying frames, and moving them between monitors.
+-- It includes special handling for applications that do not behave correctly with
+-- standard Hammerspoon APIs.
+-- @module window_actions
 local hs_window = hs.window
 local hs_screen = hs.screen
 local hs_axuielement = hs.axuielement
@@ -12,12 +15,16 @@ local config = nil -- Set in init
 local monitor_manager = nil -- Set in init
 local zone_calculator = nil -- Set in init
 local window_state_manager = nil -- Set in init
+local placement_strategy = nil -- Set in init
 local processed_problem_apps = {} -- Set in init
 local window_memory_module = nil -- Set via setter from tiler
 local debug_log = function(...)
 end -- Placeholder, will be set in init
 
--- Helper function to check if app is in the problem list
+--- Checks if an application is in the configured list of problem applications.
+-- @local
+-- @param app_name (string) The name of the application.
+-- @return (boolean) `true` if the app is a problem app, `false` otherwise.
 local function is_problem_app(app_name)
     if not processed_problem_apps or #processed_problem_apps == 0 or not app_name then
         return false
@@ -32,7 +39,16 @@ local function is_problem_app(app_name)
     return false
 end
 
--- Helper: Validate window, normalize frame, validate frame params, and move to screen if needed
+--- Prepares a window and frame for manipulation.
+-- Validates the window and frame, normalizes the frame table, and moves the window
+-- to the target screen if necessary.
+-- @local
+-- @param window (hs.window) The window object.
+-- @param frame (table) The frame to apply, with `{x, y, w, h}`.
+-- @param force_screen_obj (hs.screen) If provided, ensures the window is on this screen before applying the frame.
+-- @param caller_func_name_for_log (string) The name of the calling function for logging.
+-- @param is_problem_app_log_detail (boolean) Whether to add extra logging for problem apps.
+-- @return (table|nil) A normalized frame table or `nil` on failure.
 local function _prepare_window_and_frame(window, frame, force_screen_obj, caller_func_name_for_log,
     is_problem_app_log_detail)
     if not window or not window:isStandard() then
@@ -93,7 +109,12 @@ local function _prepare_window_and_frame(window, frame, force_screen_obj, caller
     return normalized_frame
 end
 
--- Apply a frame to a window, optionally forcing it to a specific screen first
+--- Applies a frame to a standard window with animations disabled.
+-- @local
+-- @param window (hs.window) The window to modify.
+-- @param frame (table) The frame to apply `{x, y, w, h}`.
+-- @param force_screen_obj (hs.screen|nil) If provided, moves the window to this screen before setting the frame.
+-- @return (boolean) `true` on success, `false` on failure.
 local function apply_frame(window, frame, force_screen_obj)
     local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame", false)
     if not valid_frame then
@@ -111,8 +132,14 @@ local function apply_frame(window, frame, force_screen_obj)
     return success
 end
 
--- Special handling for problem apps using accessibility API (if needed, though setFrame is often enough)
--- Keeping this separate function structure for clarity if specific AX calls become necessary later.
+--- Applies a frame to a "problem" application, using accessibility workarounds.
+-- This temporarily disables `AXEnhancedUserInterface` to prevent unwanted side effects.
+-- @local
+-- @param window (hs.window) The window to modify.
+-- @param frame (table) The frame to apply `{x, y, w, h}`.
+-- @param app_name (string) The name of the application for logging.
+-- @param force_screen_obj (hs.screen|nil) If provided, moves the window to this screen first.
+-- @return (boolean) `true` on success, `false` on failure.
 local function apply_frame_to_problem_app(window, frame, app_name, force_screen_obj)
     local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame_to_problem_app", true)
     if not valid_frame then
@@ -148,7 +175,12 @@ local function apply_frame_to_problem_app(window, frame, app_name, force_screen_
     return success
 end
 
--- Apply a calculated tile frame to a window
+--- Applies a calculated tile frame to a window, dispatching to the correct frame application function.
+-- @local
+-- @param window (hs.window) The window to apply the tile to.
+-- @param tile (table) The tile frame `{x, y, w, h}`.
+-- @param screen_obj (hs.screen) The screen the tile belongs to.
+-- @return (boolean) `true` on success, `false` on failure.
 local function apply_tile(window, tile, screen_obj)
     if not window or not window:isStandard() or not tile then
         debug_log("apply_tile: Invalid window or tile.")
@@ -162,7 +194,12 @@ local function apply_tile(window, tile, screen_obj)
     end
 end
 
--- Move a specific window to a zone/tile
+--- Moves a given window to a specified zone.
+-- It finds the best available tile in the target zone using the `placement_strategy`
+-- and then applies it to the window.
+-- @param window (hs.window) The window to move.
+-- @param zone_key (string) The key of the target zone.
+-- @return (boolean) `true` on success, `false` on failure.
 function window_actions.move_window_to_zone(window, zone_key)
     if not window or not window:isStandard() then
         debug_log("move_window_to_zone: Invalid window");
@@ -229,7 +266,12 @@ function window_actions.move_window_to_zone(window, zone_key)
     return false
 end
 
--- Position a specific window from memory (called by window_memory)
+--- Positions a window to a specific tile from a `window_memory` entry.
+-- @param window (hs.window) The window to position.
+-- @param monitor_id (string) The ID of the target monitor.
+-- @param zone_key (string) The key of the target zone.
+-- @param tile_index (number) The index of the tile within the zone.
+-- @return (boolean) `true` on success, `false` on failure.
 function window_actions.position_window_from_memory(window, monitor_id, zone_key, tile_index)
     if not window or not window:isStandard() then
         debug_log("position_window_from_memory: Invalid window.");
@@ -258,7 +300,15 @@ function window_actions.position_window_from_memory(window, monitor_id, zone_key
     return false
 end
 
--- Move a specific window to the next/previous monitor
+--- Moves a window to the next or previous monitor.
+-- It attempts to place the window intelligently on the target monitor using a series of strategies:
+-- 1. Use the window's remembered position for that app on the target monitor.
+-- 2. Maintain the window's current zone and tile index if possible.
+-- 3. Fall back to a default zone (e.g., "0").
+-- 4. If all else fails, simply move the window to the screen without tiling.
+-- @param window (hs.window) The window to move.
+-- @param direction (string) "next" or "previous".
+-- @return (boolean) `true` on success, `false` on failure.
 function window_actions.move_window_to_monitor(window, direction)
     if not window or not window:isStandard() then
         debug_log("move_window_to_monitor: Invalid window.");
@@ -387,6 +437,10 @@ function window_actions.move_window_to_monitor(window, direction)
     return true
 end
 
+--- Toggles Zen Mode.
+-- When entering Zen Mode, all windows except the focused one are minimized.
+-- When exiting, it restores the minimized windows.
+-- @param focused_win (hs.window) The window to focus for Zen Mode.
 function window_actions.toggle_zen_mode(focused_win)
     if not focused_win then
         debug_log("Zen: No focused window, aborting.")
@@ -440,7 +494,14 @@ function window_actions.toggle_zen_mode(focused_win)
     hs.window.animationDuration = original_animation_duration
 end
 
--- Initialize the module
+--- Initializes the `window_actions` module.
+-- @param cfg (table) The main configuration table.
+-- @param mm (table) The `monitor_manager` module.
+-- @param zc (table) The `zone_calculator` module.
+-- @param wsm (table) The `window_state_manager` module.
+-- @param ps (table) The `placement_strategy` module.
+-- @param problem_apps_list (table) A list of lowercase application names that require special handling.
+-- @param log_func (function) The logging function to use.
 function window_actions.init(cfg, mm, zc, wsm, ps, problem_apps_list, log_func)
     config = cfg
     monitor_manager = mm
@@ -452,7 +513,8 @@ function window_actions.init(cfg, mm, zc, wsm, ps, problem_apps_list, log_func)
     debug_log("WindowActions initialized")
 end
 
--- Set the window_memory module reference (called by tiler)
+--- Injects the `window_memory` module as a dependency.
+-- @param wm (table) The initialized `window_memory` module.
 function window_actions.set_window_memory_module(wm)
     window_memory_module = wm
     debug_log("WindowMemory module reference set in WindowActions")

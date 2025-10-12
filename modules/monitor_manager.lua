@@ -1,5 +1,9 @@
--- monitor_manager.lua
--- Manages stable logical IDs for physical monitors.
+--- Manages stable logical identifiers for physical monitors.
+-- This module is crucial for multi-monitor support. It creates a registry that
+-- maps the system's volatile screen objects to stable, logical IDs that persist
+-- across screen reconnections or layout changes. This allows other modules to
+-- reliably reference a specific physical display.
+-- @module monitor_manager
 local hs_screen = hs.screen
 
 local monitor_manager = {}
@@ -14,13 +18,21 @@ local monitors = {
 local debug_log = function(...)
 end -- Placeholder, will be set in init
 
--- Generate stable monitor key from screen properties
+--- Generates a stable key for a monitor based on its persistent UUID.
+-- @local
+-- @param screen (hs.screen) The screen object.
+-- @return (string) The UUID of the screen.
 local function get_monitor_key(screen)
     -- Use the persistent UUID provided by Hammerspoon as the stable key.
     return screen:getUUID()
 end
 
--- Get or create stable monitor ID
+--- Gets a stable, logical ID for a given screen object.
+-- If the screen is new, it is registered and assigned a new logical ID.
+-- If the screen is already known, its current system information is updated and
+-- its existing logical ID is returned.
+-- @param screen (hs.screen) The screen object.
+-- @return (number) The stable, logical ID for the screen.
 function monitor_manager.get_id(screen)
     local key = get_monitor_key(screen)
 
@@ -44,7 +56,9 @@ function monitor_manager.get_id(screen)
     return monitors.registry[key].logical_id
 end
 
--- Get screen by monitor ID
+--- Retrieves the active `hs.screen` object corresponding to a logical monitor ID.
+-- @param monitor_id (number) The logical ID of the monitor to find.
+-- @return (hs.screen|nil) The screen object if it is connected, otherwise `nil`.
 function monitor_manager.get_screen(monitor_id)
     local monitor_uuid = nil
     -- Find the UUID associated with the logical monitor ID
@@ -65,7 +79,11 @@ function monitor_manager.get_screen(monitor_id)
     return nil -- Not found in registry or not currently connected
 end
 
--- Reinitialize monitor registry on screen changes
+--- Re-initializes the monitor registry when screen configurations change.
+-- It iterates through all currently connected screens and ensures they are registered,
+-- preserving existing logical IDs and assigning new ones as needed.
+-- @param all_screens (table) A list of all currently connected `hs.screen` objects.
+-- @param log_func (function) The logging function to use.
 function monitor_manager.reinitialize_monitors(all_screens, log_func)
     debug_log = log_func or debug_log
     debug_log("Updating monitor registry...")
@@ -78,7 +96,8 @@ function monitor_manager.reinitialize_monitors(all_screens, log_func)
     debug_log("Monitor registry reinitialized.")
 end
 
--- Initialize the module
+--- Initializes the `monitor_manager` module.
+-- @param log_func (function) The logging function to use.
 function monitor_manager.init(log_func)
     debug_log = log_func or debug_log
     debug_log("MonitorManager initialized")

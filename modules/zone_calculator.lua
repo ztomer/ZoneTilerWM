@@ -1,23 +1,60 @@
--- zone_calculator.lua
--- Manages zone definitions, layouts, and calculates tile frames for each monitor.
+--- Manages the geometric definition of layouts, zones, and tiles.
+-- This module is responsible for:
+-- - Detecting the appropriate layout for each monitor based on its name, resolution, or orientation.
+-- - Calculating the precise frames (x, y, width, height) for every tile within a zone.
+-- - Caching layout information to improve performance.
+-- - Providing utility functions to convert between grid coordinates (e.g., "a1:b2") and pixel frames.
+-- @module zone_calculator
+-- @class zone_calculator
 local hs_screen = hs.screen
 local lru_cache = require "modules.lru_cache"
 
 local zone_calculator = {}
+
+--@class Tile
+--@field x number
+--@field y number
+--@field w number
+--@field h number
+
+--@class GridCoords
+--@field col_start number
+--@field row_start number
+--@field num_cols number
+--@field num_rows number
+
+--@class GridConfig
+--@field rows number
+--@field cols number
+
+--@class LayoutCacheEntry
+--@field grid_config GridConfig
+--@field layout_key string
 
 -- Module state
 local config = nil -- Set in init
 local margins = nil -- Set in init
 local debug_log = function(...)
 end -- Placeholder, will be set in init
+--@type lru_cache<string, LayoutCacheEntry>
 local layout_cache = nil -- To be initialized in init()
 
 local zones = {
     -- Active zones: monitor_id -> zone_key -> tiles[]
+    --@type table<string, table<string, Tile[]>>
     by_monitor = {}
 }
 
--- Create tile from grid coordinates or named position
+---
+-- Creates a tile (a rectangle frame) from various coordinate formats.
+-- It can interpret named positions ("full", "center"), grid coordinates ("a1:b2"),
+-- or a direct coordinate table.
+-- @local
+-- @param screen hs.screen The screen object on which the tile will be created.
+-- @param coords string|table The coordinates to use. Can be a string like "full", "a1:b2", or a table from `create_tile_from_grid_coords`.
+-- @param rows number The total number of rows in the screen's grid.
+-- @param cols number The total number of columns in the screen's grid.
+-- @return Tile|nil A tile object {x, y, w, h} or nil if creation fails.
 local function create_tile(screen, coords, rows, cols)
     local frame = screen:frame()
     local w, h, x, y = frame.w, frame.h, frame.x, frame.y
@@ -89,7 +126,16 @@ local function create_tile(screen, coords, rows, cols)
     return nil
 end
 
--- Get zone layout for screen (exposed for smart_placer)
+---
+-- Determines the appropriate layout configuration for a given screen.
+-- It uses a cached result if available. Otherwise, it determines the layout by checking:
+-- 1. Custom screen configurations in `config.tiler.custom_screens`.
+-- 2. Screen name patterns in `config.tiler.screen_detection.patterns`.
+-- 3. Default logic based on resolution and orientation (portrait/landscape).
+-- The result is then cached for future calls.
+-- @param screen hs.screen The screen object.
+-- @return GridConfig|nil The grid configuration table (e.g., {rows=3, cols=4}).
+-- @return string|nil The key of the determined layout (e.g., "4x3").
 function zone_calculator.get_layout_config(screen)
     local monitor_id = screen:getUUID()
     local cached = layout_cache:get(monitor_id)
@@ -154,6 +200,7 @@ function zone_calculator.get_layout_config(screen)
     end
 
     debug_log("Using default layout for screen:", name, "->", layout_key, "Portrait:", is_portrait)
+    --@type GridConfig
     local grid_config = config.tiler.grids[layout_key]
 
     if grid_config and layout_key then
@@ -165,7 +212,12 @@ function zone_calculator.get_layout_config(screen)
     return grid_config, layout_key
 end
 
--- Initialize zones for a monitor
+---
+-- Creates and stores all zone and tile definitions for a specific monitor.
+-- It determines the correct layout, then iterates through the zone definitions
+-- for that layout, creating and storing the tile frames for each zone.
+-- @param monitor_id string The stable ID of the monitor.
+-- @param screen hs.screen The screen object to create zones for.
 function zone_calculator.create_for_monitor(monitor_id, screen)
     local grid_config, layout_key = zone_calculator.get_layout_config(screen)
 
@@ -195,6 +247,7 @@ function zone_calculator.create_for_monitor(monitor_id, screen)
 
     for zone_key, tile_coords_array in pairs(zone_definitions) do
         if zone_key ~= "default" then -- "default" itself is not a zone key for hotkeys
+            --@type Tile[]
             local tiles_for_this_zone = {}
             for _, coords_str in ipairs(tile_coords_array) do
                 local tile = create_tile(screen, coords_str, rows, cols)
@@ -211,7 +264,11 @@ function zone_calculator.create_for_monitor(monitor_id, screen)
     end
 end
 
--- Get zone for monitor
+---
+-- Retrieves the calculated tiles for a specific zone on a monitor.
+-- @param monitor_id string The ID of the monitor.
+-- @param zone_key string The key of the desired zone.
+-- @return Tile[]|nil An array of tile frame objects, or nil if the zone is not found.
 function zone_calculator.get(monitor_id, zone_key)
     if zones.by_monitor[monitor_id] and zones.by_monitor[monitor_id][zone_key] then
         return zones.by_monitor[monitor_id][zone_key]
@@ -219,7 +276,9 @@ function zone_calculator.get(monitor_id, zone_key)
     return nil
 end
 
--- Clear all calculated zones (used on screen change)
+---
+-- Clears all cached zone and layout information.
+-- This is called when screen configurations change to force recalculation.
 function zone_calculator.clear_all()
     zones.by_monitor = {}
     if layout_cache then
@@ -227,7 +286,10 @@ function zone_calculator.clear_all()
     end
 end
 
--- Check if zones exist for a monitor
+---
+-- Checks if zones have been calculated and stored for a given monitor.
+-- @param monitor_id string The ID of the monitor to check.
+-- @return boolean `true` if zones exist, `false` otherwise.
 function zone_calculator.has_zones(monitor_id)
     if zones.by_monitor[monitor_id] then
         return true
@@ -235,7 +297,10 @@ function zone_calculator.has_zones(monitor_id)
     return false
 end
 
--- Debug function to inspect a specific zone's tiles
+---
+-- Prints debugging information about a zone's tiles to the console.
+-- @param monitor_id string The ID of the monitor where the zone resides.
+-- @param zone_key string The key of the zone to inspect.
 function zone_calculator.debug_zone_tiles(monitor_id, zone_key)
     local zone_tiles = zone_calculator.get(monitor_id, zone_key)
     if not zone_tiles then
@@ -260,7 +325,14 @@ function zone_calculator.debug_zone_tiles(monitor_id, zone_key)
     end
 end
 
--- Create a tile from numeric grid coordinates
+---
+-- Calculates a tile frame based on numeric grid coordinates.
+-- This is the core geometric calculation function.
+-- @param screen hs.screen The screen object.
+-- @param grid_coords GridCoords A table with {col_start, row_start, num_cols, num_rows}.
+-- @param rows number The total number of rows in the screen's grid.
+-- @param cols number The total number of columns in the screen's grid.
+-- @return Tile A tile object {x, y, w, h} with margins applied.
 function zone_calculator.create_tile_from_grid_coords(screen, grid_coords, rows, cols)
     local frame = screen:frame()
     local w, h, x, y = frame.w, frame.h, frame.x, frame.y
@@ -307,7 +379,15 @@ function zone_calculator.create_tile_from_grid_coords(screen, grid_coords, rows,
     }
 end
 
--- Get grid coordinates for a given tile frame
+---
+-- Reverse-engineers the grid coordinates from a given tile frame.
+-- This is used for features that need to understand a window's position in
+-- terms of the grid, not just pixels.
+-- @param screen hs.screen The screen object.
+-- @param tile Tile The tile frame {x, y, w, h}.
+-- @param rows number The total number of rows in the screen's grid.
+-- @param cols number The total number of columns in the screen's grid.
+-- @return GridCoords|nil A grid coordinate table {col_start, row_start, num_cols, num_rows} or nil on failure.
 function zone_calculator.get_grid_coords_for_tile(screen, tile, rows, cols)
     local frame = screen:frame()
     local w, h, x, y = frame.w, frame.h, frame.x, frame.y
@@ -348,7 +428,11 @@ function zone_calculator.get_grid_coords_for_tile(screen, tile, rows, cols)
     }
 end
 
--- Initialize the module
+---
+-- Initializes the `zone_calculator` module.
+-- @param cfg table The main configuration table from `config.lua`.
+-- @param margins_cfg table The margin configuration.
+-- @param log_func function The logging function to use.
 function zone_calculator.init(cfg, margins_cfg, log_func)
     config = cfg
     margins = margins_cfg

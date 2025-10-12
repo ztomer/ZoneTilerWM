@@ -1,5 +1,8 @@
--- placement_strategy.lua
--- Determines the best tile for a window based on a chosen strategy.
+--- Determines the best tile for a window based on a chosen strategy.
+-- This module encapsulates the logic for deciding where a window should be placed
+-- within a zone. It supports multiple strategies, such as simple rotation or finding
+-- the largest available space, allowing for flexible and configurable tiling behavior.
+-- @module placement_strategy
 
 local placement_strategy = {}
 
@@ -14,7 +17,11 @@ local find_by_rotation
 local find_largest_free_tile
 local find_by_hybrid_strategy
 
--- Helper function to check if two rectangles intersect
+--- Checks if two rectangles intersect.
+-- @local
+-- @param r1 (table) A rectangle with `{x, y, w, h}`.
+-- @param r2 (table) A rectangle with `{x, y, w, h}`.
+-- @return (boolean) `true` if they intersect, `false` otherwise.
 local function rectangles_intersect(r1, r2)
     return not (r2.x >= r1.x + r1.w or
         r2.x + r2.w <= r1.x or
@@ -22,11 +29,11 @@ local function rectangles_intersect(r1, r2)
         r2.y + r2.h <= r1.y)
 end
 
---- Initializes the module.
--- @param cfg The main configuration table.
--- @param utils A table of utility functions from the tiler.
--- @param wsm The window_state_manager module.
--- @param log_func A logging function.
+--- Initializes the `placement_strategy` module.
+-- @param cfg (table) The main configuration table.
+-- @param utils (table) A table of utility functions from the tiler.
+-- @param wsm (table) The `window_state_manager` module.
+-- @param log_func (function) A logging function.
 function placement_strategy.init(cfg, utils, wsm, log_func)
     config = cfg
     tiler_utils = utils
@@ -35,13 +42,14 @@ function placement_strategy.init(cfg, utils, wsm, log_func)
     log("placement_strategy initialized")
 end
 
---- Finds the best tile for a new window in a given zone based on the configured strategy.
--- @param window The window to place.
--- @param zone_key The key of the zone to place the window in.
--- @param zone_windows A list of windows currently in the zone.
--- @param zone A table representing the zone, containing grid dimensions and tiles.
--- @param all_tiles_in_zone A list of all possible tiles for the zone.
--- @return A tile frame (e.g., {x, y, w, h}), or nil if no space is found.
+--- Finds the best tile for a window in a zone using the configured placement strategy.
+-- This function acts as a dispatcher, calling the appropriate strategy function based on `config.tiler.placement_strategy`.
+-- @param window (hs.window) The window to place.
+-- @param zone_key (string) The key of the zone to place the window in.
+-- @param zone_windows (table) A list of windows currently in the zone.
+-- @param zone (table) A table representing the zone, containing grid dimensions.
+-- @param all_tiles_in_zone (table) A list of all possible tile frames for the zone.
+-- @return (table|nil) A tile frame (e.g., `{x, y, w, h}`), or `nil` if no suitable tile is found.
 function placement_strategy.find_best_tile(window, zone_key, zone_windows, zone, all_tiles_in_zone)
     local strategy = config.tiler.placement_strategy or "rotate"
     log("Using placement strategy: ", strategy)
@@ -58,13 +66,16 @@ function placement_strategy.find_best_tile(window, zone_key, zone_windows, zone,
     end
 end
 
---- Strategy: A hybrid approach that uses largest_free_space for initial placement and rotate for cycling.
--- @param window The window to place.
--- @param zone_key The key of the zone to place the window in.
--- @param zone_windows A list of windows currently in the zone.
--- @param zone A table representing the zone, containing grid dimensions.
--- @param all_tiles_in_zone A list of all possible tiles for the zone.
--- @return A tile frame or nil.
+--- Implements a hybrid placement strategy.
+-- If the window is already in the target zone, it uses the `rotate` strategy to cycle it.
+-- If the window is new to the zone, it uses the `largest_free_space` strategy.
+-- @local
+-- @param window (hs.window) The window to place.
+-- @param zone_key (string) The key of the zone.
+-- @param zone_windows (table) A list of windows currently in the zone.
+-- @param zone (table) A table representing the zone.
+-- @param all_tiles_in_zone (table) A list of all possible tiles for the zone.
+-- @return (table|nil) A tile frame or `nil`.
 find_by_hybrid_strategy = function(window, zone_key, zone_windows, zone, all_tiles_in_zone)
     local current_pos = window_state_manager.get(window:id())
 
@@ -77,13 +88,16 @@ find_by_hybrid_strategy = function(window, zone_key, zone_windows, zone, all_til
     end
 end
 
---- Strategy: Find the next available tile by rotation.
+--- Implements the rotation placement strategy.
 -- This is the classic tiling behavior where windows fill up predefined slots in order.
--- @param window The window to place.
--- @param zone_key The key of the zone to place the window in.
--- @param zone_windows A list of windows currently in the zone.
--- @param all_tiles_in_zone A list of all possible tiles for the zone.
--- @return A tile frame or nil.
+-- If the window is already in the zone, it cycles to the next tile.
+-- If the window is new, it takes the next available slot.
+-- @local
+-- @param window (hs.window) The window to place.
+-- @param zone_key (string) The key of the zone.
+-- @param zone_windows (table) A list of windows currently in the zone.
+-- @param all_tiles_in_zone (table) A list of all possible tiles for the zone.
+-- @return (table|nil) A tile frame or `nil`.
 find_by_rotation = function(window, zone_key, zone_windows, all_tiles_in_zone)
     if not all_tiles_in_zone or #all_tiles_in_zone == 0 then
         log("Rotation strategy: No tiles available in this zone.")
@@ -111,10 +125,13 @@ find_by_rotation = function(window, zone_key, zone_windows, all_tiles_in_zone)
     end
 end
 
---- Strategy: Find the largest free predefined tile in the zone.
--- @param window The window to place.
--- @param all_tiles_in_zone A list of all possible tiles for the zone.
--- @return A tile frame or nil.
+--- Implements the largest free space placement strategy.
+-- It checks all predefined tiles in a zone and finds the largest one that does not
+-- intersect with any other window on the screen.
+-- @local
+-- @param window (hs.window) The window to place.
+-- @param all_tiles_in_zone (table) A list of all possible tiles for the zone.
+-- @return (table|nil) A tile frame or `nil`.
 find_largest_free_tile = function(window, all_tiles_in_zone)
     if not all_tiles_in_zone or #all_tiles_in_zone == 0 then
         log("Largest-free-space strategy: No tiles available in this zone.")

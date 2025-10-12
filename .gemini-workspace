@@ -1,0 +1,4 @@
+context:
+  files:
+    - "GEMINI.md"
+    - "ARCHITECTURE.md"

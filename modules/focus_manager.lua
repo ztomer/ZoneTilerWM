@@ -1,5 +1,8 @@
--- focus_manager.lua
--- Manages the state and logic for cycling focus between windows within a specific zone.
+--- Manages focus cycling for windows within zones.
+-- This module is responsible for determining which windows belong to a zone,
+-- maintaining an ordered list for focus cycling, and handling the logic for
+-- moving focus from one window to the next within that cycle.
+-- @module focus_manager
 local hs_window = hs.window
 local hs_timer = hs.timer
 local hs_canvas = hs.canvas
@@ -15,6 +18,7 @@ local window_state_manager = nil -- Set in init
 local debug_log = function(...)
 end -- Placeholder, will be set in init
 
+-- Manages the state of the current focus cycle.
 local current_focus_cycle_manager = {
     zone_key = nil, -- The zone key for the active cycle (e.g., "h")
     monitor_id_logical = nil, -- The logical monitor ID for the cycle
@@ -23,7 +27,10 @@ local current_focus_cycle_manager = {
     -- Otherwise, it's the 1-based index of the last window focused in this cycle
 }
 
--- Helper function to get window stacking order (Z-order)
+--- Gets the Z-order (stacking order) of a window.
+-- @local
+-- @param window (hs.window) The window to check.
+-- @return (number) The stacking order index. Lower is higher on screen.
 local function get_window_z_order(window)
     local ordered_windows = hs_window.orderedWindows()
     for i, w in ipairs(ordered_windows) do
@@ -34,7 +41,11 @@ local function get_window_z_order(window)
     return 999999 -- Should not happen for a valid window
 end
 
--- Helper function for overlap calculation
+--- Calculates the percentage of rect1 that is covered by rect2.
+-- @local
+-- @param rect1 (table) The first rectangle `{x, y, w, h}`.
+-- @param rect2 (table) The second rectangle `{x, y, w, h}`.
+-- @return (number) The percentage of overlap (0.0 to 1.0).
 local function calculate_overlap_percentage(rect1, rect2)
     if not rect1 or not rect2 or rect1.w <= 0 or rect1.h <= 0 then
         return 0
@@ -43,9 +54,17 @@ local function calculate_overlap_percentage(rect1, rect2)
     local y_overlap = math.max(0, math.min(rect1.y + rect1.h, rect2.y + rect2.h) - math.max(rect1.y, rect2.y))
     local overlap_area = x_overlap * y_overlap
     return overlap_area / (rect1.w * rect1.h)
-end
+}
 
--- Helper function to collect windows for a zone
+--- Collects all windows that belong to a specific zone.
+-- A window belongs to a zone if it is explicitly assigned to it via `window_state_manager`
+-- or if it significantly overlaps with one of the zone's tiles.
+-- @local
+-- @param monitor_id (string) The ID of the monitor.
+-- @param zone_key (string) The key of the zone.
+-- @param screen_obj (hs.screen) The screen object.
+-- @param zone_tiles_for_this_zone (table) A list of tile frames for the zone.
+-- @return (table) A list of window information tables.
 local function collect_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles_for_this_zone)
     local zone_windows_collected = {}
     local overlap_threshold = config.tiler.overlap_threshold or 0.5
@@ -110,7 +129,10 @@ local function collect_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles
     return zone_windows_collected
 end
 
--- Helper function to sort zone windows (for initial cycle order)
+--- Sorts a list of zone windows to create an intuitive cycling order.
+-- The sorting priority is: tile index, then explicit assignment, then Z-order.
+-- @local
+-- @param zone_windows_list (table) The list of window info tables to sort.
 local function sort_zone_windows_for_intuitive_order(zone_windows_list)
     table.sort(zone_windows_list, function(a, b)
         if a.tile_index ~= b.tile_index then
@@ -123,7 +145,12 @@ local function sort_zone_windows_for_intuitive_order(zone_windows_list)
     end)
 end
 
--- Main focus cycling function
+--- Cycles focus to the next window in a given zone.
+-- This is the main entry point for the focus manager. It builds or rebuilds the
+-- focus cycle list as needed, then focuses the next window in the list.
+-- @param focused_window_before_call (hs.window) The window that was focused when the function was called.
+-- @param target_zone_key (string) The key of the zone to cycle through.
+-- @return (boolean) `true` if focus was successfully changed, `false` otherwise.
 function focus_manager.cycle_windows_in_zone(focused_window_before_call, target_zone_key)
     if not focused_window_before_call or not focused_window_before_call:isStandard() or
         focused_window_before_call:isMinimized() then
@@ -302,7 +329,8 @@ function focus_manager.cycle_windows_in_zone(focused_window_before_call, target_
     end
 end
 
--- Handle window destroyed event
+--- Handles the `windowDestroyed` event to invalidate the focus cycle if needed.
+-- @param window_id (number) The ID of the window that was destroyed.
 function focus_manager.handle_window_destroyed(window_id)
     if current_focus_cycle_manager.zone_key then
         local was_in_cycle = false
@@ -320,7 +348,8 @@ function focus_manager.handle_window_destroyed(window_id)
     end
 end
 
--- Reset the focus cycle state
+--- Resets the internal state of the focus cycle.
+-- This is called when the cycle becomes invalid, such as when a screen changes or a window is destroyed.
 function focus_manager.reset_cycle()
     current_focus_cycle_manager.zone_key = nil
     current_focus_cycle_manager.monitor_id_logical = nil
@@ -329,7 +358,10 @@ function focus_manager.reset_cycle()
     debug_log("Focus cycle state reset.")
 end
 
--- Debug function to inspect windows in a zone
+--- Prints debugging information about the windows within a zone.
+-- @param monitor_id (string) The ID of the monitor.
+-- @param zone_key (string) The key of the zone to debug.
+-- @param screen_obj (hs.screen) The screen object.
 function focus_manager.debug_zone_windows(monitor_id, zone_key, screen_obj)
     local zone_tiles = zone_calculator.get(monitor_id, zone_key)
     if not zone_tiles then
@@ -347,13 +379,18 @@ function focus_manager.debug_zone_windows(monitor_id, zone_key, screen_obj)
     end
 end
 
--- Debug function to inspect the current cycle state
+--- Prints the current internal state of the focus cycle manager to the console.
 function focus_manager.debug_cycle_state()
     print("\nCurrent Focus Cycle Manager State:")
     print(hs.inspect(current_focus_cycle_manager))
 end
 
--- Initialize the module
+--- Initializes the `focus_manager` module.
+-- @param cfg (table) The main configuration table.
+-- @param mm (table) The `monitor_manager` module.
+-- @param zc (table) The `zone_calculator` module.
+-- @param wsm (table) The `window_state_manager` module.
+-- @param log_func (function) The logging function to use.
 function focus_manager.init(cfg, mm, zc, wsm, log_func)
     config = cfg
     monitor_manager = mm
