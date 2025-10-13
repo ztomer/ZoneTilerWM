@@ -54,7 +54,7 @@ local function calculate_overlap_percentage(rect1, rect2)
     local y_overlap = math.max(0, math.min(rect1.y + rect1.h, rect2.y + rect2.h) - math.max(rect1.y, rect2.y))
     local overlap_area = x_overlap * y_overlap
     return overlap_area / (rect1.w * rect1.h)
-}
+end
 
 --- Collects all windows that belong to a specific zone.
 -- A window belongs to a zone if it is explicitly assigned to it via `window_state_manager`
