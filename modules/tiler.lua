@@ -397,11 +397,6 @@ function tiler.start()
     smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
 
-    for _, screen_obj in ipairs(hs_screen.allScreens()) do
-        local monitor_id = monitor_manager.get_id(screen_obj)
-        zone_calculator.create_for_monitor(monitor_id, screen_obj)
-    end
-
     local modifier = config.tiler.modifier
     local focus_modifier = config.tiler.focus_modifier
 
