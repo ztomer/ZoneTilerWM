@@ -446,6 +446,14 @@ function tiler.start()
 
     local screen_watcher = hs.screen.watcher.new(handle_screen_change):start()
 
+    -- Automatically tile all existing windows on startup
+    debug_log("Tiling all existing windows on startup...")
+    for _, win in ipairs(hs_window.allWindows()) do
+        if win:isStandard() and not win:isMinimized() then
+            tiler.attempt_reposition_existing_window(win)
+        end
+    end
+
     debug_log("Tiler started successfully")
     return tiler
 end
