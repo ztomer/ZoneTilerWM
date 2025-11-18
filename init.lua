@@ -1,5 +1,6 @@
 -- Hammerspoon configuration
 local config = require "config"
+local config_validator = require "modules.config_validator"
 
 -- Load modules
 local pom = require "modules.pomodoor"
@@ -51,12 +52,20 @@ end
 local function init()
     print("-------------- Loading Hammerspoon config --------------")
 
+    -- Validate configuration
+    local valid, err = config_validator.validate(config)
+    if not valid then
+        hs.alert.show("Config Error: " .. err, 5)
+        print("Config Error: " .. err)
+        return -- Stop initialization
+    end
+
     -- Disable animation for speed
     hs.window.animationDuration = 0
 
     -- Load Spoons
-    hs.loadSpoon("RoundedCorners")
-    spoon.RoundedCorners:start()
+    -- hs.loadSpoon("RoundedCorners")
+    -- spoon.RoundedCorners:start()
 
     -- Initialize simplified tiler
     tiler.start()

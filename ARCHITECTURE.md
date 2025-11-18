@@ -43,6 +43,13 @@ graph TD
         ZC("zone_calculator.lua")
         MM("monitor_manager.lua")
         WM("window_memory.lua")
+        RM("resize_manager.lua")
+    end
+
+    subgraph "Utility & Features"
+        GO("grid_overlay.lua")
+        CV("config_validator.lua")
+        ST("storage.lua")
     end
 
     subgraph "Configuration"
@@ -62,6 +69,8 @@ graph TD
     WA -->|Get Tile Geometry| ZC
     WA -->|Get Screen Obj| MM
 
+    ZC -->|Get Offsets| RM
+
     FM -->|Get Window List| WSM
     FM -->|Get Tile Geometry| ZC
 
@@ -72,7 +81,10 @@ graph TD
     WSM -->|Notify Positioned| WM
 
     WM -->|Get Remembered Pos| Tiler
-    WM -->|Save/Load| Disk[(Cache File)]
+    WM -->|Get Remembered Pos| Tiler
+    WM -->|Save/Load| ST
+    RM -->|Save/Load| ST
+    ST -->|Read/Write| Disk[(JSON Files)]
 
     CFG --> Tiler
     CFG --> ZC
@@ -92,6 +104,7 @@ graph TD
 *   **`zone_calculator.lua`**: Determines the correct grid layout for each monitor (e.g., 4x3, 2x2) and calculates the exact pixel geometry for every tile within every zone.
 *   **`window_state_manager.lua`**: Tracks the *current, in-memory state* of each tiled window (which zone and tile it occupies) for the active session. It acts as the live database for window positions.
 *   **`window_memory.lua`**: Remembers window positions *across sessions*. It saves/loads preferences to/from disk, learns user habits, and provides remembered positions for new windows.
+*   **`resize_manager.lua`**: Manages the dynamic offsets for grid lines. It allows users to adjust the size of zones without editing the config file.
 
 ### Action & Logic
 *   **`window_actions.lua`**: Contains the low-level functions for manipulating windows (moving, resizing, applying frames). It's the "muscle" of the tiler, handling the direct `hs.window` API calls.
@@ -104,6 +117,9 @@ graph TD
 *   **`audio_switcher.lua`**: Provides two functions for managing audio outputs. First, it allows manual cycling through a predefined list of audio devices via a hotkey. Second, it automatically listens for changes to the system's default audio output device and triggers a user-defined macOS Shortcut. This is configured in `config.lua` via the `shortcut_callback` key.
 *   **`pomodoor.lua`**: Implements the self-contained Pomodoro timer feature, including the menubar display and visual indicators.
 *   **`lru_cache.lua`**: A generic, reusable Least Recently Used (LRU) cache utility.
+*   **`storage.lua`**: Provides a robust abstraction for saving and loading data to JSON files. It handles file I/O, JSON encoding/decoding, and error checking.
+*   **`config_validator.lua`**: Validates the user's `config.lua` against a defined schema to prevent runtime errors during initialization.
+*   **`grid_overlay.lua`**: Renders a visual grid on the screen using `hs.canvas`. This is used to provide feedback during dynamic resizing.
 
 ### Spoons
 *   **`Spoons/RoundedCorners.spoon/init.lua`**: A third-party Spoon used to render rounded corners on screens for aesthetic purposes. It is independent of the core tiling logic.

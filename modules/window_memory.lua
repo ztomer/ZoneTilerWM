@@ -1,8 +1,9 @@
 -- window_memory.lua
 -- Simple window position memory: load on startup, save on shutdown, auto-position new windows
+---@module window_memory
 local window_memory = {}
 local config = require "config"
-local json = require "hs.json"
+local storage = require "modules.storage"
 
 -- Module state
 local tiler = nil -- Set during initialization
@@ -20,6 +21,8 @@ local function debug_log(...)
 end
 
 -- Check if app should be excluded from memory
+---@param app_name string
+---@return boolean
 local function is_excluded_app(app_name)
     if not config.window_memory or not config.window_memory.excluded_apps then
         return false
@@ -32,35 +35,11 @@ local function is_excluded_app(app_name)
     return false
 end
 
--- Get cache filename
-local function get_cache_filename()
-    local cache_dir = config.window_memory and config.window_memory.cache_dir or (os.getenv("HOME") .. "/.config/tiler")
-    return cache_dir .. "/window_positions.json"
-end
-
--- Ensure cache directory exists
-local function ensure_cache_dir()
-    local cache_dir = config.window_memory and config.window_memory.cache_dir or (os.getenv("HOME") .. "/.config/tiler")
-    os.execute("mkdir -p " .. cache_dir)
-end
-
 -- Load positions from disk
 local function load_positions()
-    local filename = get_cache_filename()
-    local file = io.open(filename, "r")
-    if not file then
-        debug_log("No existing cache file found")
-        return
-    end
+    local data = storage.load("window_positions")
 
-    local content = file:read("*all")
-    file:close()
-
-    local success, data = pcall(function()
-        return json.decode(content)
-    end)
-
-    if success and data and data.positions then
+    if data and data.positions then
         -- Convert array back to nested structure
         for _, pos in ipairs(data.positions) do
             if not positions[pos.app_name] then
@@ -91,7 +70,7 @@ local function load_positions()
             debug_log("No preferences found in cache file")
         end
     else
-        debug_log("Failed to parse cache file")
+        debug_log("No valid cache data found")
     end
 end
 
@@ -156,23 +135,17 @@ local function save_memory_to_disk()
         end
     end
 
-    -- Save to disk
-    ensure_cache_dir()
-    local filename = get_cache_filename()
+    -- Save to disk using storage module
     local data = {
-        timestamp = os.time(),
         positions = positions_array,
         preferences = preferences_array
     }
 
-    local json_str = json.encode(data)
-    local file = io.open(filename, "w")
-    if file then
-        file:write(json_str)
-        file:close()
+    local success, err = storage.save("window_positions", data)
+    if success then
         debug_log("Saved", #positions_array, "last positions and", #preferences_array, "preferences to disk")
     else
-        debug_log("Failed to save cache file")
+        debug_log("Failed to save cache file:", err)
     end
 end
 
@@ -184,6 +157,9 @@ local function capture_and_save_positions()
 end
 
 -- Get remembered position for app on current monitor
+---@param app_name string
+---@param monitor_id string
+---@return table|nil position {zone_key, tile_index}
 function window_memory.get_remembered_position(app_name, monitor_id)
     if is_excluded_app(app_name) then
         return nil
@@ -198,6 +174,10 @@ function window_memory.get_remembered_position(app_name, monitor_id)
 end
 
 -- Get the most frequently used tile for an app in a specific zone
+---@param app_name string
+---@param monitor_id string
+---@param zone_key string
+---@return number|nil tile_index
 function window_memory.get_preferred_tile(app_name, monitor_id, zone_key)
     if not preferences[app_name] or not preferences[app_name][monitor_id] or
         not preferences[app_name][monitor_id][zone_key] then
@@ -224,6 +204,9 @@ function window_memory.get_preferred_tile(app_name, monitor_id, zone_key)
 end
 
 -- Get the most frequently used zone for an app on a specific monitor
+---@param app_name string
+---@param monitor_id string
+---@return string|nil zone_key
 function window_memory.get_preferred_zone(app_name, monitor_id)
     if not preferences[app_name] or not preferences[app_name][monitor_id] then
         return nil
@@ -275,6 +258,10 @@ local function commit_learned_position(app_name, monitor_id, zone_key, tile_inde
 end
 
 -- Called by tiler when a window is positioned
+---@param window hs.window
+---@param monitor_id string
+---@param zone_key string
+---@param tile_index number
 function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_index)
     if not window or not window:isStandard() then
         return
@@ -326,9 +313,9 @@ function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_i
     end)
 end
 
--- (remove the entire window_memory.on_window_created function)
-
 -- Check if window should be positioned (called by tiler)
+---@param window hs.window
+---@return boolean
 function window_memory.should_position_window(window)
     if not window or not window:isStandard() then
         return false
@@ -339,6 +326,7 @@ function window_memory.should_position_window(window)
 end
 
 -- Save all window positions (for hotkey)
+---@return number count
 function window_memory.save_all_positions()
     debug_log("Manually capturing and saving all window positions")
     capture_and_save_positions()
@@ -353,6 +341,7 @@ function window_memory.save_all_positions()
 end
 
 -- Restore all remembered positions (for hotkey)
+---@return number count
 function window_memory.restore_all_positions()
     debug_log("Restoring all window positions")
     local count = 0
@@ -364,7 +353,7 @@ function window_memory.restore_all_positions()
                 local screen = window:screen()
                 if screen then
                     local monitor_id = tiler.monitors.get_id(screen)
-                    local remembered = get_remembered_position(app_name, monitor_id)
+                    local remembered = window_memory.get_remembered_position(app_name, monitor_id)
 
                     if remembered then
                         debug_log("Restoring", app_name, "to zone:", remembered.zone_key, "tile:", remembered.tile_index)
@@ -417,6 +406,8 @@ function window_memory.setup_hotkeys()
 end
 
 -- Initialize window memory system
+---@param tiler_module table
+---@return table window_memory
 function window_memory.init(tiler_module)
     tiler = tiler_module
     window_memory.debug = config.window_memory and config.window_memory.debug or false
@@ -428,6 +419,13 @@ function window_memory.init(tiler_module)
     end
     if config.window_memory.save_interval_sec == nil then
         config.window_memory.save_interval_sec = 0 -- 0 means disabled
+    end
+
+    -- Initialize storage with config dir
+    if config.window_memory.cache_dir then
+        storage.init({dir = config.window_memory.cache_dir})
+    else
+        storage.init()
     end
 
     -- Set up integration with tiler

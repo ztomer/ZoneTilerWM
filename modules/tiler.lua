@@ -10,6 +10,7 @@ local hs_window = hs.window -- Cache for frequent use
 local hs_screen = hs.screen
 local hs_hotkey = hs.hotkey
 local hs_timer = hs.timer
+local hs_alert = hs.alert
 
 -- Window memory integration
 local window_memory = nil
@@ -22,6 +23,8 @@ local smart_placer = require "modules.smart_placer"
 local focus_manager = require "modules.focus_manager"
 local window_actions = require "modules.window_actions"
 local placement_strategy = require "modules.placement_strategy"
+local resize_manager = require "modules.resize_manager"
+local grid_overlay = require "modules.grid_overlay"
 
 -- Debug logging
 local function debug_log(...)
@@ -40,6 +43,10 @@ tiler.monitors = monitor_manager -- Keep this for window_memory if it directly a
 -- Expose window_state for window_memory
 tiler.window_state = window_state_manager -- Keep this for window_memory
 tiler.window_actions = window_actions
+
+-- Resize Mode State
+local resize_mode_active = false
+local resize_mode_alert_uuid = nil
 
 ------------------------------------------
 -- Window Utility Functions
@@ -217,6 +224,73 @@ function tiler.attempt_reposition_existing_window(window)
         end)
     end
 end
+
+------------------------------------------
+-- Dynamic Resizing
+------------------------------------------
+
+local resize_modal = hs.hotkey.modal.new()
+
+local function exit_resize_mode()
+    if resize_mode_active then
+        resize_mode_active = false
+        resize_modal:exit()
+        if resize_mode_alert_uuid then
+            hs_alert.closeSpecific(resize_mode_alert_uuid)
+            resize_mode_alert_uuid = nil
+        end
+        grid_overlay.hide() -- Hide overlay
+        -- hs_alert.show("Exited Resize Mode") -- Optional, overlay hiding is enough feedback
+    end
+end
+
+local function enter_resize_mode()
+    if not resize_mode_active then
+        resize_mode_active = true
+        resize_modal:enter()
+        -- resize_mode_alert_uuid = hs_alert.show("RESIZE MODE\nArrows: Move Grid Lines\nEsc: Exit", true)
+        grid_overlay.show() -- Show overlay instead of alert
+    end
+end
+
+local function adjust_grid(axis, index, delta)
+    local win = hs_window.focusedWindow()
+    if not win then return end
+    local screen = win:screen()
+    if not screen then return end
+    local monitor_id = monitor_manager.get_id(screen)
+
+    resize_manager.adjust(monitor_id, axis, index, delta)
+
+    -- Refresh all windows on this screen to reflect new grid
+    zone_calculator.clear_all() -- Force recalc
+    zone_calculator.create_for_monitor(monitor_id, screen)
+
+    -- Update overlay to match new grid
+    grid_overlay.update()
+
+    for _, w in ipairs(hs_window.visibleWindows()) do
+        if w:screen():id() == screen:id() then
+            tiler.attempt_reposition_existing_window(w)
+        end
+    end
+end
+
+-- Bind resize keys
+resize_modal:bind({}, "escape", exit_resize_mode)
+resize_modal:bind({}, "return", exit_resize_mode)
+
+-- Adjust vertical lines (Cols)
+resize_modal:bind({}, "left", function() adjust_grid("x", 1, -1) end) -- Move first divider left
+resize_modal:bind({}, "right", function() adjust_grid("x", 1, 1) end) -- Move first divider right
+resize_modal:bind({"shift"}, "left", function() adjust_grid("x", 2, -1) end) -- Move second divider left
+resize_modal:bind({"shift"}, "right", function() adjust_grid("x", 2, 1) end) -- Move second divider right
+
+-- Adjust horizontal lines (Rows)
+resize_modal:bind({}, "up", function() adjust_grid("y", 1, -1) end)
+resize_modal:bind({}, "down", function() adjust_grid("y", 1, 1) end)
+
+
 ------------------------------------------
 -- Event Handling
 ------------------------------------------
@@ -437,6 +511,15 @@ function tiler.start()
 
     hs_hotkey.bind(config.keys.HYPER, config.keys.zen, function()
         tiler.toggle_zen_mode()
+    end)
+
+    -- Bind Resize Mode Toggle
+    hs_hotkey.bind(config.keys.HYPER, "r", function()
+        if resize_mode_active then
+            exit_resize_mode()
+        else
+            enter_resize_mode()
+        end
     end)
 
     -- Watch for window events

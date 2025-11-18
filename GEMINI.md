@@ -23,7 +23,12 @@ The core design is modular, with a central configuration file (`config.lua`) dri
     *   `window_state_manager.lua`: Tracks which window is in which "tile" (a specific rectangle within a zone).
     *   `window_actions.lua`: Contains the fundamental functions to move and resize windows to calculated tiles.
     *   `placement_strategy.lua`: Decides which tile to use when a zone has multiple options (e.g., cycling through `{"a1:a2", "a1", "a1:b2"}`).
+    *   `placement_strategy.lua`: Decides which tile to use when a zone has multiple options (e.g., cycling through `{"a1:a2", "a1", "a1:b2"}`).
     *   `window_memory.lua`: Persists and recalls window positions for specific applications, overriding default placement logic.
+    *   `storage.lua`: Abstracted JSON file I/O for persistence.
+    *   `resize_manager.lua`: Manages dynamic grid line offsets for resizing.
+    *   `grid_overlay.lua`: Renders visual feedback for the grid using `hs.canvas`.
+    *   `config_validator.lua`: Validates the `config.lua` schema on startup.
 
 ## 2. Developer Workflow
 
@@ -36,7 +41,12 @@ The core design is modular, with a central configuration file (`config.lua`) dri
 *   **Linting & Formatting:**
     *   This project uses `luacheck` for linting and `stylua` for code formatting.
     *   To check for issues, run `luacheck .` from the root directory.
+    *   To check for issues, run `luacheck .` from the root directory.
     *   To format all Lua files, run `stylua .`.
+*   **Testing:**
+    *   Run the test suite with `lua tests/test_runner.lua`.
+    *   Tests use `tests/mock_hs.lua` to simulate the Hammerspoon API.
+    *   Always add tests for new logic modules (e.g., calculators, validators, storage).
 
 ## 3. Key Conventions & Patterns
 

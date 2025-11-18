@@ -49,7 +49,7 @@ config.appCuts = {
     z = 'Nimble Commander',
     x = 'Claude',
     c = 'Arc',
-    v = 'Visual Studio Code',
+    v = 'Antigravity', -- Visual Studio Code
     b = 'YouTube Music'
 }
 

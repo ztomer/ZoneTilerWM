@@ -8,6 +8,7 @@
 -- @class zone_calculator
 local hs_screen = hs.screen
 local lru_cache = require "modules.lru_cache"
+local resize_manager = require "modules.resize_manager"
 
 local zone_calculator = {}
 
@@ -336,18 +337,34 @@ end
 function zone_calculator.create_tile_from_grid_coords(screen, grid_coords, rows, cols)
     local frame = screen:frame()
     local w, h, x, y = frame.w, frame.h, frame.x, frame.y
+    local monitor_id = require("modules.monitor_manager").get_id(screen)
 
     local col_start = grid_coords.col_start
     local row_start = grid_coords.row_start
     local col_end = grid_coords.col_start + grid_coords.num_cols - 1
     local row_end = grid_coords.row_start + grid_coords.num_rows - 1
 
-    local col_width = w / cols
-    local row_height = h / rows
-    local tile_x = x + (col_start - 1) * col_width
-    local tile_y = y + (row_start - 1) * row_height
-    local tile_w = (col_end - col_start + 1) * col_width
-    local tile_h = (row_end - row_start + 1) * row_height
+    -- Helper to get cumulative offset for a grid line
+    local function get_line_pos(axis, index, total_size, count)
+        if index <= 0 then return 0 end
+        if index >= count then return total_size end
+
+        local default_pos = (index / count) * total_size
+        local offset_pct = resize_manager.get_offset(monitor_id, axis, index)
+        local offset_px = offset_pct * total_size
+
+        return default_pos + offset_px
+    end
+
+    local x_start = get_line_pos("x", col_start - 1, w, cols)
+    local x_end = get_line_pos("x", col_end, w, cols)
+    local y_start = get_line_pos("y", row_start - 1, h, rows)
+    local y_end = get_line_pos("y", row_end, h, rows)
+
+    local tile_x = x + x_start
+    local tile_y = y + y_start
+    local tile_w = x_end - x_start
+    local tile_h = y_end - y_start
 
     if margins and margins.enabled then
         local margin = margins.size or 0
@@ -438,6 +455,7 @@ function zone_calculator.init(cfg, margins_cfg, log_func)
     margins = margins_cfg
     debug_log = log_func or debug_log
     layout_cache = lru_cache.new(10) -- Cache up to 10 monitor layouts
+    resize_manager.init()
     debug_log("ZoneCalculator initialized")
 end
 
