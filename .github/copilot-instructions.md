@@ -1,5 +1,9 @@
 # Copilot Instructions for ZoneTilerWM
 
+**📚 Note:** For complete AI copilot instructions, see [docs/GEMINI.md](../docs/GEMINI.md). This file provides a quick reference.
+
+---
+
 This document provides essential guidance for an AI agent working on the ZoneTilerWM codebase. Understanding these concepts is crucial for making effective contributions.
 
 ## 1. Big Picture: A Modular Hammerspoon Window Manager
@@ -57,3 +61,10 @@ The core design is modular, with a central configuration file (`config.lua`) dri
     1.  For an app hotkey, add it to `config.appCuts`.
     2.  If the app has unusual window behavior, add it to `config.tiler.problem_apps`.
     3.  If it needs a default position, add it to `config.window_memory.app_zones`.
+
+## 5. Documentation References
+
+For more detailed information, see:
+- **[docs/GEMINI.md](../docs/GEMINI.md)** - Complete AI copilot guide
+- **[docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)** - System architecture and design
+- **[docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md)** - Contribution guidelines

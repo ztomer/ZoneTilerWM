@@ -12,7 +12,7 @@ config.keys = {
 
 -- Audio switcher settings
 config.audio_switcher = {
-    devices = {"Audioengine 2+", "Bose QC35 II"},
+    devices = {"Audioengine 2+", "Bose QC35 II", "WH-1000XM6"},
     hotkey = {config.keys.HYPER, "'"},
     -- Name of the macOS Shortcut to run when the default audio device changes.
     -- The shortcut should contain its own logic to detect the device and act accordingly.
@@ -39,7 +39,7 @@ config.appCuts = {
     q = 'BambuStudio',
     w = 'Whatsapp',
     e = 'Finder',
-    r = 'Cronometer',
+    r = 'ZTCronometer',
     t = 'Ghostty',
     a = 'Notion',
     s = 'Notion Mail',
@@ -65,9 +65,9 @@ config.hyperAppCuts = {
     f = '',
     g = '',
     z = '',
-    x = 'Gemini',
+    x = 'GeminiDesk',
     c = 'Google Chrome',
-    v = '',
+    v = 'Visual Studio Code',
     b = ''
 }
 

@@ -42,19 +42,27 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 ~/.hammerspoon/
 ├── init.lua              # Entry point
 ├── config.lua            # Configuration for keys, layouts, and features
-└── modules/
-    ├── tiler.lua         # Core tiling orchestrator
-    ├── monitor_manager.lua # Stable monitor identification
-    ├── zone_calculator.lua # Zone and tile geometry calculation
-    ├── window_state_manager.lua # Manages window tiler states
-    ├── smart_placer.lua  # Intelligent new window placement
-    ├── placement_strategy.lua # Determines the best tile for a window
-    ├── focus_manager.lua   # Manages focus cycling within zones
-    ├── window_actions.lua  # Core window manipulation functions
-    ├── window_memory.lua # Window memory and recall
-    ├── app_switcher.lua  # App hotkey binding module
-    ├── pomodoor.lua      # Pomodoro timer display and logic
-    └── lru_cache.lua     # Helper LRU cache for window focus history
+├── docs/                 # Documentation
+│   ├── ARCHITECTURE.md   # System design and module overview
+│   ├── CONTRIBUTING.md   # Development guidelines
+│   ├── GEMINI.md         # AI copilot instructions
+│   └── keyboard_shortcuts.md # Complete keyboard reference
+├── modules/              # Core functionality modules
+│   ├── tiler.lua         # Core tiling orchestrator
+│   ├── monitor_manager.lua # Stable monitor identification
+│   ├── zone_calculator.lua # Zone and tile geometry calculation
+│   ├── window_state_manager.lua # Manages window tiler states
+│   ├── smart_placer.lua  # Intelligent new window placement
+│   ├── placement_strategy.lua # Determines the best tile for a window
+│   ├── focus_manager.lua   # Manages focus cycling within zones
+│   ├── window_actions.lua  # Core window manipulation functions
+│   ├── window_memory.lua # Window memory and recall
+│   ├── app_switcher.lua  # App hotkey binding module
+│   ├── pomodoor.lua      # Pomodoro timer display and logic
+│   └── lru_cache.lua     # Helper LRU cache for window focus history
+└── tests/                # Test suite
+    ├── test_runner.lua   # Test harness
+    └── mock_hs.lua       # Hammerspoon API mocks
 ```
 
 ---
@@ -169,6 +177,18 @@ You can extend the detection logic in `config.lua` under `config.tiler.screen_de
 * Use the Hammerspoon console to check layout messages
 * Reload config: `Shift+Ctrl+Cmd+R`
 * Add screen pattern or custom name if detection fails
+
+---
+
+## Documentation
+
+For detailed documentation, see the [docs/](docs/) folder:
+
+* **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and data flow
+* **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
+* **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
+* **[AI Copilot Guide](docs/GEMINI.md)** - Instructions for AI assistants
+* **[Native Port Plan](docs/NATIVE_PORT_PLAN.md)** - Future Swift migration roadmap
 
 ---
 

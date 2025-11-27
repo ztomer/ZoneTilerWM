@@ -1,4 +1,5 @@
 context:
   files:
-    - "GEMINI.md"
-    - "ARCHITECTURE.md"
+    - "docs/GEMINI.md"
+    - "docs/ARCHITECTURE.md"
+    - "docs/CONTRIBUTING.md"
