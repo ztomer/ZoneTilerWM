@@ -23,10 +23,13 @@ The core design is modular, with a central configuration file (`config.lua`) dri
 3.  **Orchestrator (`modules/tiler.lua`):** This module is the heart of the window manager. It initializes all other tiling-related sub-modules, binds hotkeys for window manipulation, and sets up watchers for window and screen events (`handle_window_created`, `handle_screen_change`).
 4.  **Module Responsibilities:**
     *   `monitor_manager.lua`: Provides stable identifiers for monitors, which is critical for multi-monitor support.
-    *   `zone_calculator.lua`: Translates abstract grid definitions from `config.lua` (e.g., `"a1:b2"`) into concrete pixel coordinates (`hs.geometry`) for the current screen.
+    *   `zone_calculator.lua`: Translates abstract grid definitions from `config.lua` (e.g., `"a1:b2"`) into concrete pixel coordinates (`hs.geometry`).
     *   `window_state_manager.lua`: Tracks which window is in which "tile" (a specific rectangle within a zone).
     *   `window_actions.lua`: Contains the fundamental functions to move and resize windows to calculated tiles.
-    *   `placement_strategy.lua`: Decides which tile to use when a zone has multiple options (e.g., cycling through `{"a1:a2", "a1", "a1:b2"}`).
+    *   `placement_strategy.lua`: Decides which tile to use when a zone has multiple options (e.g., cycling).
+    *   `smart_placer.lua`: Intelligently finds the best open spot for a new window when no specific rule applies.
+    *   `focus_manager.lua`: Handles window focus cycling within zones.
+    *   `layout_manager.lua`: Manages saving and loading of entire window layouts.
     *   `window_memory.lua`: Persists and recalls window positions for specific applications, overriding default placement logic.
 
 ## 2. Developer Workflow
