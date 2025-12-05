@@ -357,4 +357,52 @@ config.layout_manager = {
     debug = true
 }
 
+-- Spaces settings (macOS Mission Control Spaces integration)
+config.spaces = {
+    enabled = true, -- Enable/disable Spaces feature
+    debug = true, -- Enable debug logging
+
+    -- Keyboard shortcuts for switching spaces (Ctrl+Shift+Number)
+    hotkeys = {
+        space_1 = {{"ctrl", "shift"}, "1"},
+        space_2 = {{"ctrl", "shift"}, "2"},
+        space_3 = {{"ctrl", "shift"}, "3"},
+        space_4 = {{"ctrl", "shift"}, "4"},
+        space_5 = {{"ctrl", "shift"}, "5"},
+        space_6 = {{"ctrl", "shift"}, "6"},
+        space_7 = {{"ctrl", "shift"}, "7"},
+        space_8 = {{"ctrl", "shift"}, "8"},
+        space_9 = {{"ctrl", "shift"}, "9"}
+    },
+
+    -- Menubar indicator settings
+    menubar = {
+        enabled = true, -- Show menubar indicator
+        show_names = false, -- Show Space names instead of numbers
+        click_to_switch = true -- Allow clicking menubar to switch spaces
+    },
+
+    -- Visual preview settings
+    preview = {
+        enabled = true, -- Enable visual preview of windows in spaces
+        activation_mode = "hover", -- "hover" or "click"
+        hover_delay = 0.3, -- Delay in seconds before showing preview on hover
+        window_width = 600, -- Preview window width in pixels
+        window_height = 400, -- Preview window height in pixels
+        thumbnail_size = {
+            width = 100, -- Individual window thumbnail width
+            height = 80 -- Individual window thumbnail height
+        },
+        background_color = {red = 0.1, green = 0.1, blue = 0.1, alpha = 0.95},
+        border_color = {red = 0.3, green = 0.3, blue = 0.3, alpha = 1.0},
+        active_space_color = {red = 0.2, green = 0.5, blue = 0.8, alpha = 1.0},
+        drag_enabled = true -- Enable drag-and-drop between spaces
+    },
+
+    -- Layout persistence settings
+    save_layouts_per_space = true, -- Save window layouts per Space per monitor
+    auto_restore_layouts = true, -- Automatically restore layouts when switching Spaces
+    layout_save_delay = 1.0 -- Delay in seconds before saving layout after changes
+}
+
 return config

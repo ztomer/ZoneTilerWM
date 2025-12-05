@@ -10,6 +10,12 @@ local window_memory = require "modules.window_memory"
 local audio_switcher = require "modules.audio_switcher"
 local layout_manager = require "modules.layout_manager"
 
+-- Load Spaces modules
+local space_storage = require "modules.space_storage"
+local space_manager = require "modules.space_manager"
+local space_preview = require "modules.space_preview"
+local space_menubar = require "modules.space_menubar"
+
 -- Get key combinations from config
 local mash = config.keys.mash
 local mash_app = config.keys.mash_app
@@ -77,6 +83,59 @@ local function init()
 
     if config.layout_manager and config.layout_manager.enabled then
         layout_manager.init(tiler)
+    end
+
+    -- Initialize Spaces (macOS Mission Control integration)
+    if config.spaces and config.spaces.enabled then
+        print("Initializing Spaces support...")
+
+        -- Initialize storage first
+        space_storage.init(config, print)
+
+        -- Initialize core space manager
+        space_manager.init(config, tiler, tiler.monitor_manager, window_memory, space_storage, print)
+
+        -- Initialize preview (must be before menubar for hover to work)
+        space_preview.init(config, space_manager, tiler.window_state, print)
+
+        -- Initialize menubar indicator
+        space_menubar.init(config, space_manager, space_preview, print)
+
+        -- Set up Space switching hotkeys
+        if config.spaces.hotkeys then
+            for space_num = 1, 9 do
+                local hotkey_name = "space_" .. space_num
+                local hotkey_config = config.spaces.hotkeys[hotkey_name]
+
+                if hotkey_config then
+                    hs.hotkey.bind(hotkey_config[1], hotkey_config[2], function()
+                        -- Get all spaces and switch to the Nth one
+                        local all_spaces = space_manager.get_all_spaces()
+                        if all_spaces then
+                            -- Flatten and sort spaces
+                            local space_list = {}
+                            for _, spaces_for_screen in pairs(all_spaces) do
+                                for _, space_id in ipairs(spaces_for_screen) do
+                                    table.insert(space_list, space_id)
+                                end
+                            end
+                            table.sort(space_list)
+
+                            -- Switch to the requested space
+                            if space_list[space_num] then
+                                print("Switching to Space " .. space_num)
+                                space_manager.switch_to_space(space_list[space_num])
+                            else
+                                print("Space " .. space_num .. " does not exist")
+                            end
+                        end
+                    end)
+                    print("Bound Ctrl+Shift+" .. space_num .. " to switch to Space " .. space_num)
+                end
+            end
+        end
+
+        print("Spaces support initialized")
     end
 
     -- Initialize app switching
