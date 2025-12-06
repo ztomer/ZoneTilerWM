@@ -96,44 +96,65 @@ local function init()
         space_manager.init(config, tiler, tiler.monitor_manager, window_memory, space_storage, print)
 
         -- Initialize preview (must be before menubar for hover to work)
-        space_preview.init(config, space_manager, tiler.window_state, print)
+        if config.spaces.preview and config.spaces.preview.enabled then
+            space_preview.init(config, space_manager, tiler.window_state, print)
+            print("Space preview enabled")
+        end
 
         -- Initialize menubar indicator
-        space_menubar.init(config, space_manager, space_preview, print)
+        local preview_module = (config.spaces.preview and config.spaces.preview.enabled) and space_preview or nil
+        space_menubar.init(config, space_manager, preview_module, print)
 
-        -- Set up Space switching hotkeys
+        -- Spaceman approach: Monitor keypresses without blocking them
+        -- Use eventtap (like NSEvent.addGlobalMonitorForEvents) to detect space switches
+        -- Return false to let Mission Control receive the keypress
+        -- Poll after 200ms to detect the actual space change
+
+        -- Build shortcut lookup table
+        local space_shortcuts = {}
         if config.spaces.hotkeys then
             for space_num = 1, 9 do
                 local hotkey_name = "space_" .. space_num
                 local hotkey_config = config.spaces.hotkeys[hotkey_name]
-
                 if hotkey_config then
-                    hs.hotkey.bind(hotkey_config[1], hotkey_config[2], function()
-                        -- Get all spaces and switch to the Nth one
-                        local all_spaces = space_manager.get_all_spaces()
-                        if all_spaces then
-                            -- Flatten and sort spaces
-                            local space_list = {}
-                            for _, spaces_for_screen in pairs(all_spaces) do
-                                for _, space_id in ipairs(spaces_for_screen) do
-                                    table.insert(space_list, space_id)
-                                end
-                            end
-                            table.sort(space_list)
-
-                            -- Switch to the requested space
-                            if space_list[space_num] then
-                                print("Switching to Space " .. space_num)
-                                space_manager.switch_to_space(space_list[space_num])
-                            else
-                                print("Space " .. space_num .. " does not exist")
-                            end
-                        end
-                    end)
-                    print("Bound Ctrl+Shift+" .. space_num .. " to switch to Space " .. space_num)
+                    local mods_str = table.concat(hotkey_config[1], "+")
+                    local key_combo = mods_str .. "+" .. hotkey_config[2]
+                    space_shortcuts[key_combo] = space_num
                 end
             end
         end
+
+        -- Event tap to monitor (not block) space switch shortcuts
+        local space_tap = hs.eventtap.new({hs.eventtap.event.types.keyDown}, function(event)
+            local flags = event:getFlags()
+            local keycode = event:getKeyCode()
+            local key = hs.keycodes.map[keycode]
+
+            -- Build modifier+key string
+            local mods = {}
+            if flags.ctrl then table.insert(mods, "ctrl") end
+            if flags.shift then table.insert(mods, "shift") end
+            if flags.alt then table.insert(mods, "alt") end
+            if flags.cmd then table.insert(mods, "cmd") end
+
+            local key_combo = table.concat(mods, "+") .. "+" .. (key or "")
+            local space_num = space_shortcuts[key_combo]
+
+            if space_num then
+                print("🎯 Detected Space " .. space_num .. " shortcut: " .. key_combo)
+
+                -- Poll after Mission Control animation to update state
+                hs.timer.doAfter(0.2, function()
+                    space_manager.get_current_space()  -- This updates the state
+                end)
+            end
+
+            -- CRITICAL: Return false to pass event through to Mission Control!
+            return false
+        end)
+
+        space_tap:start()
+        print("✓ Space shortcut monitor started (passthrough mode)")
 
         print("Spaces support initialized")
     end

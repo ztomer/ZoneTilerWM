@@ -362,7 +362,11 @@ config.spaces = {
     enabled = true, -- Enable/disable Spaces feature
     debug = true, -- Enable debug logging
 
-    -- Keyboard shortcuts for switching spaces (Ctrl+Shift+Number)
+    -- IMPORTANT: These keyboard shortcuts MUST match your Mission Control settings!
+    -- We intercept these shortcuts to detect space switches and update the menubar.
+    -- Configure the same shortcuts in:
+    -- System Settings → Keyboard → Keyboard Shortcuts → Mission Control
+    -- Example: If you use Ctrl+Shift+1 here, set "Switch to Desktop 1" to Ctrl+Shift+1
     hotkeys = {
         space_1 = {{"ctrl", "shift"}, "1"},
         space_2 = {{"ctrl", "shift"}, "2"},
@@ -384,7 +388,7 @@ config.spaces = {
 
     -- Visual preview settings
     preview = {
-        enabled = true, -- Enable visual preview of windows in spaces
+        enabled = false, -- Enable visual preview of windows in spaces (DISABLED - experimental feature)
         activation_mode = "hover", -- "hover" or "click"
         hover_delay = 0.3, -- Delay in seconds before showing preview on hover
         window_width = 600, -- Preview window width in pixels

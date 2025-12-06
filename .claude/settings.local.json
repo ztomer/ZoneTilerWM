@@ -6,7 +6,8 @@
       "Bash(mv:*)",
       "Bash(tree:*)",
       "Bash(git add:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(~/.config/ZoneTilerWM/last_active_space.txt)"
     ],
     "deny": [],
     "ask": []

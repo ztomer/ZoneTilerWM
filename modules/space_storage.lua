@@ -45,6 +45,15 @@ local function get_last_active_file()
     return get_cache_dir() .. "/last_active_space.txt"
 end
 
+--- Validates a space ID to ensure it's valid.
+-- @param space_id (number) The space ID to validate.
+-- @return (boolean) True if the space ID is valid.
+local function is_valid_space_id(space_id)
+    -- Space IDs must be positive numbers
+    -- -1 is an invalid placeholder returned by hs.spaces.watcher sometimes
+    return type(space_id) == "number" and space_id > 0
+end
+
 --- Saves Space definitions to disk.
 -- @param definitions (table) The Space definitions table keyed by Space ID.
 -- @return (boolean) True if successful, false otherwise.
@@ -55,9 +64,20 @@ function space_storage.save_space_definitions(definitions)
     debug_log("Saving Space definitions to:", filename)
 
     -- Convert numeric keys to strings for JSON encoding
+    -- Filter out invalid space IDs (e.g., -1)
     local serializable = {}
+    local filtered_count = 0
     for space_id, definition in pairs(definitions) do
-        serializable[tostring(space_id)] = definition
+        if is_valid_space_id(space_id) then
+            serializable[tostring(space_id)] = definition
+        else
+            debug_log("Filtered out invalid space ID:", space_id)
+            filtered_count = filtered_count + 1
+        end
+    end
+
+    if filtered_count > 0 then
+        debug_log("Filtered out", filtered_count, "invalid space definition(s)")
     end
 
     local success, json_str = pcall(function()
@@ -108,17 +128,25 @@ function space_storage.load_space_definitions()
     end)
 
     if success and loaded then
-        -- Convert string keys back to numbers
+        -- Convert string keys back to numbers and filter invalid IDs
         local definitions = {}
+        local filtered_count = 0
         for space_id_str, definition in pairs(loaded) do
             local space_id = tonumber(space_id_str)
-            if space_id then
+            if space_id and is_valid_space_id(space_id) then
                 definitions[space_id] = definition
             else
-                -- Keep as string if it can't be converted (shouldn't happen)
-                definitions[space_id_str] = definition
+                debug_log("Filtered out invalid space ID during load:", space_id_str)
+                filtered_count = filtered_count + 1
             end
         end
+
+        if filtered_count > 0 then
+            debug_log("Cleaned up", filtered_count, "invalid space definition(s) during load")
+            -- Save the cleaned definitions back to disk
+            space_storage.save_space_definitions(definitions)
+        end
+
         debug_log("Loaded Space definitions successfully")
         return definitions
     else
@@ -245,6 +273,12 @@ end
 -- @param space_id (number) The Space ID.
 -- @return (boolean) True if successful, false otherwise.
 function space_storage.set_last_active_space(space_id)
+    -- Validate space ID before saving
+    if not is_valid_space_id(space_id) then
+        debug_log("Refusing to save invalid space ID as last active:", space_id)
+        return false
+    end
+
     ensure_cache_dir()
     local filename = get_last_active_file()
 
@@ -263,7 +297,7 @@ function space_storage.set_last_active_space(space_id)
 end
 
 --- Loads the ID of the last active Space.
--- @return (number|nil) The Space ID, or nil if not found.
+-- @return (number|nil) The Space ID, or nil if not found or invalid.
 function space_storage.get_last_active_space()
     local filename = get_last_active_file()
 
@@ -277,13 +311,13 @@ function space_storage.get_last_active_space()
     file:close()
 
     local space_id = tonumber(content)
-    if space_id then
+    if space_id and is_valid_space_id(space_id) then
         debug_log("Loaded last active Space:", space_id)
+        return space_id
     else
-        debug_log("Failed to parse last active Space")
+        debug_log("Invalid last active Space ID, ignoring:", space_id or content)
+        return nil
     end
-
-    return space_id
 end
 
 --- Captures the current window layout for a Space and monitor.

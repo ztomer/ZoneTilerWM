@@ -1090,11 +1090,350 @@ end
 
 ---
 
-## References
+## Spaceman Project Insights (2025-12-05)
 
+### Overview
+The [Spaceman project](https://github.com/ruittenb/Spaceman) is an MIT-licensed macOS menubar app that provides excellent native Spaces support. Analysis of their implementation reveals key techniques we can leverage.
+
+### Key Findings
+
+#### 1. **Core Private APIs (Objective-C Bridge)**
+Spaceman uses three essential undocumented Core Graphics APIs via a bridging header:
+```objc
+// Spaceman-Bridging-Header.h
+int _CGSDefaultConnection();
+CFArrayRef CGSCopyManagedDisplaySpaces(int conn);
+CFStringRef CGSCopyActiveMenuBarDisplayIdentifier(int conn);
+```
+
+These APIs provide:
+- `_CGSDefaultConnection()` - Connection to Core Graphics server
+- `CGSCopyManagedDisplaySpaces()` - Retrieves all displays and their spaces
+- `CGSCopyActiveMenuBarDisplayIdentifier()` - Identifies which display has focus
+
+**Comparison to hs.spaces:**
+- Spaceman uses direct CGS APIs vs. Hammerspoon's Lua wrapper
+- Both ultimately access the same private APIs
+- hs.spaces likely wraps similar CGS calls internally
+
+#### 2. **Space Change Detection Architecture**
+
+**SpaceObserver Pattern ([SpaceObserver.swift](https://github.com/ruittenb/Spaceman/blob/main/Spaceman/Helpers/SpaceObserver.swift)):**
+```swift
+// Monitors workspace notifications
+NSWorkspace.shared.notificationCenter.addObserver(
+    forName: NSWorkspace.activeSpaceDidChangeNotification,
+    using: performSpaceInformationUpdate
+)
+```
+
+**Equivalent in Hammerspoon:**
+- Use `hs.spaces.watcher` (already in our plan)
+- Monitors same underlying NSWorkspace notifications
+- Both approaches are equally reliable
+
+#### 3. **Required Entitlements**
+
+Spaceman's entitlements configuration reveals requirements:
+```xml
+<key>com.apple.security.app-sandbox</key>
+<false/>  <!-- Must disable sandbox for CGS APIs -->
+
+<key>com.apple.security.automation.apple-events</key>
+<true/>   <!-- Required for AppleScript integration -->
+
+<key>com.apple.security.cs.disable-library-validation</key>
+<true/>   <!-- Allows unsigned library usage -->
+```
+
+**Implications for ZoneTilerWM:**
+- Hammerspoon already runs unsandboxed (required for hs.spaces)
+- Need Accessibility permission (checked via `AXIsProcessTrusted()`)
+- Automation permission for AppleScript (if we use it)
+
+#### 4. **Space Data Model**
+
+```swift
+struct Space {
+    var displayID: String        // OS display UUID
+    var spaceID: String          // OS space ID (corresponds to CGS ID)
+    var spaceName: String        // user-assigned custom name
+    var spaceNumber: Int         // sequential number (1, 2, 3...)
+    var spaceByDesktopID: String // display-local numbering
+    var isCurrentSpace: Bool
+    var isFullScreen: Bool
+    var colorHex: String?        // User-assigned color for visual distinction
+}
+```
+
+**Adaptation for our plan:**
+- Our Space schema should include `macos_cgs_id` for CGS compatibility
+- Add support for custom space names (user-defined)
+- Track fullscreen spaces separately
+- Optional: custom colors for menubar visualization
+
+#### 5. **Multi-Display Handling**
+
+Spaceman's approach ([DisplayGeometryUtilities](https://github.com/ruittenb/Spaceman/blob/main/Spaceman/Helpers/DisplayGeometryUtilities.swift)):
+- Calculates display centers and heights using NSScreen with CGDisplay fallback
+- Detects vertical/horizontal arrangements (20-point tolerance)
+- Sequential numbering across all displays (doesn't restart per display)
+- Handles display gaps and non-aligned arrangements
+
+**Key insight:** Spaces are global, not per-display. Each Space can contain windows across multiple displays.
+
+#### 6. **What Spaceman Does NOT Do**
+
+Important limitations:
+- **No programmatic window movement between spaces** - Only provides navigation/visualization
+- **Space switching via keyboard simulation** - Uses AppleScript + Control+number shortcuts
+- **Relies on user-configured Mission Control shortcuts** - Not fully programmatic
+- **No direct window-to-space assignment** - This would require additional private APIs
+
+**Implications:**
+- For Phase 1, focus on space detection and tracking (like Spaceman)
+- Window movement between spaces (future enhancement) requires additional research
+- `hs.spaces.moveWindowToSpace()` may work where Spaceman's approach doesn't
+
+#### 7. **Space Name Persistence**
+
+Spaceman uses `UserDefaults` with thread-safe concurrent queue:
+```swift
+// SpaceNameStore.swift
+private let queue = DispatchQueue(label: "com.spaceman.namestore",
+                                  attributes: .concurrent)
+```
+
+**For our implementation:**
+- Store space names in `spaces.json` alongside layouts
+- No need for complex concurrency (Hammerspoon is single-threaded Lua)
+- Migrate naming on Space ID changes (macOS can reassign IDs)
+
+#### 8. **Icon Generation & Menubar Visualization**
+
+Spaceman's [IconCreator.swift](https://github.com/ruittenb/Spaceman/blob/main/Spaceman/Helpers/IconCreator.swift) (29.7 KB) provides:
+- 5 display modes (compact, medium, large, extra large, dual rows)
+- WCAG-compliant contrast calculations
+- Custom colors per space
+- Text "knockout" effect for readability
+- Responsive to display scale factors
+
+**Simplified for our menubar:**
+```
+[1] 2  3  4  ← Current space highlighted
+```
+Could enhance later with colors/icons similar to Spaceman.
+
+### Updated Implementation Strategy
+
+#### Phase 1A: Core Space Detection (Immediate - Week 1)
+
+**Leverage Spaceman Insights:**
+
+1. **Use hs.spaces API (no change from original plan)**
+   - Already wraps CGS private APIs (same as Spaceman uses)
+   - More maintainable than custom Objective-C bridge
+   - Proven to work on macOS 15+
+
+2. **Enhanced Space Data Model:**
+```lua
+-- modules/space_manager.lua
+local Space = {
+    macos_space_id = nil,      -- From hs.spaces.focusedSpace()
+    cgs_connection_id = nil,   -- If we need direct CGS access later
+    display_uuid = nil,        -- From hs.screen:getUUID()
+    name = "Space 1",          -- User-defined name (default: "Space N")
+    number = 1,                -- Sequential number
+    is_fullscreen = false,     -- Detect fullscreen spaces
+    color_hex = nil,           -- Optional: for menubar visualization
+    created_at = os.time(),
+    monitor_ids = {},          -- ZoneTiler logical monitor IDs
+}
+```
+
+3. **Robust Change Detection:**
+```lua
+-- Wrap hs.spaces.watcher with NSWorkspace fallback
+function space_manager.init_watcher()
+    -- Primary: hs.spaces.watcher
+    local watcher = hs.spaces.watcher.new(function()
+        space_manager.on_space_change()
+    end)
+
+    -- Fallback: Poll hs.spaces.focusedSpace() every 1 second
+    local fallback_timer = hs.timer.new(1.0, function()
+        local current = hs.spaces.focusedSpace()
+        if current ~= spaces.current_space_id then
+            space_manager.on_space_change()
+        end
+    end)
+
+    -- Start watcher with error handling
+    local success = pcall(function() watcher:start() end)
+    if not success then
+        debug_log("hs.spaces.watcher failed, using fallback polling")
+        fallback_timer:start()
+    end
+
+    return watcher
+end
+```
+
+4. **Permission Checking:**
+```lua
+function space_manager.check_permissions()
+    -- Check Accessibility permission (required for hs.spaces)
+    if not hs.accessibilityState() then
+        hs.alert.show("ZoneTilerWM needs Accessibility permission for Spaces support")
+        return false
+    end
+    return true
+end
+```
+
+#### Phase 1B: Space Tracking Only (No Movement Yet)
+
+**Start with what Spaceman does well:**
+- ✅ Detect all spaces via `hs.spaces.allSpaces()`
+- ✅ Track current space via `hs.spaces.focusedSpace()`
+- ✅ Monitor space changes via `hs.spaces.watcher`
+- ✅ Display current space in menubar indicator
+- ✅ Save/restore layouts per space
+
+**Defer to future:**
+- ❌ Moving windows between spaces programmatically
+- ❌ Creating/deleting spaces programmatically
+- ❌ Advanced preview panel with drag-and-drop
+
+This provides a stable foundation matching Spaceman's proven approach.
+
+#### Future Phase: Window Movement Between Spaces
+
+**Research Needed:**
+Spaceman doesn't implement this. We need to investigate:
+
+1. **Test `hs.spaces.moveWindowToSpace()`:**
+   - Hammerspoon documents this API
+   - Verify it works on macOS 15+
+   - May have restrictions (e.g., fullscreen windows)
+
+2. **Alternative: CGSMoveWindowsToManagedSpace():**
+   - Private CGS API (not exposed by hs.spaces)
+   - Would require custom Objective-C extension
+   - More complex but potentially more reliable
+
+3. **Fallback: AppleScript + Keyboard Simulation:**
+   - Spaceman's approach for space switching
+   - Could potentially drag windows between spaces
+   - Less reliable, requires Mission Control shortcuts
+
+**Plan:**
+- Add to plan as **"Phase 6: Programmatic Window Movement"**
+- Mark as experimental/optional
+- Research required before implementation
+
+### Updated Data Schema
+
+```lua
+-- spaces.json
+{
+    active_space_id = 123456,
+    cgs_connection_id = 123,  -- NEW: for future direct CGS access
+
+    spaces = {
+        ["123456"] = {
+            macos_space_id = 123456,
+            display_uuid = "37D8832A-2D66-02CA-B9F7-8F30A301B230",
+            name = "Work",           -- NEW: user-defined name
+            number = 1,              -- NEW: sequential number
+            is_fullscreen = false,   -- NEW: fullscreen detection
+            color_hex = "#FF6B6B",   -- NEW: optional custom color
+            created_at = 1733404800,
+            monitor_ids = {1, 2},
+
+            layouts = {
+                ["1"] = {
+                    layout_key = "4x3",
+                    zone_positions = {...}
+                }
+            },
+            window_positions = [...]
+        }
+    },
+
+    -- NEW: Space name mappings (for when Space IDs change)
+    space_name_mappings = {
+        ["Work"] = 123456,
+        ["Focus"] = 654321
+    }
+}
+```
+
+### Testing Checklist Updates
+
+**Add to Phase 5 Testing:**
+
+**Spaceman-Inspired Tests:**
+- [ ] Verify space detection matches Mission Control count
+- [ ] Test with fullscreen spaces (apps in fullscreen mode)
+- [ ] Verify space IDs remain consistent across app restarts
+- [ ] Test with custom space names (user-assigned)
+- [ ] Monitor CGS API health (periodic checks)
+- [ ] Test graceful degradation if CGS APIs fail
+- [ ] Verify multi-display space detection (spaces span displays)
+- [ ] Test space number sequencing (1, 2, 3... across all displays)
+
+**Deferred Tests (Phase 6):**
+- [ ] Programmatic window movement between spaces
+- [ ] Window drag-and-drop in preview panel
+- [ ] Creating new spaces programmatically
+
+### References
+
+**Spaceman Project:**
+- [GitHub Repository](https://github.com/ruittenb/Spaceman) (MIT License)
+- [SpaceObserver.swift](https://github.com/ruittenb/Spaceman/blob/main/Spaceman/Helpers/SpaceObserver.swift) - Core space detection
+- [SpaceSwitcher.swift](https://github.com/ruittenb/Spaceman/blob/main/Spaceman/Helpers/SpaceSwitcher.swift) - Space switching via AppleScript
+- [Spaceman-Bridging-Header.h](https://github.com/ruittenb/Spaceman/blob/main/Spaceman-Bridging-Header.h) - CGS API declarations
+
+**Hammerspoon APIs:**
 - [Hammerspoon hs.spaces Documentation](https://www.hammerspoon.org/docs/hs.spaces.html)
 - [hs.spaces API Reference](https://commandpost.fcp.cafe/api-references/hammerspoon/hs.spaces/)
 - [hs.spaces Source Code](https://github.com/Hammerspoon/hammerspoon/blob/master/extensions/spaces/spaces.lua)
+
+**Other Projects:**
 - [VirtualSpaces.spoon Implementation](https://github.com/brennovich/VirtualSpaces.spoon)
 - [restore-spaces Project](https://github.com/tplobo/restore-spaces)
+
+---
+
+## Updated Recommendation
+
+**Phase 1: Implement Space Tracking (Spaceman-Style)**
+
+Start with proven, stable functionality:
+1. ✅ Space detection via `hs.spaces` API
+2. ✅ Space change monitoring via watcher
+3. ✅ Menubar indicator showing current space
+4. ✅ Per-space layout persistence
+5. ✅ Custom space naming
+6. ✅ Multi-display awareness
+
+**Phase 6 (Future): Window Movement Research**
+
+Defer window movement to separate research phase:
+1. Test `hs.spaces.moveWindowToSpace()` reliability
+2. If insufficient, explore direct CGS API integration
+3. Consider AppleScript/keyboard simulation fallback
+4. Only implement if reliable solution found
+
+This incremental approach:
+- ✅ Provides immediate value (space tracking & layouts)
+- ✅ Uses proven, stable APIs (like Spaceman)
+- ✅ Avoids risky/experimental features initially
+- ✅ Allows future enhancement when ready
+
+**Estimated Timeline:**
+- **Phase 1 (Space Tracking):** 1-2 weeks
+- **Phase 6 (Window Movement):** 2-3 weeks research + implementation (future)
 

@@ -15,7 +15,7 @@ local spaces = {
     -- space_id -> {name, macos_space_id, created_at, monitor_ids}
     definitions = {},
 
-    -- hs.spaces.watcher instance
+    -- hs.spaces.watcher instance (backup, rarely fires with valid IDs)
     watcher = nil,
 
     -- Callbacks for Space change events
@@ -33,6 +33,8 @@ local space_storage = nil
 local debug_log = function(...) end -- Placeholder, will be set in init
 
 --- Wraps hs.spaces.focusedSpace() with error handling.
+-- NOTE: This function updates spaces.current_space_id as a side effect!
+-- Use query_current_space() if you want to check without updating state.
 -- @return (number|nil) The current Space ID, or nil if API call fails.
 function space_manager.get_current_space()
     local success, space_id = pcall(function()
@@ -49,18 +51,42 @@ function space_manager.get_current_space()
     end
 end
 
+--- Queries the current Space ID without updating internal state.
+-- Use this when you want to check the space without side effects.
+-- @return (number|nil) The current Space ID, or nil if API call fails.
+local function query_current_space()
+    debug_log("🔍 API CALL: hs.spaces.focusedSpace()")
+    local success, space_id = pcall(function()
+        return hs.spaces.focusedSpace()
+    end)
+
+    if success and space_id then
+        debug_log("🔍 API RESULT: hs.spaces.focusedSpace() returned", space_id)
+        return space_id
+    else
+        debug_log("🔍 API ERROR: hs.spaces.focusedSpace() failed:", space_id)
+        return nil
+    end
+end
+
 --- Wraps hs.spaces.allSpaces() with error handling.
 -- @return (table|nil) A table of all Spaces organized by screen UUID, or nil if API call fails.
 function space_manager.get_all_spaces()
+    debug_log("🔍 API CALL: hs.spaces.allSpaces()")
     local success, all_spaces = pcall(function()
         return hs.spaces.allSpaces()
     end)
 
     if success and all_spaces then
-        debug_log("Retrieved all Spaces")
+        -- Count total spaces
+        local total = 0
+        for _, spaces_list in pairs(all_spaces) do
+            total = total + #spaces_list
+        end
+        debug_log("🔍 API RESULT: hs.spaces.allSpaces() returned", total, "total spaces")
         return all_spaces
     else
-        debug_log("Failed to get all Spaces:", all_spaces)
+        debug_log("🔍 API ERROR: hs.spaces.allSpaces() failed:", all_spaces)
         return nil
     end
 end
@@ -74,101 +100,111 @@ function space_manager.switch_to_space(space_id)
         return false
     end
 
-    debug_log("Switching to Space ID:", space_id)
+    -- Track rapid space switching
+    local now = os.time()
+    local time_since_last_switch = now - spaces.last_switch_time
+    if time_since_last_switch < 1 then
+        debug_log("⚠️ RAPID SPACE SWITCH detected! Time since last:", time_since_last_switch, "seconds")
+    end
+    spaces.last_switch_time = now
 
+    debug_log("========== SPACE SWITCH REQUEST ==========")
+    debug_log("Switching to Space ID:", space_id)
+    debug_log("Current Space ID:", spaces.current_space_id)
+
+    debug_log("🔍 API CALL: hs.spaces.gotoSpace(" .. tostring(space_id) .. ")")
     local success, result = pcall(function()
         return hs.spaces.gotoSpace(space_id)
     end)
 
     if success then
-        spaces.current_space_id = space_id
+        debug_log("🔍 API RESULT: hs.spaces.gotoSpace() returned", result, "(true=success)")
         debug_log("Successfully switched to Space:", space_id)
+
+        -- The watcher may not fire with a valid ID, so manually update after animation
+        -- Wait a bit for the animation, then verify and update if needed
+        hs.timer.doAfter(0.3, function()
+            local actual_space = query_current_space()
+            debug_log("Post-switch verification: requested", space_id, "actual", actual_space, "stored", spaces.current_space_id)
+
+            -- Warn if we didn't end up where we requested
+            if actual_space and actual_space ~= space_id then
+                debug_log("⚠️⚠️⚠️ SPACE MISMATCH! Requested space", space_id, "but actually at space", actual_space)
+            end
+
+            if actual_space and actual_space > 0 and actual_space ~= spaces.current_space_id then
+                debug_log("🔧 Manually updating space state (watcher didn't fire with valid ID)")
+                local old_space_id = spaces.current_space_id
+                spaces.current_space_id = actual_space
+                debug_log("📝 Updated space_id:", old_space_id, "->", actual_space)
+
+                -- Ensure Space is defined
+                space_manager.ensure_space_defined(actual_space)
+
+                -- Notify all registered callbacks
+                debug_log("🔔 Notifying", #spaces.change_callbacks, "callbacks of manual space change:", old_space_id, "->", actual_space)
+                for i, callback in ipairs(spaces.change_callbacks) do
+                    local cb_success, err = pcall(callback, actual_space, old_space_id)
+                    if not cb_success then
+                        debug_log("❌ Callback", i, "error:", err)
+                    else
+                        debug_log("✅ Callback", i, "completed successfully")
+                    end
+                end
+
+                -- Save current Space to storage
+                if space_storage then
+                    space_storage.set_last_active_space(actual_space)
+                    debug_log("Saved space to storage")
+                end
+            else
+                debug_log("Watcher already updated space state, no manual update needed")
+            end
+        end)
+
+        debug_log("========== SPACE SWITCH REQUEST COMPLETE ==========")
         return true
     else
         debug_log("Failed to switch to Space:", space_id, "Error:", result)
+        debug_log("========== SPACE SWITCH REQUEST FAILED ==========")
         return false
     end
 end
-
--- Debounce state for space change detection
-local poll_timer_active = false
-local last_poll_time = 0
 
 --- Callback function for hs.spaces.watcher.
 -- Called when the active Space changes.
 -- @param space_id (number) The new active Space ID.
 local function on_space_change(space_id)
     debug_log("========== SPACE CHANGE EVENT ==========")
-    debug_log("Watcher received space_id:", space_id)
+    debug_log("Watcher received space_id:", space_id, "type:", type(space_id))
     debug_log("Current stored space_id:", spaces.current_space_id)
 
-    -- The watcher consistently receives -1, so we need to poll for the actual space
-    if not space_id or space_id == -1 then
-        debug_log("WARNING: Invalid space ID received, will poll for actual space")
-
-        -- Prevent multiple concurrent polls (debounce)
-        local now = os.time()
-        if poll_timer_active and (now - last_poll_time) < 2 then
-            debug_log("Skipping poll - another poll is already active")
-            return
-        end
-
-        poll_timer_active = true
-        last_poll_time = now
-
-        local retry_count = 0
-        local max_retries = 15
-        local retry_timer = nil
-
-        local function poll_for_space()
-            retry_count = retry_count + 1
-            local actual_space = space_manager.get_current_space()
-            debug_log("Poll attempt", retry_count, "- queried space:", actual_space, "stored:", spaces.current_space_id)
-
-            -- Check if we got a valid space that's different from stored
-            if actual_space and actual_space ~= -1 and actual_space ~= spaces.current_space_id then
-                debug_log("SUCCESS: Found new space after", retry_count, "attempts:", actual_space)
-                if retry_timer then
-                    retry_timer:stop()
-                end
-                poll_timer_active = false
-                on_space_change(actual_space)
-                return
-            end
-
-            -- Keep trying with exponential backoff
-            if retry_count < max_retries then
-                local delay = 0.1 * retry_count -- 100ms, 200ms, 300ms, etc.
-                debug_log("Will retry in", delay, "seconds")
-                retry_timer = hs.timer.doAfter(delay, poll_for_space)
-            else
-                debug_log("ERROR: Gave up after", max_retries, "attempts - space may not have actually changed")
-                poll_timer_active = false
-            end
-        end
-
-        -- Start polling after a brief delay
-        hs.timer.doAfter(0.1, poll_for_space)
+    -- Ignore invalid space IDs from the watcher
+    -- The watcher sometimes sends -1 during transitions, which we can safely ignore
+    if not space_id or space_id == -1 or space_id <= 0 then
+        debug_log("❌ Ignoring invalid space ID from watcher:", space_id)
         return
     end
 
-    -- We got a valid space ID from the watcher (or from successful poll)
+    -- We got a valid space ID from the watcher!
+    debug_log("✅ VALID space ID from watcher:", space_id)
+
     -- Update current Space ID
     local old_space_id = spaces.current_space_id
     spaces.current_space_id = space_id
-    debug_log("Updated space_id:", old_space_id, "->", space_id)
+    debug_log("📝 Updated space_id:", old_space_id, "->", space_id)
 
     -- Ensure Space is defined
     space_manager.ensure_space_defined(space_id)
 
     -- Notify all registered callbacks (even if space didn't change, for initialization)
-    debug_log("Notifying", #spaces.change_callbacks, "callbacks")
+    debug_log("🔔 Notifying", #spaces.change_callbacks, "callbacks of space change:", old_space_id, "->", space_id)
     for i, callback in ipairs(spaces.change_callbacks) do
         local success, err = pcall(callback, space_id, old_space_id)
         if not success then
-            debug_log("Callback", i, "error:", err)
+            debug_log("❌ Callback", i, "error:", err)
         else
-            debug_log("Callback", i, "completed successfully")
+            debug_log("✅ Callback", i, "completed successfully")
         end
     end
 
@@ -188,10 +224,45 @@ function space_manager.register_change_callback(callback)
     debug_log("Registered Space change callback")
 end
 
+--- Notifies the system that a space switch has occurred.
+-- This is called by the hotkey interceptor when it detects a space switch.
+-- Unlike switch_to_space(), this doesn't call gotoSpace() - Mission Control handles the switch.
+-- We just update our internal state and trigger callbacks.
+-- @param target_space_id (number) The space ID we're switching to.
+function space_manager.notify_space_switch(target_space_id)
+    if not target_space_id or target_space_id <= 0 then
+        debug_log("Invalid target space ID:", target_space_id)
+        return
+    end
+
+    debug_log("🔔 Notified of space switch to:", target_space_id)
+
+    -- Verify we actually switched by querying the current space
+    local actual_space = query_current_space()
+    if actual_space and actual_space > 0 then
+        if actual_space == target_space_id then
+            debug_log("✅ Confirmed: switched to space", target_space_id)
+            on_space_change(actual_space)
+        else
+            debug_log("⚠️ Mismatch: expected", target_space_id, "but at", actual_space)
+            -- Still update to where we actually are
+            on_space_change(actual_space)
+        end
+    else
+        debug_log("❌ Could not verify space switch")
+    end
+end
+
 --- Ensures a Space definition exists for the given Space ID.
 -- If the Space is not defined, creates a default definition.
 -- @param space_id (number) The macOS Space ID.
 function space_manager.ensure_space_defined(space_id)
+    -- Validate space ID - reject invalid IDs like -1
+    if not space_id or type(space_id) ~= "number" or space_id <= 0 then
+        debug_log("Refusing to create definition for invalid space ID:", space_id)
+        return
+    end
+
     if not spaces.definitions[space_id] then
         debug_log("Creating default definition for Space:", space_id)
         spaces.definitions[space_id] = {
@@ -358,7 +429,7 @@ function space_manager.init(cfg, tiler_module, monitor_mgr, window_mem, storage,
     -- Sync with macOS Spaces
     space_manager.sync_spaces()
 
-    -- Set up Spaces watcher
+    -- Set up Spaces watcher (backup mechanism, rarely fires with valid IDs)
     local success, watcher_or_err = pcall(function()
         return hs.spaces.watcher.new(on_space_change)
     end)
@@ -366,10 +437,14 @@ function space_manager.init(cfg, tiler_module, monitor_mgr, window_mem, storage,
     if success and watcher_or_err then
         spaces.watcher = watcher_or_err
         spaces.watcher:start()
-        debug_log("Spaces watcher started")
+        debug_log("Spaces watcher started (backup)")
     else
         debug_log("Failed to create Spaces watcher:", watcher_or_err)
     end
+
+    -- NOTE: We don't use polling anymore!
+    -- Instead, hotkey interception (in init.lua) detects space switches instantly
+    -- when the user presses the configured shortcuts (e.g., Ctrl+Shift+1-9)
 
     debug_log("Space Manager initialized")
     return space_manager
