@@ -47,7 +47,7 @@ config.appCuts = {
     f = 'Zen',
     g = 'Gmail',
     z = 'Nimble Commander',
-    x = 'Claude',
+    x = '',
     c = 'Arc',
     v = 'Antigravity', -- Visual Studio Code
     b = 'YouTube Music'
@@ -65,10 +65,12 @@ config.hyperAppCuts = {
     f = '',
     g = '',
     z = '',
-    x = 'GeminiDesk',
+    x = '',
     c = 'Google Chrome',
     v = 'Visual Studio Code',
-    b = ''
+    b = '',
+    F1 = 'GeminiDesk',
+    F2 = 'Claude'
 }
 
 -- Pomodoro settings

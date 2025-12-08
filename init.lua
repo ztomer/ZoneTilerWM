@@ -47,6 +47,83 @@ local function init_custom_binding()
 end
 
 --[[
+  Debug keystroke monitor - logs ALL keystrokes with modifiers and keyboard type
+  Uncomment the function call in init() to enable debugging
+]]
+--[[
+local function init_keystroke_debug()
+    -- Monitor multiple event types to catch function keys in both modes
+    local event_types = {
+        hs.eventtap.event.types.keyDown,
+        hs.eventtap.event.types.systemDefined,
+        hs.eventtap.event.types.NSSystemDefined
+    }
+
+    local keystroke_tap = hs.eventtap.new(event_types, function(event)
+        local event_type = event:getType()
+
+        -- Handle regular key events
+        if event_type == hs.eventtap.event.types.keyDown then
+            local flags = event:getFlags()
+            local keycode = event:getKeyCode()
+            local key = hs.keycodes.map[keycode]
+
+            -- Get keyboard type
+            local kbd_type = event:getProperty(hs.eventtap.event.properties.keyboardEventKeyboardType)
+
+            -- Build modifier string
+            local mods = {}
+            if flags.ctrl then table.insert(mods, "ctrl") end
+            if flags.shift then table.insert(mods, "shift") end
+            if flags.alt then table.insert(mods, "alt") end
+            if flags.cmd then table.insert(mods, "cmd") end
+            if flags.fn then table.insert(mods, "fn") end
+
+            local mod_str = #mods > 0 and (table.concat(mods, "+") .. "+") or ""
+            local key_str = key or "unknown"
+
+            print(string.format("🎹 KEYSTROKE: %s%s (keycode: %d, kbd_type: %s)",
+                mod_str, key_str, keycode, tostring(kbd_type)))
+
+        -- Handle system events (media keys, brightness, etc.)
+        elseif event_type == hs.eventtap.event.types.systemDefined or
+               event_type == hs.eventtap.event.types.NSSystemDefined then
+
+            -- Try to extract system event details
+            local data = event:systemKey()
+            if data then
+                local key_str = tostring(data.key or "nil")
+                local keycode_str = tostring(data.keyCode or "nil")
+                local keyflags_str = tostring(data.keyFlags or "nil")
+                local keystate_str = data.down and "down" or "up"
+
+                -- Also check event flags to see if modifiers are present
+                local flags = event:getFlags()
+                local mods = {}
+                if flags.ctrl then table.insert(mods, "ctrl") end
+                if flags.shift then table.insert(mods, "shift") end
+                if flags.alt then table.insert(mods, "alt") end
+                if flags.cmd then table.insert(mods, "cmd") end
+                if flags.fn then table.insert(mods, "fn") end
+                local mod_str = #mods > 0 and (" mods=" .. table.concat(mods, "+")) or ""
+
+                print(string.format("🎛️  SYSTEM EVENT: type=%d, key=%s, keyCode=%s, keyFlags=%s, keyState=%s%s",
+                    event_type, key_str, keycode_str, keyflags_str, keystate_str, mod_str))
+            else
+                print(string.format("🎛️  SYSTEM EVENT: type=%d (no data)", event_type))
+            end
+        end
+
+        -- Don't block the keystroke
+        return false
+    end)
+
+    keystroke_tap:start()
+    print("✓ Keystroke debug monitor started (monitoring all keystrokes)")
+end
+--]]
+
+--[[
   Main initialization function
 ]]
 local function init()
@@ -87,6 +164,9 @@ local function init()
 
     -- Initialize custom keybindings
     init_custom_binding()
+
+    -- Enable keystroke debug monitor (uncomment to debug key events)
+    -- init_keystroke_debug()
 
     print("Hammerspoon configuration loaded successfully!")
 end
