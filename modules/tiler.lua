@@ -402,6 +402,86 @@ end
 ------------------------------------------
 
 --- Starts the tiler engine.
+--- Setup tiler hotkeys
+-- Registers all hotkeys for zone switching, placement, zen mode, etc.
+-- Reads configuration from config.tiler.hotkeys and config.tiler.modifier
+function tiler.setup_hotkeys()
+    local modifier = config.tiler.modifier
+    local focus_modifier = config.tiler.focus_modifier
+
+    -- Collect all zone keys from layouts
+    local all_zone_keys = {}
+    if config.tiler.layouts then
+        for _, layout_config in pairs(config.tiler.layouts) do
+            for zone_key, _ in pairs(layout_config) do
+                if zone_key ~= "default" then
+                    all_zone_keys[zone_key] = true
+                end
+            end
+        end
+    end
+
+    local zone_key_list_for_debug = {}
+    for zk, _ in pairs(all_zone_keys) do
+        table.insert(zone_key_list_for_debug, zk)
+    end
+    debug_log("Registering hotkeys for zone keys:", table.concat(zone_key_list_for_debug, ", "))
+
+    -- Bind zone movement and focus keys
+    for zone_key_str, _ in pairs(all_zone_keys) do
+        hs_hotkey.bind(modifier, zone_key_str, function()
+            tiler.move_window_to_zone(zone_key_str)
+        end)
+        if focus_modifier then
+            hs_hotkey.bind(focus_modifier, zone_key_str, function()
+                tiler.focus_zone_windows(zone_key_str)
+            end)
+        end
+    end
+
+    -- Helper to resolve modifier string to actual modifier array
+    local function get_mods(mod_str)
+        return config.keys[mod_str] or mod_str
+    end
+
+    -- Tiler-specific hotkeys from config
+    if config.tiler.hotkeys then
+        local hk = config.tiler.hotkeys
+
+        -- Placement mode (move to next monitor)
+        if hk.placement_mode then
+            hs_hotkey.bind(get_mods(hk.placement_mode.mods), hk.placement_mode.key, function()
+                tiler.move_window_to_monitor("next")
+            end)
+        end
+
+        -- Zone info (move to previous monitor - keeping legacy behavior)
+        if hk.zone_info then
+            hs_hotkey.bind(get_mods(hk.zone_info.mods), hk.zone_info.key, function()
+                tiler.move_window_to_monitor("previous")
+            end)
+        end
+
+        -- Zen mode toggle
+        if hk.zen_mode then
+            hs_hotkey.bind(get_mods(hk.zen_mode.mods), hk.zen_mode.key, function()
+                tiler.toggle_zen_mode()
+            end)
+        end
+
+        -- Resize mode toggle
+        if hk.resize_mode then
+            hs_hotkey.bind(get_mods(hk.resize_mode.mods), hk.resize_mode.key, function()
+                if resize_mode_active then
+                    exit_resize_mode()
+                else
+                    enter_resize_mode()
+                end
+            end)
+        end
+    end
+end
+
 -- This function performs all necessary initializations:
 -- - Sets up configuration and default values.
 -- - Initializes all sub-modules (`monitor_manager`, `zone_calculator`, etc.).
@@ -463,56 +543,8 @@ function tiler.start()
     smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
 
-    local modifier = config.tiler.modifier
-    local focus_modifier = config.tiler.focus_modifier
-
-    local all_zone_keys = {}
-    if config.tiler.layouts then
-        for _, layout_config in pairs(config.tiler.layouts) do
-            for zone_key, _ in pairs(layout_config) do
-                if zone_key ~= "default" then
-                    all_zone_keys[zone_key] = true
-                end
-            end
-        end
-    end
-
-    local zone_key_list_for_debug = {}
-    for zk, _ in pairs(all_zone_keys) do
-        table.insert(zone_key_list_for_debug, zk)
-    end
-    debug_log("Registering hotkeys for zone keys:", table.concat(zone_key_list_for_debug, ", "))
-
-    for zone_key_str, _ in pairs(all_zone_keys) do
-        hs_hotkey.bind(modifier, zone_key_str, function()
-            tiler.move_window_to_zone(zone_key_str)
-        end)
-        if focus_modifier then
-            hs_hotkey.bind(focus_modifier, zone_key_str, function()
-                tiler.focus_zone_windows(zone_key_str)
-            end)
-        end
-    end
-
-    hs_hotkey.bind(modifier, "p", function()
-        tiler.move_window_to_monitor("next")
-    end)
-    hs_hotkey.bind(modifier, ";", function()
-        tiler.move_window_to_monitor("previous")
-    end)
-
-    hs_hotkey.bind(config.keys.HYPER, config.keys.zen, function()
-        tiler.toggle_zen_mode()
-    end)
-
-    -- Bind Resize Mode Toggle
-    hs_hotkey.bind(config.keys.HYPER, "r", function()
-        if resize_mode_active then
-            exit_resize_mode()
-        else
-            enter_resize_mode()
-        end
-    end)
+    -- Setup all hotkeys
+    tiler.setup_hotkeys()
 
     -- Watch for window events
     local window_watcher = hs_window.filter.new()

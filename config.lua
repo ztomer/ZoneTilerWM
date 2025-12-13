@@ -85,6 +85,13 @@ config.hyperAppCuts = {
     F2 = 'Claude'
 }
 
+-- System hotkeys (window hints, reload, etc.)
+config.system_hotkeys = {
+    window_hints = {key = "-", mods = "HYPER"},
+    activity_monitor = {key = "=", mods = "HYPER"},
+    reload = {key = "R", mods = "mash_shift"}
+}
+
 -- Pomodoro settings
 config.pomodoro = {
     enable_color_bar = true,
@@ -94,7 +101,14 @@ config.pomodoro = {
     indicator_alpha = 0.3,
     indicator_in_all_spaces = true,
     color_time_remaining = hs.drawing.color.green,
-    color_time_used = hs.drawing.color.red
+    color_time_used = hs.drawing.color.red,
+
+    -- Hotkeys
+    hotkeys = {
+        enable = {key = "9", mods = "mash"},
+        disable = {key = "0", mods = "mash"},
+        reset = {key = "0", mods = "mash_shift"}
+    }
 }
 
 -- Simplified Tiler settings
@@ -103,6 +117,14 @@ config.tiler = {
     center_modals = true, -- Automatically center modal dialogs
     modifier = {"ctrl", "cmd"},
     focus_modifier = {"shift", "ctrl", "cmd"},
+
+    -- Tiler-specific hotkeys
+    hotkeys = {
+        placement_mode = {key = "p", mods = "mash"},
+        zone_info = {key = ";", mods = "mash"},
+        zen_mode = {key = "\\", mods = "HYPER"},
+        resize_mode = {key = "r", mods = "HYPER"}
+    },
 
     margins = {
         enabled = true,

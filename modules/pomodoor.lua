@@ -179,5 +179,55 @@ function pom.reset_work()
     pom.var.work_count = 0;
 end
 
+-- Initialize pomodoro module with config
+function pom.init(cfg)
+    -- Update config references if needed
+    if cfg and cfg.pomodoro then
+        pom.config.enable_color_bar = cfg.pomodoro.enable_color_bar
+        pom.config.work_period_sec = cfg.pomodoro.work_period_sec
+        pom.config.rest_period_sec = cfg.pomodoro.rest_period_sec
+
+        -- Setup hotkeys if configured
+        if cfg.pomodoro.hotkeys and cfg.keys then
+            pom.setup_hotkeys(cfg)
+        end
+    end
+end
+
+-- Setup hotkeys for pomodoro
+function pom.setup_hotkeys(cfg)
+    if not cfg or not cfg.pomodoro or not cfg.pomodoro.hotkeys then
+        return
+    end
+
+    local hotkeys = cfg.pomodoro.hotkeys
+
+    -- Helper to resolve modifier string to actual modifier array
+    local function get_mods(mod_str)
+        return cfg.keys[mod_str] or mod_str
+    end
+
+    -- Enable pomodoro
+    if hotkeys.enable then
+        hs.hotkey.bind(get_mods(hotkeys.enable.mods), hotkeys.enable.key, function()
+            pom.enable()
+        end)
+    end
+
+    -- Disable pomodoro
+    if hotkeys.disable then
+        hs.hotkey.bind(get_mods(hotkeys.disable.mods), hotkeys.disable.key, function()
+            pom.disable()
+        end)
+    end
+
+    -- Reset work count
+    if hotkeys.reset then
+        hs.hotkey.bind(get_mods(hotkeys.reset.mods), hotkeys.reset.key, function()
+            pom.reset_work()
+        end)
+    end
+end
+
 -- Return the module
 return pom

@@ -20,33 +20,41 @@ local mash_shift = config.keys.mash_shift
 local HYPER = config.keys.HYPER
 
 --[[
-  Initializes custom keybindings
+  Initializes system keybindings (window hints, reload, etc.)
+  Reads configuration from config.system_hotkeys
 ]]
-local function init_custom_binding()
-    -- Window hints shortcut
-    hs.hotkey.bind(HYPER, '-', hs.hints.windowHints)
+local function init_system_hotkeys()
+    if not config.system_hotkeys then
+        return
+    end
 
-    -- Pomodoro bindings - using function wrappers to avoid errors
-    hs.hotkey.bind(mash, '9', function()
-        pom.enable()
-    end)
-    hs.hotkey.bind(mash, '0', function()
-        pom.disable()
-    end)
-    hs.hotkey.bind(mash_shift, '0', function()
-        pom.reset_work()
-    end)
+    -- Helper to resolve modifier string to actual modifier array
+    local function get_mods(mod_str)
+        return config.keys[mod_str] or mod_str
+    end
 
-    -- Activity Monitor shortcut
-    hs.hotkey.bind(HYPER, "=", function()
-        appSwitcher.toggle_app("Activity Monitor")
-    end)
+    -- Window hints
+    if config.system_hotkeys.window_hints then
+        local hk = config.system_hotkeys.window_hints
+        hs.hotkey.bind(get_mods(hk.mods), hk.key, hs.hints.windowHints)
+    end
+
+    -- Activity Monitor toggle
+    if config.system_hotkeys.activity_monitor then
+        local hk = config.system_hotkeys.activity_monitor
+        hs.hotkey.bind(get_mods(hk.mods), hk.key, function()
+            appSwitcher.toggle_app("Activity Monitor")
+        end)
+    end
 
     -- Hot reload configuration
-    hs.hotkey.bind(mash_shift, "R", function()
-        hs.reload()
-        hs.alert.show("Config reloaded!")
-    end)
+    if config.system_hotkeys.reload then
+        local hk = config.system_hotkeys.reload
+        hs.hotkey.bind(get_mods(hk.mods), hk.key, function()
+            hs.reload()
+            hs.alert.show("Config reloaded!")
+        end)
+    end
 end
 
 --[[
@@ -84,8 +92,11 @@ local function init()
     -- Initialize audio switcher
     audio_switcher.init(config, print)
 
-    -- Initialize custom keybindings
-    init_custom_binding()
+    -- Initialize system hotkeys (window hints, reload, etc.)
+    init_system_hotkeys()
+
+    -- Initialize pomodoro (including its hotkeys)
+    pom.init(config)
 
     -- Initialize debug system
     -- Note: tiler must be fully initialized before debug.init() is called
