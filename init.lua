@@ -50,16 +50,6 @@ local function init_custom_binding()
 end
 
 --[[
-  Debug keystroke monitor - MOVED to debug/keystroke_monitor.lua
-
-  To enable keystroke debugging:
-  1. Set debug_config.keystroke_monitor.enabled = true in debug/config.lua, OR
-  2. Call debug.keystroke.start() from the Hammerspoon console
-
-  See debug/keystroke_monitor.lua for the implementation.
-]]
-
---[[
   Main initialization function
 ]]
 local function init()
