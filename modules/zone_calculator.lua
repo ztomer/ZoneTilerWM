@@ -32,11 +32,13 @@ local zone_calculator = {}
 --@field grid_config GridConfig
 --@field layout_key string
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("zone_calculator")
+
 -- Module state
 local config = nil -- Set in init
 local margins = nil -- Set in init
-local debug_log = function(...)
-end -- Placeholder, will be set in init
 --@type lru_cache<string, LayoutCacheEntry>
 local layout_cache = nil -- To be initialized in init()
 

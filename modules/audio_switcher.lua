@@ -8,10 +8,12 @@ local hs_applescript = hs.applescript
 
 local audio_switcher = {}
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("audio_switcher")
+
 -- Module state
 local config = nil
-local debug_log = function(...)
-end
 -- Keep a reference to the watcher in the module table to prevent garbage collection
 audio_switcher.device_watcher = nil
 

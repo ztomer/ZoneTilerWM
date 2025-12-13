@@ -5,20 +5,16 @@ local window_memory = {}
 local config = require "config"
 local storage = require "modules.storage"
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("window_memory")
+
 -- Module state
 local tiler = nil -- Set during initialization
 local positions = {} -- app_name -> monitor_id -> {zone_key, tile_index}
 local preferences = {} -- app_name -> monitor_id -> zone_key -> tile_index -> count
 local pending_learning = {} -- window_id -> { timer, data = {app_name, monitor_id, zone_key, tile_index} }
 local save_timer = nil
-
--- Debug logging
-local function debug_log(...)
-    if window_memory.debug then
-        local args = {...}
-        print("[WindowMemory] " .. table.concat(args, " "))
-    end
-end
 
 -- Check if app should be excluded from memory
 ---@param app_name string

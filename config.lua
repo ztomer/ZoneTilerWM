@@ -1,6 +1,18 @@
 -- Configuration file for Hammerspoon settings
 local config = {}
 
+--[[
+  DEBUG CONFIGURATION NOTICE
+
+  Debug logging settings have been moved to debug/config.lua for better organization.
+
+  To enable/disable debug logging for specific modules:
+  - Edit debug/config.lua and set the module flags (e.g., tiler = true)
+  - Or use runtime commands: zt_debug.enable_module("tiler")
+
+  See debug/README.md for complete documentation.
+]]
+
 -- Key combinations
 config.keys = {
     mash = {"ctrl", "cmd"},
@@ -87,7 +99,6 @@ config.pomodoro = {
 
 -- Simplified Tiler settings
 config.tiler = {
-    debug = true,
     reposition_on_screen_change = true, -- or false if you want to disable it by default
     center_modals = true, -- Automatically center modal dialogs
     modifier = {"ctrl", "cmd"},
@@ -324,7 +335,6 @@ config.window_handling = {
 
 config.window_memory = {
     enabled = true, -- Enable/disable window memory
-    debug = true, -- Enable debug logging
     max_preference_entries = 1000, -- Maximum number of unique app/monitor/zone/tile preferences to remember
     settle_delay_sec = 2.0, -- Time in seconds before a window position is "learned" after it stops moving
     save_interval_sec = 60, -- Time in seconds between automatic saves. Set to 0 to disable.
@@ -355,8 +365,7 @@ config.window_memory = {
 }
 
 config.layout_manager = {
-    enabled = true,
-    debug = true
+    enabled = true
 }
 
 return config

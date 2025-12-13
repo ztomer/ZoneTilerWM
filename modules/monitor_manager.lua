@@ -8,15 +8,16 @@ local hs_screen = hs.screen
 
 local monitor_manager = {}
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("monitor_manager")
+
 -- Module state
 local monitors = {
     -- Stable monitor IDs that persist across reconnections
     registry = {}, -- monitor_key -> {system_id, name, frame, logical_id, key}
     next_logical_id = 1
 }
-
-local debug_log = function(...)
-end -- Placeholder, will be set in init
 
 --- Generates a stable key for a monitor based on its persistent UUID.
 -- @local

@@ -26,17 +26,9 @@ local placement_strategy = require "modules.placement_strategy"
 local resize_manager = require "modules.resize_manager"
 local grid_overlay = require "modules.grid_overlay"
 
--- Debug logging
-local function debug_log(...)
-    if not tiler.debug then return end
-    local args = {...}
-    local string_args = {}
-    for i, v in ipairs(args) do
-        string_args[i] = tostring(v)
-    end
-    local message = table.concat(string_args, " ")
-    print("[Tiler] " .. message)
-end
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("tiler")
 
 -- Expose monitors for window_memory
 tiler.monitors = monitor_manager -- Keep this for window_memory if it directly accesses tiler.monitors

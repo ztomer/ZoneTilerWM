@@ -20,10 +20,11 @@ local zen_mode_active = false
 local zen_hidden_windows = {}
 local zen_focused_window = nil
 
-local window_memory_module = nil -- Reference to the window_memory module
-local debug_log = function(...)
-end -- Placeholder, will be set in init
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("window_state_manager")
 
+local window_memory_module = nil -- Reference to the window_memory module
 local zone_calculator = nil
 
 --- Records the position of a window within the tiling layout.

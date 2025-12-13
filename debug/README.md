@@ -187,6 +187,17 @@ zt_debug.inspect.debug_cycle_state()
 
 ## Configuration Examples
 
+### Important: Single Source of Truth
+
+**All debug configuration is now centralized in `debug/config.lua`.**
+
+The old debug flags in `config.lua` (e.g., `config.tiler.debug = true`) have been removed. This prevents confusion and ensures consistent debug settings across all modules.
+
+To configure debug logging:
+
+1. **Edit `debug/config.lua`** - Set module flags, log levels, etc.
+2. **Or use runtime commands** - `zt_debug.enable_module("tiler")`
+
 ### Enable All Debug Logging
 
 ```lua

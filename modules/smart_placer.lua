@@ -4,14 +4,16 @@ local hs_window = hs.window
 
 local smart_placer = {}
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("smart_placer")
+
 -- Module state
 local config = nil -- Set in init
 local monitor_manager = nil -- Set in init
 local zone_calculator = nil -- Set in init
 local window_state_manager = nil -- Set in init
 local window_actions = nil -- Set in init
-local debug_log = function(...)
-end -- Placeholder, will be set in init
 
 --- Checks if two rectangles intersect.
 -- @local

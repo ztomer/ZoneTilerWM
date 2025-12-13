@@ -10,13 +10,15 @@ local hs_geometry = hs.geometry
 
 local focus_manager = {}
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("focus_manager")
+
 -- Module state
 local config = nil -- Set in init
 local monitor_manager = nil -- Set in init
 local zone_calculator = nil -- Set in init
 local window_state_manager = nil -- Set in init
-local debug_log = function(...)
-end -- Placeholder, will be set in init
 
 -- Manages the state of the current focus cycle.
 local current_focus_cycle_manager = {

@@ -10,6 +10,10 @@ local hs_axuielement = hs.axuielement
 
 local window_actions = {}
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("window_actions")
+
 -- Module state
 local config = nil -- Set in init
 local monitor_manager = nil -- Set in init
@@ -18,8 +22,6 @@ local window_state_manager = nil -- Set in init
 local placement_strategy = nil -- Set in init
 local processed_problem_apps = {} -- Set in init
 local window_memory_module = nil -- Set via setter from tiler
-local debug_log = function(...)
-end -- Placeholder, will be set in init
 
 --- Checks if an application is in the configured list of problem applications.
 -- @local

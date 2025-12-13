@@ -5,17 +5,13 @@ local layout_manager = {}
 local config = require "config"
 local json = require "hs.json"
 
+-- Debug logging (centralized)
+local debug = require "debug.init"
+local debug_log = debug.create_debug_log("layout_manager")
+
 -- Module state
 local tiler = nil -- Set during initialization
 local layouts = {} -- In-memory store for layouts
-
--- Debug logging
-local function debug_log(...)
-    if layout_manager.debug then
-        local args = {...}
-        print("[LayoutManager] " .. table.concat(args, " "))
-    end
-end
 
 -- Get layout filename
 local function get_layout_filename()
