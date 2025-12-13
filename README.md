@@ -46,6 +46,7 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 │   ├── ARCHITECTURE.md   # System design and module overview
 │   ├── CONTRIBUTING.md   # Development guidelines
 │   ├── GEMINI.md         # AI copilot instructions
+│   ├── SPACES_RESEARCH.md # macOS Spaces implementation research
 │   └── keyboard_shortcuts.md # Complete keyboard reference
 ├── modules/              # Core functionality modules
 │   ├── tiler.lua         # Core tiling orchestrator
@@ -57,11 +58,28 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 │   ├── focus_manager.lua   # Manages focus cycling within zones
 │   ├── window_actions.lua  # Core window manipulation functions
 │   ├── window_memory.lua # Window memory and recall
+│   ├── layout_manager.lua # Layout persistence
 │   ├── app_switcher.lua  # App hotkey binding module
+│   ├── audio_switcher.lua # Audio device switching
 │   ├── pomodoor.lua      # Pomodoro timer display and logic
+│   ├── space_manager.lua  # macOS Spaces management
+│   ├── space_menubar.lua  # Spaces menubar indicator
+│   ├── space_preview.lua  # Spaces visual preview
+│   ├── space_storage.lua  # Spaces persistence
+│   ├── storage.lua       # Generic JSON storage
 │   └── lru_cache.lua     # Helper LRU cache for window focus history
+├── debug/                # Debug and development tools
+│   ├── README.md         # Debug system documentation
+│   ├── init.lua          # Debug system entry point
+│   ├── config.lua        # Debug configuration
+│   ├── logger.lua        # Centralized logging system
+│   ├── keystroke_monitor.lua # Keyboard event debugging
+│   └── inspection.lua    # State inspection utilities
 └── tests/                # Test suite
     ├── test_runner.lua   # Test harness
+    ├── test_storage.lua  # Storage module tests
+    ├── test_window_memory.lua # Window memory tests
+    ├── test_config_validator.lua # Config validation tests
     └── mock_hs.lua       # Hammerspoon API mocks
 ```
 
@@ -188,7 +206,43 @@ For detailed documentation, see the [docs/](docs/) folder:
 * **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
 * **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
 * **[AI Copilot Guide](docs/GEMINI.md)** - Instructions for AI assistants
+* **[Spaces Research](docs/SPACES_RESEARCH.md)** - macOS Spaces implementation research
 * **[Native Port Plan](docs/NATIVE_PORT_PLAN.md)** - Future Swift migration roadmap
+
+---
+
+## Debugging
+
+ZoneTilerWM includes a comprehensive debug system for development and troubleshooting.
+
+### Quick Start
+
+Access debug commands from the Hammerspoon console:
+
+```lua
+zt_debug.help()                    -- Show all available commands
+zt_debug.keystroke.start()         -- Start keystroke monitor
+zt_debug.inspect.debug_zone("left") -- Inspect a zone
+zt_debug.enable_module("tiler")    -- Enable debug logging for a module
+```
+
+### Debug Features
+
+* **Centralized Logging** - Module-specific debug logs with configurable levels
+* **Keystroke Monitor** - Capture and log all keyboard events for debugging key bindings
+* **State Inspection** - Examine zones, windows, focus state, and audio devices
+* **Runtime Configuration** - Enable/disable debug features without editing files
+
+### Configuration
+
+Edit [debug/config.lua](debug/config.lua) to configure:
+
+* Module-specific debug flags
+* Log levels and formatting
+* Keystroke monitor auto-start
+* Performance monitoring
+
+For complete documentation, see [debug/README.md](debug/README.md).
 
 ---
 
