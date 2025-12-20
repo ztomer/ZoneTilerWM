@@ -28,6 +28,11 @@ local config = {
                 k = {"c1:d3"},
                 ["overflow_test"] = {"z1", "z2"} -- dummy for overflow tests
             },
+            ["dynamic"] = {
+                p1 = {"a1"}, -- peripheral
+                p2 = {"b1"}, -- closer
+                p3 = {"b2:c3"} -- central
+            },
             ["2x2"] = {
                 j = {"a1:b2"}
             },
@@ -37,10 +42,12 @@ local config = {
         },
         grids = {
             ["4x3"] = {cols = 4, rows = 3},
+            ["dynamic"] = {cols = 4, rows = 3},
             ["2x2"] = {cols = 2, rows = 2}
         },
         auto_tile_center_zones = {"j"},
-        smart_placement = { enabled = true }
+        smart_placement = { enabled = true },
+        debug = true
     },
     keys = {mash={"ctrl", "cmd"}, HYPER={"ctrl", "alt", "cmd", "shift"}},
     window_memory = { enabled = true },
@@ -111,17 +118,21 @@ end
 local function create_win(id, app_name, screen_idx, frame)
     local screen = mock_hs.screen.allScreens()[screen_idx or 1]
     local win = {
-        id = function() return id end,
-        application = function() return { name = function() return app_name end } end,
-        isStandard = function() return true end,
-        isMinimized = function() return false end,
-        isVisible = function() return true end,
-        screen = function() return screen end,
-        frame = function() return frame or {x=0,y=0,w=100,h=100} end,
-        setFrame = function(self, f) self._f = f return true end,
-        moveToScreen = function(self, s) self._s = s return true end,
-        raise = function() end, focus = function() end, title = function() return app_name end
+        _f = frame or {x=0,y=0,w=100,h=100}
     }
+    win.id = function() return id end
+    win.application = function() return { name = function() return app_name end } end
+    win.isStandard = function() return true end
+    win.isMinimized = function() return false end
+    win.isVisible = function() return true end
+    win.screen = function() return screen end
+    win.frame = function() return win._f end
+    win.setFrame = function(_, f) win._f = f return true end
+    win.moveToScreen = function(_, s) win._s = s return true end
+    win.raise = function() end
+    win.focus = function() end
+    win.title = function() return app_name end
+
     table.insert(mock_hs.window.allWindows(), win)
     return win
 end
@@ -243,9 +254,62 @@ local function test_optimization()
     print("  OK")
 end
 
+-- TEST: Dynamic Overflow (Peripheral -> Central)
+local function test_dynamic_overflow()
+    print("[Test] Dynamic Overflow (p1 -> p2 -> p3)...")
+    -- 1. Update config FIRST
+    config.tiler.screen_detection.patterns["Screen.*"] = "dynamic"
+
+    -- 2. Setup env (restarts monitor_manager and zone_calculator)
+    setup_env({
+        {id=1, uuid="m1", frame={x=0, y=0, w=1000, h=1000}}
+    })
+
+    local w1 = create_win(1, "App1")
+    local w2 = create_win(2, "App2")
+    local w3 = create_win(3, "App3")
+
+    -- Everyone wants p1:1
+    window_memory.get_ranked_preferences = function(app, mid)
+        return {{zone_key="p1", tile_index=1}}
+    end
+
+    auto_tiler.tile_all_windows()
+
+    -- p1 is full (1 tile).
+    -- If dynamic overflow works, w2 should be in p2 and w3 in p3.
+    -- Currently it should FAIL to overflow from p1 because p1 is not in DEFAULT_OVERFLOWS.
+
+    local mid = monitor_manager.get_id(mock_hs.screen.allScreens()[1])
+    local p1_tiles = zone_calculator.get(mid, "p1")
+    local p2_tiles = zone_calculator.get(mid, "p2")
+    local p3_tiles = zone_calculator.get(mid, "p3")
+
+    local f1, f2, f3 = w1._f, w2._f, w3._f
+
+    assert(f1.x == p3_tiles[1].x and f1.y == p3_tiles[1].y, "W1 should have rippled to p3")
+    assert(f2.x == p2_tiles[1].x and f2.y == p2_tiles[1].y, "W2 should have rippled to p2")
+    assert(f3.x == p1_tiles[1].x and f3.y == p1_tiles[1].y, "W3 should be in p1")
+
+    -- This is where it will fail currently (Pass 1 won't place them, Pass 2 might)
+    -- But we want to ensure Pass 1 (Ripple) handles the overflow.
+    -- For now, let's just see where they end up.
+
+    local is_f2_in_p2 = math.abs(f2.x - p2_tiles[1].x) < 2 and math.abs(f2.y - p2_tiles[1].y) < 2
+    local is_f3_in_p3 = math.abs(f3.x - p3_tiles[1].x) < 2 and math.abs(f3.y - p3_tiles[1].y) < 2
+
+    if not is_f2_in_p2 or not is_f3_in_p3 then
+        print("  FAILED (Expected): Windows did not overflow logically to p2/p3")
+        print("  W2 is at:", f2.x, f2.y, "Target P2:", p2_tiles[1].x, p2_tiles[1].y)
+        print("  W3 is at:", f3.x, f3.y, "Target P3:", p3_tiles[1].x, p3_tiles[1].y)
+    else
+        print("  OK")
+    end
+end
+
 -- Run
 local function run()
-    local tests = {test_multi_monitor, test_deep_ripple, test_anchor_protection, test_optimization}
+    local tests = {test_multi_monitor, test_deep_ripple, test_anchor_protection, test_optimization, test_dynamic_overflow}
     for _, t in ipairs(tests) do t() end
     print("\nADVANCED TESTS PASS")
 end

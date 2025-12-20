@@ -24,23 +24,78 @@ local last_auto_tile_focused_id = nil
 local last_cycle_index = nil
 local last_zone_key = nil
 
--- Primary Overflow Map: Defines where windows should go if a zone is full
-local DEFAULT_OVERFLOWS = {
-    ["h"] = "y", ["y"] = "j", ["k"] = "j", ["j"] = "l",
-    ["u"] = "y", ["n"] = "j", [","] = "j"
-}
+-- State for dynamic overflow mapping
+local dynamic_overflow_cache = {} -- mid -> {layout_key -> overflow_map}
 
 -------------------------------------------------------------------------------
 -- Internal Helper Utilities
 -------------------------------------------------------------------------------
 
+--- Calculates the centroid (center point) of a zone.
+-- @local
+local function _get_zone_centroid(monitor_id, zone_key)
+    local tiles = zone_calculator.get(monitor_id, zone_key)
+    if not tiles or #tiles == 0 then return nil end
+    local cx, cy = 0, 0
+    for _, t in ipairs(tiles) do cx = cx + (t.x + t.w/2) cy = cy + (t.y + t.h/2) end
+    return {x = cx / #tiles, y = cy / #tiles}
+end
+
+--- Builds a dynamic overflow map based on proximity to center.
+-- Windows flow from peripheral zones to more central zones.
+-- @local
+local function _get_dynamic_overflow_map(monitor_id, layout_key)
+    if dynamic_overflow_cache[monitor_id] and dynamic_overflow_cache[monitor_id][layout_key] then
+        return dynamic_overflow_cache[monitor_id][layout_key]
+    end
+
+    local zones_defs = config.tiler.layouts[layout_key]
+    if not zones_defs then return {} end
+
+    local screen = nil
+    for _, s in ipairs(hs_screen.allScreens()) do
+        if monitor_manager.get_id(s) == monitor_id then screen = s break end
+    end
+    if not screen then return {} end
+
+    local frame = screen:frame()
+    local mx, my = frame.x + frame.w/2, frame.y + frame.h/2
+    local zone_data = {}
+
+    for zk, _ in pairs(zones_defs) do
+        local centroid = _get_zone_centroid(monitor_id, zk)
+        if centroid then
+            local dist_to_center = math.sqrt((centroid.x - mx)^2 + (centroid.y - my)^2)
+            table.insert(zone_data, {key = zk, centroid = centroid, centrality = -dist_to_center})
+        end
+    end
+
+    local overflow_map = {}
+    for _, z1 in ipairs(zone_data) do
+        local best_neighbor = nil
+        local min_dist = math.huge
+        for _, z2 in ipairs(zone_data) do
+            if z1.key ~= z2.key and z2.centrality > z1.centrality then
+                local d = math.sqrt((z1.centroid.x - z2.centroid.x)^2 + (z1.centroid.y - z2.centroid.y)^2)
+                if d < min_dist then min_dist = d best_neighbor = z2.key end
+            end
+        end
+        overflow_map[z1.key] = best_neighbor
+    end
+
+    dynamic_overflow_cache[monitor_id] = dynamic_overflow_cache[monitor_id] or {}
+    dynamic_overflow_cache[monitor_id][layout_key] = overflow_map
+    return overflow_map
+end
+
 --- Resolves the overflow zone for a given zone key.
 -- @local
-local function get_overflow_zone(zone_key)
+local function get_overflow_zone(monitor_id, layout_key, zone_key)
     if config.tiler and config.tiler.overflow_map and config.tiler.overflow_map[zone_key] then
         return config.tiler.overflow_map[zone_key]
     end
-    return DEFAULT_OVERFLOWS[zone_key]
+    local dynamic = _get_dynamic_overflow_map(monitor_id, layout_key)
+    return dynamic[zone_key]
 end
 
 --- Checks if two frames overlap.
@@ -91,7 +146,7 @@ end
 
 --- Recursive function to free up a tile by moving its current occupant.
 -- @local
-local function try_ripple_move(monitor_id, zone_key, target_tile_index, occupied_on_monitor, all_windows_map, depth)
+local function try_ripple_move(monitor_id, layout_key, zone_key, target_tile_index, occupied_on_monitor, all_windows_map, depth)
     depth = depth or 0
     if depth > 5 then return false, {}, {} end
 
@@ -100,10 +155,10 @@ local function try_ripple_move(monitor_id, zone_key, target_tile_index, occupied
 
     -- Check Overflow
     if not tiles[target_tile_index] then
-        local overflow_zone = get_overflow_zone(zone_key)
+        local overflow_zone = get_overflow_zone(monitor_id, layout_key, zone_key)
         if overflow_zone then
             debug_log("Zone " .. zone_key .. " full. Overflowing to " .. overflow_zone)
-            return try_ripple_move(monitor_id, overflow_zone, 1, occupied_on_monitor, all_windows_map, depth + 1)
+            return try_ripple_move(monitor_id, layout_key, overflow_zone, 1, occupied_on_monitor, all_windows_map, depth + 1)
         end
         return false, {}, {}
     end
@@ -122,7 +177,7 @@ local function try_ripple_move(monitor_id, zone_key, target_tile_index, occupied
 
     -- Attempt to move the blocker to the NEXT tile
     local next_tile_index = target_tile_index + 1
-    local success, sub_moves, sub_occupied = try_ripple_move(monitor_id, zone_key, next_tile_index, occupied_on_monitor, all_windows_map, depth + 1)
+    local success, sub_moves, sub_occupied = try_ripple_move(monitor_id, layout_key, zone_key, next_tile_index, occupied_on_monitor, all_windows_map, depth + 1)
 
     if success then
         local dest_zone = zone_key
@@ -132,7 +187,7 @@ local function try_ripple_move(monitor_id, zone_key, target_tile_index, occupied
 
         if not dest_rect then
              -- Overflow path (should match what recursion did)
-             local overflow_zone = get_overflow_zone(zone_key)
+             local overflow_zone = get_overflow_zone(monitor_id, layout_key, zone_key)
              if overflow_zone then
                  dest_zone = overflow_zone
                  dest_tile_idx = 1
@@ -244,8 +299,11 @@ local function _pass_preferences_and_ripples(windows_to_tile, occupied_rects_by_
         for _, win in ipairs(remaining) do
             local app_name = win:application() and win:application():name() or "?"
             local screen = win:screen()
-            local mid = screen and monitor_manager.get_id(screen)
-            local prefs = (screen and window_memory) and window_memory.get_ranked_preferences(app_name, mid)
+            if not screen then goto next_win end
+            local mid = monitor_manager.get_id(screen)
+            local _, layout_key = zone_calculator.get_layout_config(screen)
+
+            local prefs = window_memory and window_memory.get_ranked_preferences(app_name, mid)
             local pref = (prefs and prefs[rank])
             local tiles = (pref and zone_calculator.get(mid, pref.zone_key))
             local target_rect = (tiles and tiles[pref.tile_index])
@@ -256,7 +314,7 @@ local function _pass_preferences_and_ripples(windows_to_tile, occupied_rects_by_
             end
 
             -- Ripple check
-            local success, r_moves, r_occ = try_ripple_move(mid, pref.zone_key, pref.tile_index, occupied_rects_by_monitor[mid], all_win_map, 1)
+            local success, r_moves, r_occ = try_ripple_move(mid, layout_key, pref.zone_key, pref.tile_index, occupied_rects_by_monitor[mid], all_win_map, 1)
             if not success then
                 table.insert(still_unplaced, win)
                 goto next_win
