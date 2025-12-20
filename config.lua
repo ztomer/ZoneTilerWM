@@ -154,8 +154,12 @@ config.tiler = {
             key = "r",
             mods = "HYPER"
         },
-        auto_tile_all = {
+        auto_tile_screen = {
             key = "return",
+            mods = "HYPER"
+        },
+        auto_tile_global = {
+            key = "",
             mods = "HYPER"
         }
     },

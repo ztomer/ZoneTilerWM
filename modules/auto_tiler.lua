@@ -471,9 +471,19 @@ function auto_tiler.find_center_covering_zones(monitor_id, screen)
     return keys
 end
 
+--- Auto-tiles windows on the currently focused screen only.
+function auto_tiler.tile_focused_screen()
+    local fw = hs_window.focusedWindow()
+    if not fw then return end
+    local screen = fw:screen()
+    if not screen then return end
+    auto_tiler.tile_all_windows(screen)
+end
+
 --- Main Tiling Entry Point.
-function auto_tiler.tile_all_windows()
-    debug_log("Starting Auto-Tile All Windows...")
+-- @param target_screen (hs.screen|nil) If provided, only tile windows on this screen.
+function auto_tiler.tile_all_windows(target_screen)
+    debug_log("Starting Auto-Tile " .. (target_screen and ("Screen: " .. target_screen:name()) or "All Windows") .. "...")
     local all_windows = hs_window.allWindows()
     local all_screens = hs_screen.allScreens()
 
@@ -483,20 +493,32 @@ function auto_tiler.tile_all_windows()
     local processed_ids = {}
     local all_win_map = {}
 
+    -- Filter monitors if target_screen is provided
+    local monitors_to_process = all_screens
+    if target_screen then
+        monitors_to_process = {target_screen}
+    end
+
     -- Preparation
-    for _, s in ipairs(all_screens) do occupied_rects_by_monitor[monitor_manager.get_id(s)] = {} end
+    for _, s in ipairs(monitors_to_process) do occupied_rects_by_monitor[monitor_manager.get_id(s)] = {} end
+
     for _, win in ipairs(all_windows) do
         local wid = win:id()
         all_win_map[wid] = win
-        local mid = win:screen() and monitor_manager.get_id(win:screen())
-        if should_tile_window(win) then
-            table.insert(windows_to_tile, win)
-        elseif mid and win:isVisible() and win:isStandard() then
-            table.insert(occupied_rects_by_monitor[mid], {
-                frame = win:frame(), window_id = wid, is_bumpable = false,
-                source = "Obstacle: " .. (win:application():name() or "Unknown")
-            })
-            debug_log("Marked obstacle:", (win:application():name() or "Unknown"))
+        local win_screen = win:screen()
+        local mid = win_screen and monitor_manager.get_id(win_screen)
+
+        -- Only process if it's on a monitor we are interested in
+        if mid and occupied_rects_by_monitor[mid] then
+            if should_tile_window(win) then
+                table.insert(windows_to_tile, win)
+            elseif win:isVisible() and win:isStandard() then
+                table.insert(occupied_rects_by_monitor[mid], {
+                    frame = win:frame(), window_id = wid, is_bumpable = false,
+                    source = "Obstacle: " .. (win:application():name() or "Unknown")
+                })
+                debug_log("Marked obstacle:", (win:application():name() or "Unknown"))
+            end
         end
     end
 
@@ -514,14 +536,20 @@ function auto_tiler.tile_all_windows()
 
     -- EXECUTION
     _execute_moves(move_queue)
-    debug_log("Auto-Tile All Windows complete.")
+    debug_log("Auto-Tile complete.")
 end
 
 function auto_tiler.setup_hotkeys()
-    if config.tiler and config.tiler.hotkeys and config.tiler.hotkeys.auto_tile_all then
-        local hk = config.tiler.hotkeys.auto_tile_all
-        hs.hotkey.bind(config.keys[hk.mods] or hk.mods, hk.key, auto_tiler.tile_all_windows)
-        debug_log("Bound Auto-Tile All hotkey")
+    if config.tiler and config.tiler.hotkeys then
+        local hk = config.tiler.hotkeys
+        if hk.auto_tile_screen and hk.auto_tile_screen.key ~= "" then
+            hs.hotkey.bind(config.keys[hk.auto_tile_screen.mods] or hk.auto_tile_screen.mods, hk.auto_tile_screen.key, auto_tiler.tile_focused_screen)
+            debug_log("Bound Auto-Tile Screen hotkey")
+        end
+        if hk.auto_tile_global and hk.auto_tile_global.key ~= "" then
+            hs.hotkey.bind(config.keys[hk.auto_tile_global.mods] or hk.auto_tile_global.mods, hk.auto_tile_global.key, auto_tiler.tile_all_windows)
+            debug_log("Bound Auto-Tile Global hotkey")
+        end
     end
 end
 

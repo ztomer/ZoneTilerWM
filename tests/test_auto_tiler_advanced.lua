@@ -307,9 +307,46 @@ local function test_dynamic_overflow()
     end
 end
 
+-- TEST: Screen Isolation (Tile only focused screen)
+local function test_screen_isolation()
+    print("[Test] Screen Isolation...")
+    -- 1. Reset layout pattern to something known
+    config.tiler.screen_detection.patterns["Screen.*"] = "4x3"
+
+    setup_env({
+        {id=1, uuid="m1", frame={x=0, y=0, w=1000, h=1000}},
+        {id=2, uuid="m2", frame={x=1000, y=0, w=1000, h=1000}}
+    })
+
+    -- W1 on Monitor 1 (Initial frame)
+    local w1 = create_win(1, "App1", 1, {x=100, y=100, w=100, h=100})
+    -- W2 on Monitor 2 (Initial frame)
+    local w2 = create_win(2, "App2", 2, {x=1100, y=100, w=100, h=100})
+
+    -- W2 is focused
+    mock_hs.window.focusedWindow = function() return w2 end
+
+    -- Preferences: Both want y:1 on their respective screens
+    window_memory.get_ranked_preferences = function(app, mid)
+        return {{zone_key="y", tile_index=1}}
+    end
+
+    -- Call Local Tile
+    auto_tiler.tile_focused_screen()
+
+    -- W2 should have moved
+    local j1_m2 = zone_calculator.get(2, "j")[1]
+    assert(math.abs(w2._f.x - j1_m2.x) < 2, "W2 should have anchored to center on Monitor 2")
+
+    -- W1 should NOT have moved
+    assert(w1._f.x == 100 and w1._f.y == 100, "W1 was incorrectly tiled despite being on a different screen!")
+
+    print("  OK")
+end
+
 -- Run
 local function run()
-    local tests = {test_multi_monitor, test_deep_ripple, test_anchor_protection, test_optimization, test_dynamic_overflow}
+    local tests = {test_multi_monitor, test_deep_ripple, test_anchor_protection, test_optimization, test_dynamic_overflow, test_screen_isolation}
     for _, t in ipairs(tests) do t() end
     print("\nADVANCED TESTS PASS")
 end
