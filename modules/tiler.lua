@@ -35,10 +35,21 @@ tiler.monitors = monitor_manager -- Keep this for window_memory if it directly a
 -- Expose window_state for window_memory
 tiler.window_state = window_state_manager -- Keep this for window_memory
 tiler.window_actions = window_actions
+tiler.smart_placer = smart_placer
+tiler.zone_calculator = zone_calculator
+
 
 -- Resize Mode State
 local resize_mode_active = false
 local resize_mode_alert_uuid = nil
+
+-- Callback for smart tiling (AutoTiler)
+local reposition_callback = nil
+
+--- Registers a callback to be used for repositioning all windows.
+function tiler.set_reposition_callback(fn)
+    reposition_callback = fn
+end
 
 ------------------------------------------
 -- Window Utility Functions
@@ -381,13 +392,20 @@ local function handle_screen_change()
         -- Attempt to reposition all existing windows if configured
         if config.tiler.reposition_on_screen_change then
             debug_log("Attempting to reposition windows after screen change (delayed)...")
-            for _, win in ipairs(hs_window.allWindows()) do
-                local app_name_for_log = win:application() and win:application():name() or "UnknownApp"
-                if win:isStandard() and not win:isMinimized() then
-                    tiler.attempt_reposition_existing_window(win)
-                else
-                    debug_log("Skipping reposition for window ID", win:id(), "(", app_name_for_log,
-                        ") during screen change because it's not standard or is minimized.")
+
+            if reposition_callback then
+                debug_log("Invoking smart reposition callback (AutoTiler)...")
+                reposition_callback()
+            else
+                debug_log("Fallback to naive repositioning (No callback registered)...")
+                for _, win in ipairs(hs_window.allWindows()) do
+                    local app_name_for_log = win:application() and win:application():name() or "UnknownApp"
+                    if win:isStandard() and not win:isMinimized() then
+                        tiler.attempt_reposition_existing_window(win)
+                    else
+                        debug_log("Skipping reposition for window ID", win:id(), "(", app_name_for_log,
+                            ") during screen change because it's not standard or is minimized.")
+                    end
                 end
             end
         else
@@ -553,17 +571,36 @@ function tiler.start()
 
     local screen_watcher = hs.screen.watcher.new(handle_screen_change):start()
 
-    -- Automatically tile all existing windows on startup
-    debug_log("Tiling all existing windows on startup...")
-    for _, win in ipairs(hs_window.allWindows()) do
-        if win:isStandard() and not win:isMinimized() then
-            tiler.attempt_reposition_existing_window(win)
-        end
+    -- Initialize zones for all currently connected screens (Crucial for startup)
+    debug_log("Initializing zones for all screens...")
+    for _, screen in ipairs(hs_screen.allScreens()) do
+        local monitor_id = monitor_manager.get_id(screen)
+        zone_calculator.create_for_monitor(monitor_id, screen)
+    end
+
+    -- Automatically tile all existing windows on startup if configured
+    if config.tiler.tile_on_startup then
+        debug_log("Tiling all existing windows on startup...")
+
+        hs_timer.doAfter(0.5, function()
+             if reposition_callback then
+                debug_log("Startup: Invoking smart reposition callback...")
+                reposition_callback()
+            else
+                debug_log("Startup: Fallback to naive repositioning...")
+                for _, win in ipairs(hs_window.allWindows()) do
+                    if win:isStandard() and not win:isMinimized() then
+                        tiler.attempt_reposition_existing_window(win)
+                    end
+                end
+            end
+        end)
     end
 
     debug_log("Tiler started successfully")
     return tiler
 end
+
 
 --- Injects the `window_memory` module as a dependency.
 -- This is called from `init.lua` after `window_memory` has been initialized,

@@ -13,6 +13,7 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 * **Audio Device Switching**: Cycle through audio devices with a hotkey.
 * **Pomodoro Timer**: A built-in Pomodoro timer to help you stay focused.
 * **Dynamic Resizing**: Adjust grid lines on the fly with visual feedback.
+* **Auto-Tiling**: Automatically arrange all windows into empty gaps with recursive ripple logic and top-left priority.
 * **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.lua` file.
 * **Config Validation**: Startup checks to ensure your configuration is valid.
 
@@ -44,6 +45,7 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 ├── config.lua            # Configuration for keys, layouts, and features
 ├── docs/                 # Documentation
 │   ├── ARCHITECTURE.md   # System design and module overview
+│   ├── auto-tiling_algorithmic_design.md # Advanced tiling logic and scoring
 │   ├── CONTRIBUTING.md   # Development guidelines
 │   ├── GEMINI.md         # AI copilot instructions
 │   ├── SPACES_RESEARCH.md # macOS Spaces implementation research
@@ -156,6 +158,7 @@ Grid is mapped to your keyboard:
 * `Hyper+r` → Toggle Resize Mode (Arrow keys to adjust grid)
 * `Hyper+-` → Show window hints
 * `Hyper+=` → Open Activity Monitor
+* `HYPER+Enter` → **Auto-Tile All Windows** (Ripple, Compaction, and Gap-Filling)
 * `Shift+Ctrl+Cmd+R` → Reload config
 
 ---

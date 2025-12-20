@@ -35,6 +35,29 @@ logger.include_timestamp = false
 --- Whether to include module name in log output
 logger.include_module_name = true
 
+--- File logging configuration
+logger.file_logging_enabled = false
+logger.log_file_path = nil
+
+--- Configure file logging
+-- @param path (string) The path to the log file
+-- @param enable (boolean) Whether to enable file logging
+function logger.configure_file_logging(path, enable)
+    logger.log_file_path = path
+    logger.file_logging_enabled = enable
+end
+
+--- Internal function to write to file
+local function write_to_file(message)
+    if logger.file_logging_enabled and logger.log_file_path then
+        local file = io.open(logger.log_file_path, "a")
+        if file then
+            file:write(message .. "\n")
+            file:close()
+        end
+    end
+end
+
 --- Creates a new logger instance for a specific module
 -- @param module_name (string) The name of the module
 -- @param enabled (boolean) Whether debug logging is enabled for this module (default: true)
@@ -88,7 +111,9 @@ function logger.new(module_name, enabled, level)
         if not enabled or level > logger.LEVEL.DEBUG or logger.global_level > logger.LEVEL.DEBUG then
             return
         end
-        print(format_message(nil, ...))
+        local Msg = format_message(nil, ...)
+        print(Msg)
+        write_to_file(Msg)
     end
 
     -- Shorthand for log()
@@ -104,7 +129,9 @@ function logger.new(module_name, enabled, level)
         if not enabled or level > logger.LEVEL.INFO or logger.global_level > logger.LEVEL.INFO then
             return
         end
-        print(format_message("INFO", ...))
+        local Msg = format_message("INFO", ...)
+        print(Msg)
+        write_to_file(Msg)
     end
 
     --- WARN level logging
@@ -113,7 +140,9 @@ function logger.new(module_name, enabled, level)
         if not enabled or level > logger.LEVEL.WARN or logger.global_level > logger.LEVEL.WARN then
             return
         end
-        print(format_message("WARN", ...))
+        local Msg = format_message("WARN", ...)
+        print(Msg)
+        write_to_file(Msg)
     end
 
     --- ERROR level logging
@@ -122,7 +151,9 @@ function logger.new(module_name, enabled, level)
         if not enabled or level > logger.LEVEL.ERROR or logger.global_level > logger.LEVEL.ERROR then
             return
         end
-        print(format_message("ERROR", ...))
+        local Msg = format_message("ERROR", ...)
+        print(Msg)
+        write_to_file(Msg)
     end
 
     --- Enable logging for this instance

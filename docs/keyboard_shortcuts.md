@@ -20,6 +20,8 @@
 | `Ctrl`+`Cmd` + `p` | Move window to the next monitor |
 | `Ctrl`+`Cmd` + `;` | Move window to the previous monitor |
 | `HYPER` + `\` | Toggle Zen mode (maximize window) |
+| `HYPER` + `Enter` | **Auto-Tile All Windows** (Ripple & Compact) |
+| `HYPER` + `R` | Toggle Resize Mode (Adjust grid lines) |
 
 ## Application Shortcuts
 

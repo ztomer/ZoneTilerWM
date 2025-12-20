@@ -87,9 +87,18 @@ config.hyperAppCuts = {
 
 -- System hotkeys (window hints, reload, etc.)
 config.system_hotkeys = {
-    window_hints = {key = "-", mods = "HYPER"},
-    activity_monitor = {key = "=", mods = "HYPER"},
-    reload = {key = "R", mods = "mash_shift"}
+    window_hints = {
+        key = "-",
+        mods = "HYPER"
+    },
+    activity_monitor = {
+        key = "=",
+        mods = "HYPER"
+    },
+    reload = {
+        key = "R",
+        mods = "mash_shift"
+    }
 }
 
 -- Pomodoro settings
@@ -105,9 +114,18 @@ config.pomodoro = {
 
     -- Hotkeys
     hotkeys = {
-        enable = {key = "9", mods = "mash"},
-        disable = {key = "0", mods = "mash"},
-        reset = {key = "0", mods = "mash_shift"}
+        enable = {
+            key = "9",
+            mods = "mash"
+        },
+        disable = {
+            key = "0",
+            mods = "mash"
+        },
+        reset = {
+            key = "0",
+            mods = "mash_shift"
+        }
     }
 }
 
@@ -120,10 +138,26 @@ config.tiler = {
 
     -- Tiler-specific hotkeys
     hotkeys = {
-        placement_mode = {key = "p", mods = "mash"},
-        zone_info = {key = ";", mods = "mash"},
-        zen_mode = {key = "\\", mods = "HYPER"},
-        resize_mode = {key = "r", mods = "HYPER"}
+        placement_mode = {
+            key = "p",
+            mods = "mash"
+        },
+        zone_info = {
+            key = ";",
+            mods = "mash"
+        },
+        zen_mode = {
+            key = "\\",
+            mods = "HYPER"
+        },
+        resize_mode = {
+            key = "r",
+            mods = "HYPER"
+        },
+        auto_tile_all = {
+            key = "return",
+            mods = "HYPER"
+        }
     },
 
     margins = {
@@ -131,6 +165,16 @@ config.tiler = {
         size = 5,
         screen_edge = true
     },
+
+    -- Zones to consider for the focused window during auto-tiling
+    -- If set, ONLY these zones are used (geometric deduction is disabled).
+    -- If nil/commented, zones are deduced geometrically (zones covering screen center).
+    -- auto_tile_center_zones = {"j", "a1", "0"},
+
+    -- Zones to EXCLUDE from geometric deduction.
+    -- Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
+    auto_tile_deduction_excludes = {"0"},
+
     -- Apps that require special handling (Disable internal window management)
     problem_apps = {"Firefox", "Zen"},
     -- Screen detection configuration
@@ -298,9 +342,9 @@ config.tiler = {
 
         -- 1x2 layout
         ["1x2"] = {
-            ["y"] = {"a1"},
-            ["h"] = {"a2"},
-            ["0"] = {"a1:a2", "a1", "a2"}
+            ["y"] = {"a1", "a1:a2"},
+            ["h"] = {"a2", "a1:a2"},
+            ["0"] = {"a1:a2", "center"}
         },
 
         -- Default fallback for any layout/key not specifically defined

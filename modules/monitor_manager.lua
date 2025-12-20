@@ -47,6 +47,10 @@ function monitor_manager.get_id(screen)
         }
         monitors.next_logical_id = monitors.next_logical_id + 1
         debug_log("Registered new monitor:", key, "logical_id:", monitors.registry[key].logical_id)
+        print(" [Debug] Registry Keys so far:")
+        for k, v in pairs(monitors.registry) do
+            print("   - " .. k .. " -> ID " .. v.logical_id)
+        end
     else
         -- Update system ID and frame in case it changed (e.g. screen arrangement, resolution)
         monitors.registry[key].system_id = screen:id()

@@ -273,6 +273,11 @@ end
 -- @param zone_key string The key of the desired zone.
 -- @return Tile[]|nil An array of tile frame objects, or nil if the zone is not found.
 function zone_calculator.get(monitor_id, zone_key)
+    if not zones.by_monitor[monitor_id] then
+        print("[ZoneCalc] ERROR: No zones for monitor ID: " .. tostring(monitor_id))
+        -- Trigger lazy init?
+        return nil
+    end
     if zones.by_monitor[monitor_id] and zones.by_monitor[monitor_id][zone_key] then
         return zones.by_monitor[monitor_id][zone_key]
     end

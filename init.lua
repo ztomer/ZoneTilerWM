@@ -12,6 +12,7 @@ local appSwitcher = require "modules.app_switcher"
 local window_memory = require "modules.window_memory"
 local audio_switcher = require "modules.audio_switcher"
 local layout_manager = require "modules.layout_manager"
+local auto_tiler = require "modules.auto_tiler"
 
 -- Get key combinations from config
 local mash = config.keys.mash
@@ -86,6 +87,10 @@ local function init()
         layout_manager.init(tiler)
     end
 
+    -- Initialize Auto Tiler
+    auto_tiler.init(config, tiler, window_memory, tiler.smart_placer, tiler.zone_calculator, tiler.monitors, tiler.window_actions)
+    auto_tiler.setup_hotkeys()
+
     -- Initialize app switching
     appSwitcher.init_bindings(config.appCuts, config.hyperAppCuts, mash_app, HYPER)
 
@@ -104,6 +109,7 @@ local function init()
 
     -- Make debug globally accessible for console access
     _G.zt_debug = debug
+    _G.zt_run_auto_tile = function() auto_tiler.tile_all_windows() end
 
     print("Hammerspoon configuration loaded successfully!")
     print("Debug commands available: type 'zt_debug.help()' for info")

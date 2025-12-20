@@ -212,6 +212,18 @@ debug_config.modules = {
 }
 ```
 
+### Enable File Logging
+
+You can write debug logs to a file in addition to the Hammerspoon console:
+
+```lua
+-- In debug/config.lua
+debug_config.logger.file_logging = {
+    enabled = true,
+    file_path = "/tmp/zonetiler_debug.log"
+}
+```
+
 ### Enable Only Spaces Debugging
 
 ```lua
@@ -363,7 +375,7 @@ Planned features for the debug system:
 
 - [ ] Performance profiling with timing measurements
 - [ ] Memory usage tracking
-- [ ] Debug log file export
+- [x] Debug log file (implemented)
 - [ ] Visual debug overlays
 - [ ] Network request logging (if applicable)
 - [ ] Crash reporting and stack traces

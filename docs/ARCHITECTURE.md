@@ -36,6 +36,7 @@ graph TD
         WA("window_actions.lua")
         FM("focus_manager.lua")
         SP("smart_placer.lua")
+        AT("auto_tiler.lua")
     end
 
     subgraph "State & Calculation Modules"
@@ -64,6 +65,8 @@ graph TD
     Tiler -->|Focus Cycle Cmds| FM
     Tiler -->|New Window Event| SP
     Tiler -->|New Window Event| WM
+    Tiler -->|Auto-Tile Cmd| AT
+    Tiler -->|Screen Changed| AT
 
     WA -->|Set/Get State| WSM
     WA -->|Get Tile Geometry| ZC
@@ -112,7 +115,8 @@ graph TD
 
 * **`window_actions.lua`**: Contains the low-level functions for manipulating windows (moving, resizing, applying frames). It's the "muscle" of the tiler, handling the direct `hs.window` API calls.
 * **`focus_manager.lua`**: Manages the complex logic for cycling focus between windows within a specific zone. It determines which windows belong to a zone and in what order they should be focused.
-* **`smart_placer.lua`**: Intelligently finds the next available empty tile on a monitor to place newly created windows that don't have a remembered position.
+* **`smart_placer.lua`**: Uses an advanced weighted scoring system (Area vs Position) to find the absolute best spot for a window. It handles gap-filling by applying continuous penalties for overlaps and excessive size (coverage), ensuring the grid stays dense and open.
+* **`auto_tiler.lua`**: Orchestrates the multi-pass global re-tiling algorithm. It uses recursive ripple/bump logic to resolve conflicts, compaction (gravity) to pull windows into primary slots, and greedy gap-filling via the SmartPlacer.
 * **`placement_strategy.lua`**: Determines the best tile for a window based on a chosen strategy (e.g., rotation, largest free space). This module works in conjunction with `smart_placer.lua`.
 
 ### Utility & Features

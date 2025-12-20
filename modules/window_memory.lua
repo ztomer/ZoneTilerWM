@@ -231,6 +231,37 @@ function window_memory.get_preferred_zone(app_name, monitor_id)
     return best_zone
 end
 
+-- Get a list of preferred positions sorted by frequency (descending)
+---@param app_name string
+---@param monitor_id string
+---@return table list of {zone_key, tile_index, count}
+function window_memory.get_ranked_preferences(app_name, monitor_id)
+    if not preferences[app_name] or not preferences[app_name][monitor_id] then
+        return {}
+    end
+
+    local ranked = {}
+    local monitor_prefs = preferences[app_name][monitor_id]
+
+    -- Flatten the stats into a list
+    for zone_key, tiles_prefs in pairs(monitor_prefs) do
+        for tile_index, count in pairs(tiles_prefs) do
+            table.insert(ranked, {
+                zone_key = zone_key,
+                tile_index = tile_index,
+                count = count
+            })
+        end
+    end
+
+    -- Sort by count descending
+    table.sort(ranked, function(a, b)
+        return a.count > b.count
+    end)
+
+    return ranked
+end
+
 -- Commits a learned position after a window has "settled"
 local function commit_learned_position(app_name, monitor_id, zone_key, tile_index)
     -- This is the core preference-incrementing logic

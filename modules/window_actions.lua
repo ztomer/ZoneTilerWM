@@ -125,6 +125,9 @@ local function apply_frame(window, frame, force_screen_obj)
 
     local saved_duration = hs_window.animationDuration
     hs_window.animationDuration = 0
+    debug_log(string.format("apply_frame: Setting frame for '%s': x=%.0f y=%.0f w=%.0f h=%.0f",
+        window:application():name() or "Unknown",
+        valid_frame.x, valid_frame.y, valid_frame.w, valid_frame.h))
     local success = window:setFrame(valid_frame)
     hs_window.animationDuration = saved_duration
 
@@ -273,8 +276,9 @@ end
 -- @param monitor_id (string) The ID of the target monitor.
 -- @param zone_key (string) The key of the target zone.
 -- @param tile_index (number) The index of the tile within the zone.
+-- @param suppress_learning (boolean|nil) If true, prevents this position from being learned.
 -- @return (boolean) `true` on success, `false` on failure.
-function window_actions.position_window_from_memory(window, monitor_id, zone_key, tile_index)
+function window_actions.position_window_from_memory(window, monitor_id, zone_key, tile_index, suppress_learning)
     if not window or not window:isStandard() then
         debug_log("position_window_from_memory: Invalid window.");
         return false
@@ -294,7 +298,7 @@ function window_actions.position_window_from_memory(window, monitor_id, zone_key
 
     local tile = zone_tiles[tile_index]
     if apply_tile(window, tile, screen_obj) then
-        window_state_manager.set(window:id(), monitor_id, zone_key, tile_index)
+        window_state_manager.set(window:id(), monitor_id, zone_key, tile_index, suppress_learning)
         debug_log("Positioned window from memory: zone", zone_key, "tile", tile_index)
         return true
     end

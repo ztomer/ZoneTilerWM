@@ -14,7 +14,11 @@ debug_config.keystroke_monitor = {
 debug_config.logger = {
     include_timestamp = false, -- Include timestamps in log output
     include_module_name = true, -- Include module name in log output
-    global_level = "DEBUG" -- Global log level: "DEBUG", "INFO", "WARN", "ERROR", "NONE"
+    global_level = "DEBUG", -- Global log level: "DEBUG", "INFO", "WARN", "ERROR", "NONE"
+    file_logging = {
+        enabled = true,
+        file_path = "/tmp/zonetiler_debug.log"
+    }
 }
 
 --- Inspection Configuration
@@ -26,6 +30,7 @@ debug_config.inspection = {
 -- These control debug logging for individual modules
 debug_config.modules = {
     tiler = true, -- Tiler module debug logging
+    auto_tiler = true, -- Auto tiler debug logging
     window_memory = true, -- Window memory debug logging
     layout_manager = true, -- Layout manager debug logging
     monitor_manager = false, -- Monitor manager debug logging

@@ -84,7 +84,10 @@ mock_hs.window = {
         windowCreated = "windowCreated",
         windowOpened = "windowOpened",
         windowDestroyed = "windowDestroyed"
-    }
+    },
+    focusedWindow = function()
+        return nil
+    end
 }
 
 -- Mock hs.screen

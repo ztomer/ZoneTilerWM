@@ -6,7 +6,9 @@
       "Bash(mv:*)",
       "Bash(tree:*)",
       "Bash(git add:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(xargs:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

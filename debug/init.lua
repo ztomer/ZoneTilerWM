@@ -52,6 +52,14 @@ function debug.init(config, tiler_module, zone_calc_module, focus_mgr_module, au
         logger.disable_module_names()
     end
 
+    -- Configure file logging
+    if debug_config.logger.file_logging then
+        logger.configure_file_logging(
+            debug_config.logger.file_logging.file_path,
+            debug_config.logger.file_logging.enabled
+        )
+    end
+
     -- Initialize inspection utilities
     if debug_config.inspection.enabled then
         inspection.init(tiler_module, zone_calc_module, focus_mgr_module, audio_module)

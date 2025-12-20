@@ -33,7 +33,8 @@ local zone_calculator = nil
 -- @param monitor_id (string) The stable ID of the monitor the window is on.
 -- @param zone_key (string) The key of the zone the window is in.
 -- @param tile_index (number) The index of the tile the window occupies within the zone.
-function window_state_manager.set(window_id, monitor_id, zone_key, tile_index)
+-- @param suppress_learning (boolean|nil) If true, prevents this position from being learned by window_memory.
+function window_state_manager.set(window_id, monitor_id, zone_key, tile_index, suppress_learning)
     window_state.positions[window_id] = {
         monitor_id = monitor_id,
         zone_key = zone_key,
@@ -51,8 +52,8 @@ function window_state_manager.set(window_id, monitor_id, zone_key, tile_index)
             tile_index = tile_index
         }
 
-        -- Notify window_memory if available
-        if window_memory_module and window_memory_module.on_window_positioned then
+        -- Notify window_memory if available and not suppressed
+        if window_memory_module and window_memory_module.on_window_positioned and not suppress_learning then
             window_memory_module.on_window_positioned(window, monitor_id, zone_key, tile_index)
         end
     end
