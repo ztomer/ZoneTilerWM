@@ -1,103 +1,85 @@
-# Algorithm Design Document: ZoneTilerWM Auto-Tiling
+# Algorithm Design Document: ZoneTilerWM Auto-Tiler V2 (Cost-Based Solver)
 
-## 1. Algorithm Overview
-The `auto_tiler.lua` module implements a **multi-pass, priority-based packing algorithm** designed to place windows into a pre-defined grid. It balances three competing goals:
-1.  **User Intent**: Ensuring the currently focused window gets the "best" spot.
-2.  **Memory/Persistence**: Respecting where windows were previously placed.
-3.  **Density**: Filling gaps in the grid to avoid "holes".
+## 1. Overview
+The **Auto-Tiler V2** abandons the previous "Multi-Pass Heuristic" (Pass 0-2) in favor of a **Global Cost-Minimization Solver**. It formulates the tiling problem as an **Assignment Problem** with constraints, solved via **Recursive Backtracking**.
 
-## 2. Process Flow
-
-### Phase 1: Preparation
-- **Input**: List of all standard, visible windows (`hs.window.allWindows()`).
-- **Obstacle Mapping**: Windows that are *excluded* from tiling (e.g., config exclusions, non-standard windows) are mapped immediately as "Obstacles". They occupy space but are not moved.
-
-### Phase 2: Execution Passes
-
-#### Pass 0: Focused Window (The Anchor)
-- **Goal**: Place the user's primary focus immediately in the center or most relevant zone.
-- **Logic**:
-    - Identify the Focused Window.
-    - Determine "Center Candidates": Either explicitly configured zones (`config.tiler.auto_tile_center_zones`) or geometrically deduced zones (closest to screen center).
-    - **Optimization**: If the window is already being cycled (via hotkey), it sticks to its current zone.
-    - **Outcome**: The focused window is placed, locked, and marked as `is_bumpable = false`. It cannot be displaced by subsequent passes.
-
-#### Pass 1: Recursive Ranked Memory w/ Ripple
-- **Goal**: Restore remaining windows to their last known positions, aggressively resolving conflicts.
-- **Logic**:
-    - Iterate through "Preference Ranks" (1st choice, 2nd choice... up to 5).
-    - For each window `W`, retrieve its preferred Zone `Z` and Tile Index `I` for the current rank.
-    - **Conflict Check**: Is `Z:I` occupied?
-        - **No**: Place `W` in `Z:I`.
-        - **Yes**:
-            - **Ripple Logic**: Check if the *current occupant* `O` can be moved to `Z:I+1`.
-            - Repeat recursively (`Z:I+1` -> `Z:I+2`) up to `depth=5`.
-            - If a chain of moves results in a free slot, execute the chain: `O` moves to `I+1`, `W` takes `I`.
-            - **Critical**: Windows marked `is_bumpable=false` (Pass 0) terminate the ripple (cannot be moved).
-            - **Zone Overflow**: If the ripple reaches the end of the zone (Tile `N` blocked, `N+1` does not exist), it attempts to overflow into a predefined "Neighbor Zone" (e.g., `h (Left) -> y (Top-Left) -> j (Center)`). This ensures windows "spill" into available holes like the top-left rather than grouping in the center.
-    - **Outcome**: Windows are stacked densely (`1, 2, 3`) based on their memory.
-
-#### Pass 1.5: Compaction (Gravity)
-- **Goal**: Ensure no gaps exist at the top of zones (e.g., `Tile 2` occupied but `Tile 1` empty).
-- **Logic**:
-    - Iterate through all zones on the monitor.
-    - **Gap Check**: If `Tile 1` is empty AND `Tile 2` is occupied:
-        - Move the window from `Tile 2` to `Tile 1`.
-    - This provides a "gravity" effect, pulling floating windows up to the primary positions.
-
-#### Pass 2: Greedy Smart Cleanup
-- **Goal**: Place any windows that have no memory, were displaced, or are currently in "holes".
-- **Logic**:
-    - Iterate through all unplaced windows.
-    - For each window, execute `smart_placer.find_best_tile(window, occupied_rects)`.
-    - **Scoring Function (Fit & Flow)**:
-        - **Area Score (40%)**: `CandidateTileArea`. Prioritizes finding a tile that fits the window reasonably well.
-        - **Positional Score (60%)**: `ScreenArea * (1.0 - (DistToOrigin / ScreenDiagonal))`. Extremely aggressive bias toward the top-left (0,0) to ensure "y" and "h" zones are filled first.
-        - **Base Score**: `(AreaScore * 0.4) + (PositionScore * 0.6)`.
-    - **Continuous Penalties**:
-        - **Tile Index Penalty**: Decays score by ~10% for each subsequent tile in a zone (prefer `tile 1` over `tile 2`).
-        - **Coverage Penalty (Size De-biasing)**: `Score = Score * (1.1 - CoverageRatio)`. This ensures that for a small window, a small tile in the corner scores higher than a massive tile in the center, keeping the grid "open".
-        - **Overlap Penalty (Anti-Stacking)**: `Multiplier = 1.0 / (1.0 + (OverlapRatio * 500))`.
-            - This is a steep, non-clipping penalty.
-            - Even a 1% overlap reduces score significantly (~0.16x).
-            - A 100% overlap reduces score to near zero (~0.002x).
-            - **Result**: This forces windows to "spread out" into empty gaps even if those gaps are in less "ideal" positions, preventing the "stacking in the corner" bug.
-    - **Shadow/Bleed Tolerance**: Overlaps < 1% of tile area are ignored to prevent window shadows or alignment artifacts from triggering fallback behavior.
-
-### Phase 3: Queue Optimization
-- **Logic**: Iterate the move queue *backwards*.
-- Keep only the **last** move instruction for each unique window ID.
-- **Why**: The Ripple logic might move Window A to `Tile 2`, then a later ripple moves it to `Tile 3`. We only want to execute the final jump `start -> 3`, avoiding visual jitter.
-- **Global Integration**: `auto_tiler.tile_all_windows` is registered as a reposition callback in `tiler.lua`, ensuring this logic is applied automatically during screen changes or startup restoration.
+The goal is to assign $N$ windows to $M$ available tiles such that the **Total Global Cost** is minimized, subject to **Spatial Exclusivity Constraints**.
 
 ---
 
-## 3. Critical Evaluation
+## 2. Process Flow
 
-### Complexity Analysis
-- **Time Complexity**:
-    - Let `W` be windows, `Z` be zones, `T` be tiles per zone.
-    - **Pass 0**: O(Z*T) (Finding best center fit). negligible.
-    - **Pass 1 (Ripple)**: O(Rank * W * RecursionDepth).
-        - Max Rank = 5.
-        - Max Recursion = 5 (Chain).
-        - Effectively **O(W)**.
-    - **Pass 1.5 (Compaction)**: O(Z). Scans zones once.
-    - **Pass 2**: O(W_remaining * Z * T).
-        - Checking intersection against all occupied frames.
-        - Worst case **O(W^2)** if many windows remain (since occupied list grows).
-    - **Overall**: Effectively **O(W^2)** in worst case, but practically very fast for <50 windows.
+### Phase 1: Preparation (Anchors & Candidates)
+1.  **Anchor the Focused Window**:
+    *   The focused window is processed first (Pass 0). It is assigned to its preferred or cycled center zone.
+    *   This tile becomes a hard constraint (Occupied) for the subsequent solver pass.
+2.  **Filter Candidates**:
+    *   Remaining windows are collected.
+    *   All defined tiles on the monitor are collected as "Available Slots".
 
-### Strengths
-1.  **Stability**: The "Anchor" concept (Pass 0) ensures the user's focus is never stolen or shifted unexpectedly.
-2.  **Density**: The Ripple + Overflow implementation turns a fragile "validity check" algorithm into a robust "insertion sort" style placement.
-3.  **Gravity**: The Compaction pass ensures the layout naturally "cleans itself" up by pulling windows into primary slots.
-4.  **Visual Smoothness**: Queue optimization eliminates the intermediate states often seen in tiling algorithms.
+### Phase 2: Global Solver (Recursive Backtracking)
+The solver recursively attempts to assign the next unassigned window to an available tile.
 
-### Weaknesses / Risks
-1.  **Blind Ripple**: The ripple moves valid windows just to make space. If Window B *really* wanted Tile 1 (Rank 1 memory), and Window A bumps it to Tile 2, Window B is now in a "worse" spot. The algorithm assumes density > individual preference preference for equivalent windows.
-2.  **Race Conditions**: `hs.window.allWindows()` is a snapshot. If a window closes *during* the calculation (rare in Lua due to single-threaded, but possible via OS delays), the final move command might target a dead window (handled gracefully by `window_actions`, but worth noting).
+**Algorithm:**
+```lua
+function solve(windows, tiles)
+    BestSolution = { cost = Infinity }
+    recurse(window_index=1, current_cost=0, occupied_rects={Anchor})
+end
 
-### Recommendations
-1.  **Bi-directional Ripple**: Allow rippling to `I-1` if `I` is wanted and `I-1` is free? (Mitigated partially by Pass 1.5 Compaction).
-2.  **Configurable Overflow**: Move the `ZONE_OVERFLOW_MAP` from hardcoded logic to `config.lua` to allow users to define their own flow (e.g. `Right -> Left` or `Center -> Secondary Monitor`).
+function recurse(w_idx, cost, occupied)
+    if cost >= BestSolution.cost then return end -- Pruning
+    if w_idx > #windows then
+        BestSolution = current_assignment -- Found better solution
+        return
+    end
+
+    -- Option A: Skip Window (Penalty: 5000)
+    recurse(w_idx+1, cost + 5000, occupied)
+
+    -- Option B: Assign to Tile T
+    for Tile T in AvailableTiles:
+        if NOT intersects(T, occupied):
+            recurse(w_idx+1, cost + Cost(W, T), occupied + T)
+```
+
+**Why Backtracking?**
+*   Unlike the **Hungarian Algorithm** (which assumes independent slots), our tiles can overlap (e.g., "Left Half" overlaps "Left Third").
+*   Backtracking naturally handles this **Spatial Exclusivity**: Choosing "Left Half" simply disables branches where "Left Third" is chosen.
+*   Since $N$ (windows) is small (typically <10), this approach finds the **Exhaustive Global Optimum** in milliseconds.
+
+---
+
+## 3. Cost Function
+
+The cost of assigning Window $W$ to Tile $T$ is a weighted sum:
+
+$$ Cost = (W_{AR} \cdot \Delta AR) + (W_{Area} \cdot \Delta Area) + (W_{Mem} \cdot Match) + (W_{Idx} \cdot Index) $$
+
+| Factor | Weight | Description |
+| :--- | :--- | :--- |
+| **Memory Match** | **-2000** | Huge bonus if $W$ was previously in this exact Zone/Tile. Dominates all other factors. |
+| **Zone Match** | **-500** | Bonus if $W$ was in this Zone (but different tile index). |
+| **Aspect Ratio ($\Delta AR$)** | **500** | Penalty for squashing a wide window into a tall tile (e.g. $|\frac{W_w}{W_h} - \frac{T_w}{T_h}|$). |
+| **Area Difference ($\Delta Area$)** | **200** | Penalty for putting a large window in a tiny tile (normalized to screen size). |
+| **Tile Index** | **10** | Tiny penalty for higher indices (prefer Tile 1 over Tile 2). |
+| **Movement** | **1** | Negligible penalty for distance from current position (prevents random shuffling of identical windows). |
+| **Skip Window** | **5000** | Massive penalty for failing to place a window. Ensures the solver "crams" as many windows as possible before giving up. |
+
+---
+
+## 4. Key Behaviors
+
+### 1. Spatial Exclusivity (The "Overlap" Fix)
+Typical grid layouts have overlapping definitions (e.g., specific workflows vs generic halves).
+*   **Old Behavior**: Greedy heuristic would put App A in "Left Half" and App B in "Left Third", causing visual overlap.
+*   **New Behavior**: Solver sees that choosing "Left Half" makes "Left Third" invalid (intersecting). It forces the next window to "Right Half" or another non-overlapping zone.
+
+### 2. Cramming (The "Pigeonhole" Logic)
+If there are 5 windows and only 4 slots:
+*   The solver minimizes total cost, meaning it will drop the window that incurs the *least* penalty to drop (or preserves the highest value placements for the other 4).
+*   It effectively prioritizes "Important" windows (those with strong Memory scores) and sacrifices generic windows.
+
+### 3. Shape Matching
+*   If a user opens a Video Player (Wide) and a Chat App (Tall):
+*   The solver automatically assigns Video -> Top/Bottom (Wide) and Chat -> Left/Right (Tall) to minimize AR penalties.

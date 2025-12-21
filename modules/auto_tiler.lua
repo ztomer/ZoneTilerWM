@@ -13,7 +13,9 @@ local window_memory = nil
 local smart_placer = nil
 local zone_calculator = nil
 local monitor_manager = nil
+local monitor_manager = nil
 local window_actions = nil
+local layout_solver = require "modules.layout_solver"
 
 -- Debug logging
 local debug = require "debug.init"
@@ -30,73 +32,6 @@ local dynamic_overflow_cache = {} -- mid -> {layout_key -> overflow_map}
 -------------------------------------------------------------------------------
 -- Internal Helper Utilities
 -------------------------------------------------------------------------------
-
---- Calculates the centroid (center point) of a zone.
--- @local
-local function _get_zone_centroid(monitor_id, zone_key)
-    local tiles = zone_calculator.get(monitor_id, zone_key)
-    if not tiles or #tiles == 0 then return nil end
-    local cx, cy = 0, 0
-    for _, t in ipairs(tiles) do cx = cx + (t.x + t.w/2) cy = cy + (t.y + t.h/2) end
-    return {x = cx / #tiles, y = cy / #tiles}
-end
-
---- Builds a dynamic overflow map based on proximity to center.
--- Windows flow from peripheral zones to more central zones.
--- @local
-local function _get_dynamic_overflow_map(monitor_id, layout_key)
-    if dynamic_overflow_cache[monitor_id] and dynamic_overflow_cache[monitor_id][layout_key] then
-        return dynamic_overflow_cache[monitor_id][layout_key]
-    end
-
-    local zones_defs = config.tiler.layouts[layout_key]
-    if not zones_defs then return {} end
-
-    local screen = nil
-    for _, s in ipairs(hs_screen.allScreens()) do
-        if monitor_manager.get_id(s) == monitor_id then screen = s break end
-    end
-    if not screen then return {} end
-
-    local frame = screen:frame()
-    local mx, my = frame.x + frame.w/2, frame.y + frame.h/2
-    local zone_data = {}
-
-    for zk, _ in pairs(zones_defs) do
-        local centroid = _get_zone_centroid(monitor_id, zk)
-        if centroid then
-            local dist_to_center = math.sqrt((centroid.x - mx)^2 + (centroid.y - my)^2)
-            table.insert(zone_data, {key = zk, centroid = centroid, centrality = -dist_to_center})
-        end
-    end
-
-    local overflow_map = {}
-    for _, z1 in ipairs(zone_data) do
-        local best_neighbor = nil
-        local min_dist = math.huge
-        for _, z2 in ipairs(zone_data) do
-            if z1.key ~= z2.key and z2.centrality > z1.centrality then
-                local d = math.sqrt((z1.centroid.x - z2.centroid.x)^2 + (z1.centroid.y - z2.centroid.y)^2)
-                if d < min_dist then min_dist = d best_neighbor = z2.key end
-            end
-        end
-        overflow_map[z1.key] = best_neighbor
-    end
-
-    dynamic_overflow_cache[monitor_id] = dynamic_overflow_cache[monitor_id] or {}
-    dynamic_overflow_cache[monitor_id][layout_key] = overflow_map
-    return overflow_map
-end
-
---- Resolves the overflow zone for a given zone key.
--- @local
-local function get_overflow_zone(monitor_id, layout_key, zone_key)
-    if config.tiler and config.tiler.overflow_map and config.tiler.overflow_map[zone_key] then
-        return config.tiler.overflow_map[zone_key]
-    end
-    local dynamic = _get_dynamic_overflow_map(monitor_id, layout_key)
-    return dynamic[zone_key]
-end
 
 --- Checks if two frames overlap.
 -- @local
@@ -124,97 +59,7 @@ local function should_tile_window(window)
     return true
 end
 
---- Determine best fit tile index based on area match
--- @local
-local function find_closest_tile_index(window, tiles)
-    if not window or not tiles then return 1 end
-    local win_frame = window:frame()
-    local win_area = win_frame.w * win_frame.h
-    local best_index = 1
-    local min_diff = math.huge
-    for i, tile in ipairs(tiles) do
-        local tile_area = tile.w * tile.h
-        local diff = math.abs(win_area - tile_area)
-        if diff < min_diff then min_diff = diff best_index = i end
-    end
-    return best_index
-end
 
--------------------------------------------------------------------------------
--- Ripple Engine
--------------------------------------------------------------------------------
-
---- Recursive function to free up a tile by moving its current occupant.
--- @local
-local function try_ripple_move(monitor_id, layout_key, zone_key, target_tile_index, occupied_on_monitor, all_windows_map, depth)
-    depth = depth or 0
-    if depth > 5 then return false, {}, {} end
-
-    local tiles = zone_calculator.get(monitor_id, zone_key)
-    if not tiles then return false, {}, {} end
-
-    -- Check Overflow
-    if not tiles[target_tile_index] then
-        local overflow_zone = get_overflow_zone(monitor_id, layout_key, zone_key)
-        if overflow_zone then
-            debug_log("Zone " .. zone_key .. " full. Overflowing to " .. overflow_zone)
-            return try_ripple_move(monitor_id, layout_key, overflow_zone, 1, occupied_on_monitor, all_windows_map, depth + 1)
-        end
-        return false, {}, {}
-    end
-
-    local target_rect = tiles[target_tile_index]
-    local blocking_entry = nil
-    for _, entry in ipairs(occupied_on_monitor) do
-        if check_overlap(target_rect, entry) then
-            if not entry.is_bumpable then return false, {}, {} end
-            blocking_entry = entry
-            break
-        end
-    end
-
-    if not blocking_entry then return true, {}, {} end
-
-    -- Attempt to move the blocker to the NEXT tile
-    local next_tile_index = target_tile_index + 1
-    local success, sub_moves, sub_occupied = try_ripple_move(monitor_id, layout_key, zone_key, next_tile_index, occupied_on_monitor, all_windows_map, depth + 1)
-
-    if success then
-        local dest_zone = zone_key
-        local dest_tile_idx = next_tile_index
-        local dest_tiles = zone_calculator.get(monitor_id, dest_zone)
-        local dest_rect = dest_tiles[dest_tile_idx]
-
-        if not dest_rect then
-             -- Overflow path (should match what recursion did)
-             local overflow_zone = get_overflow_zone(monitor_id, layout_key, zone_key)
-             if overflow_zone then
-                 dest_zone = overflow_zone
-                 dest_tile_idx = 1
-                 local oz_tiles = zone_calculator.get(monitor_id, overflow_zone)
-                 dest_rect = oz_tiles and oz_tiles[1]
-             end
-        end
-
-        if not dest_rect then return false, {}, {} end
-
-        local blocker_win = all_windows_map[blocking_entry.window_id]
-        if not blocker_win then return false, {}, {} end
-
-        table.insert(sub_moves, 1, {
-            window = blocker_win, monitor_id = monitor_id, zone_key = dest_zone, tile_index = dest_tile_idx,
-            source = "rippled_from_" .. zone_key .. "_" .. target_tile_index
-        })
-        table.insert(sub_occupied, 1, {
-            frame = dest_rect, window_id = blocker_win:id(), is_bumpable = true,
-            source = "Rippled: " .. (blocker_win:application():name() or "?")
-        })
-
-        return true, sub_moves, sub_occupied
-    end
-
-    return false, {}, {}
-end
 
 -------------------------------------------------------------------------------
 -- Stage Passes
@@ -287,138 +132,76 @@ local function _pass_focused_anchor(windows_to_tile, occupied_rects_by_monitor, 
     debug_log("Pass 0: Focused window", fw:application():name(), "-> Center (", selected_zone_key, ")")
 end
 
---- PASS 1: Preference Ranking and Ripple/Bump.
-local function _pass_preferences_and_ripples(windows_to_tile, occupied_rects_by_monitor, move_queue, processed_ids, all_win_map)
-    local MAX_RANK = 5
-    local remaining = {}
-    for _, win in ipairs(windows_to_tile) do if not processed_ids[win:id()] then table.insert(remaining, win) end end
-
-    for rank = 1, MAX_RANK do
-        if #remaining == 0 then break end
-        local still_unplaced = {}
-        for _, win in ipairs(remaining) do
-            local app_name = win:application() and win:application():name() or "?"
+--- PASS 1: Global Solver
+local function _pass_solver(windows_to_tile, occupied_rects_by_monitor, move_queue, processed_ids)
+    -- Group windows by monitor to solve each monitor independently
+    local windows_by_monitor = {}
+    for _, win in ipairs(windows_to_tile) do
+        if not processed_ids[win:id()] then
             local screen = win:screen()
-            if not screen then goto next_win end
-            local mid = monitor_manager.get_id(screen)
-            local _, layout_key = zone_calculator.get_layout_config(screen)
-
-            local prefs = window_memory and window_memory.get_ranked_preferences(app_name, mid)
-            local pref = (prefs and prefs[rank])
-            local tiles = (pref and zone_calculator.get(mid, pref.zone_key))
-            local target_rect = (tiles and tiles[pref.tile_index])
-
-            if not target_rect then
-                table.insert(still_unplaced, win)
-                goto next_win
+            if screen then
+                local mid = monitor_manager.get_id(screen)
+                if not windows_by_monitor[mid] then windows_by_monitor[mid] = {} end
+                table.insert(windows_by_monitor[mid], win)
             end
+        end
+    end
 
-            -- Ripple check
-            local success, r_moves, r_occ = try_ripple_move(mid, layout_key, pref.zone_key, pref.tile_index, occupied_rects_by_monitor[mid], all_win_map, 1)
-            if not success then
-                table.insert(still_unplaced, win)
-                goto next_win
-            end
+    for mid, windows in pairs(windows_by_monitor) do
+        -- 1. Identify Empty Tiles
+        -- Get layout key from one of the windows' screen (they are all on 'mid')
+        local screen = windows[1]:screen()
+        local _, layout_key = zone_calculator.get_layout_config(screen)
+        local layout_defs = config.tiler.layouts[layout_key]
 
-            -- CLEANUP STALE OCCUPATIONS
-            for _, rm in ipairs(r_moves) do
-                local rid = rm.window:id()
-                for i = #occupied_rects_by_monitor[mid], 1, -1 do
-                    if occupied_rects_by_monitor[mid][i].window_id == rid then
-                        table.remove(occupied_rects_by_monitor[mid], i)
+        if layout_defs then
+            local available_tiles = {}
+            for zone_key, _ in pairs(layout_defs) do
+                local tiles = zone_calculator.get(mid, zone_key)
+                if tiles then
+                    for i, tile in ipairs(tiles) do
+                        -- Check if this tile is occupied by an Anchor or Obstacle
+                        local blocked = false
+                        for _, entry in ipairs(occupied_rects_by_monitor[mid]) do
+                             if check_overlap(tile, entry) then
+                                 blocked = true
+                                 break
+                             end
+                        end
+                        if not blocked then
+                            table.insert(available_tiles, {
+                                rect = tile,
+                                zone_key = zone_key,
+                                tile_index = i,
+                                monitor_id = mid
+                            })
+                        end
                     end
                 end
             end
 
-            for _, rm in ipairs(r_moves) do table.insert(move_queue, rm) end
-            for _, ro in ipairs(r_occ) do table.insert(occupied_rects_by_monitor[mid], ro) end
-
-            table.insert(move_queue, {
-                window = win, monitor_id = mid, zone_key = pref.zone_key, tile_index = pref.tile_index,
-                source = "memory_rank_" .. rank, is_bumpable = true
-            })
-            table.insert(occupied_rects_by_monitor[mid], {
-                frame = target_rect, window_id = win:id(), is_bumpable = true,
-                source = "Pass 1: " .. app_name .. " (Rank " .. rank .. ")"
-            })
-            processed_ids[win:id()] = true
-            debug_log("Rank", rank, ": Assigned", app_name, "to", pref.zone_key .. ":" .. pref.tile_index)
-
-            ::next_win::
-        end
-        remaining = still_unplaced
-    end
-    return remaining
-end
-
---- PASS 1.5: Compaction (Gravity).
-local function _pass_compaction(occupied_rects_by_monitor, move_queue, all_win_map)
-    local all_screens = hs_screen.allScreens()
-    for mid, occupied_list in pairs(occupied_rects_by_monitor) do
-        local screen = nil
-        for _, s in ipairs(all_screens) do if monitor_manager.get_id(s) == mid then screen = s break end end
-        if not screen then goto next_monitor end
-
-        local _, layout_key = zone_calculator.get_layout_config(screen)
-        local zones_defs = layout_key and config.tiler.layouts[layout_key]
-        if not zones_defs then goto next_monitor end
-
-        for zone_key, _ in pairs(zones_defs) do
-            local tiles = zone_calculator.get(mid, zone_key)
-            if not tiles or #tiles < 2 then goto next_zone end
-
-            local occ1, occ2 = nil, nil
-            for _, occ in ipairs(occupied_list) do
-                if check_overlap(tiles[1], occ) then occ1 = occ end
-                if check_overlap(tiles[2], occ) then occ2 = occ end
-            end
-
-            if not occ1 and occ2 and occ2.is_bumpable then
-                local win = all_win_map[occ2.window_id]
-                if win then
-                    debug_log("Compaction: Moving", (win:application():name() or "?"), "from", zone_key .. ":2 to index 1")
+            -- 2. Solve
+            if #available_tiles > 0 then
+                local moves = layout_solver.solve(windows, available_tiles, mid)
+                for _, move in ipairs(moves) do
                     table.insert(move_queue, {
-                        window = win, monitor_id = mid, zone_key = zone_key, tile_index = 1,
-                        source = "compaction_gravity", is_bumpable = true
+                         window = move.window,
+                         monitor_id = mid,
+                         zone_key = move.tile.zone_key,
+                         tile_index = move.tile.tile_index,
+                         source = "solver_cost_"..string.format("%.1f", move.cost),
+                         is_bumpable = true
                     })
-                    table.insert(occupied_list, {
-                        frame = tiles[1], window_id = win:id(), is_bumpable = true,
-                        source = "Compacted: " .. (win:application():name() or "?")
+                    table.insert(occupied_rects_by_monitor[mid], {
+                        frame = move.tile.rect,
+                        window_id = move.window:id(),
+                        is_bumpable = true,
+                        source = "Solved: " .. (move.window:application():name())
                     })
+                    processed_ids[move.window:id()] = true
                 end
             end
-            ::next_zone::
         end
-        ::next_monitor::
-    end
-end
-
---- PASS 2: Greedy Clean-up (Smart Placer).
-local function _pass_smart_cleanup(remaining_windows, occupied_rects_by_monitor, move_queue, processed_ids)
-    debug_log("Pass 2 cleanup: processing", #remaining_windows, "windows")
-    for _, win in ipairs(remaining_windows) do
-        if processed_ids[win:id()] then goto next_win end
-
-        local screen = win:screen()
-        local mid = screen and monitor_manager.get_id(screen)
-        local virtual = mid and occupied_rects_by_monitor[mid]
-
-        if not virtual then goto next_win end
-
-        local best = smart_placer.find_best_tile(win, virtual)
-        if best then
-            table.insert(move_queue, {
-                window = win, monitor_id = mid, zone_key = best.zone_key, tile_index = best.tile_index,
-                source = "smart_cleanup", is_bumpable = true, suppress_learning = true
-            })
-            table.insert(occupied_rects_by_monitor[mid], {
-                frame = best.tile, window_id = win:id(), is_bumpable = true,
-                source = "Pass 2: " .. (win:application():name() or "Cleanup")
-            })
-            processed_ids[win:id()] = true
-            debug_log("Pass 2 Cleanup: Assigned", (win:application():name() or "?"), "to", best.zone_key)
-        end
-        ::next_win::
     end
 end
 
@@ -525,14 +308,8 @@ function auto_tiler.tile_all_windows(target_screen)
     -- PASS 0: Focus Anchor
     _pass_focused_anchor(windows_to_tile, occupied_rects_by_monitor, move_queue, processed_ids)
 
-    -- PASS 1: Preferences & Ripples
-    local remaining = _pass_preferences_and_ripples(windows_to_tile, occupied_rects_by_monitor, move_queue, processed_ids, all_win_map)
-
-    -- PASS 1.5: Compaction
-    _pass_compaction(occupied_rects_by_monitor, move_queue, all_win_map)
-
-    -- PASS 2: Smart Cleanup
-    _pass_smart_cleanup(remaining, occupied_rects_by_monitor, move_queue, processed_ids)
+    -- PASS 1: Solver (Covers Memory, Shape, and Cleanup)
+    _pass_solver(windows_to_tile, occupied_rects_by_monitor, move_queue, processed_ids)
 
     -- EXECUTION
     _execute_moves(move_queue)
@@ -555,6 +332,7 @@ end
 
 function auto_tiler.init(cfg, _tiler, _wm, _sp, _zc, _mm, _wa)
     config, tiler_module, window_memory, smart_placer, zone_calculator, monitor_manager, window_actions = cfg, _tiler, _wm, _sp, _zc, _mm, _wa
+    layout_solver.init(window_memory)
     if tiler_module and tiler_module.set_reposition_callback then
         tiler_module.set_reposition_callback(auto_tiler.tile_all_windows)
     end

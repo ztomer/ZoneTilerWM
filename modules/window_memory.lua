@@ -59,7 +59,16 @@ local function load_positions()
                 if not preferences[pref.app_name][pref.monitor_id][pref.zone_key] then
                     preferences[pref.app_name][pref.monitor_id][pref.zone_key] = {}
                 end
-                preferences[pref.app_name][pref.monitor_id][pref.zone_key][pref.tile_index] = pref.count
+                -- Handle backward compatibility (simple count) vs new stats object
+                if type(pref.data) == "table" then
+                    preferences[pref.app_name][pref.monitor_id][pref.zone_key][pref.tile_index] = pref.data
+                else
+                    preferences[pref.app_name][pref.monitor_id][pref.zone_key][pref.tile_index] = {
+                        count = pref.count or pref.data or 0,
+                        mean_ar = 0,
+                        mean_area = 0
+                    }
+                end
             end
             debug_log("Loaded", #data.preferences, "cached preferences")
         else
@@ -118,14 +127,19 @@ local function save_memory_to_disk()
     for app_name, monitors in pairs(preferences) do
         for monitor_id, zones in pairs(monitors) do
             for zone_key, tiles in pairs(zones) do
-                for tile_index, count in pairs(tiles) do
-                    table.insert(preferences_array, {
+                for tile_index, stats in pairs(tiles) do
+                    local entry = {
                         app_name = app_name,
                         monitor_id = monitor_id,
                         zone_key = zone_key,
-                        tile_index = tile_index,
-                        count = count
-                    })
+                        tile_index = tile_index
+                    }
+                    if type(stats) == "table" then
+                         entry.data = stats
+                    else
+                         entry.count = stats -- Legacy fallback
+                    end
+                    table.insert(preferences_array, entry)
                 end
             end
         end
@@ -184,7 +198,8 @@ function window_memory.get_preferred_tile(app_name, monitor_id, zone_key)
     local best_tile = nil
     local max_count = -1
 
-    for tile_index, count in pairs(tile_prefs) do
+    for tile_index, stats in pairs(tile_prefs) do
+        local count = (type(stats) == "table" and stats.count) or stats
         if count > max_count then
             max_count = count
             best_tile = tile_index
@@ -214,7 +229,8 @@ function window_memory.get_preferred_zone(app_name, monitor_id)
 
     for zone_key, tiles_prefs in pairs(monitor_prefs) do
         local current_zone_total_count = 0
-        for _, count in pairs(tiles_prefs) do
+        for _, stats in pairs(tiles_prefs) do
+            local count = (type(stats) == "table" and stats.count) or stats
             current_zone_total_count = current_zone_total_count + count
         end
 
@@ -245,11 +261,16 @@ function window_memory.get_ranked_preferences(app_name, monitor_id)
 
     -- Flatten the stats into a list
     for zone_key, tiles_prefs in pairs(monitor_prefs) do
-        for tile_index, count in pairs(tiles_prefs) do
+        for tile_index, stats in pairs(tiles_prefs) do
+            local count = (type(stats) == "table" and stats.count) or stats
+            local mean_ar = (type(stats) == "table" and stats.mean_ar) or 0
+            local mean_area = (type(stats) == "table" and stats.mean_area) or 0
             table.insert(ranked, {
                 zone_key = zone_key,
                 tile_index = tile_index,
-                count = count
+                count = count,
+                mean_ar = mean_ar,
+                mean_area = mean_area
             })
         end
     end
@@ -263,25 +284,37 @@ function window_memory.get_ranked_preferences(app_name, monitor_id)
 end
 
 -- Commits a learned position after a window has "settled"
-local function commit_learned_position(app_name, monitor_id, zone_key, tile_index)
-    -- This is the core preference-incrementing logic
-    if not preferences[app_name] then
-        preferences[app_name] = {}
-    end
-    if not preferences[app_name][monitor_id] then
-        preferences[app_name][monitor_id] = {}
-    end
-    if not preferences[app_name][monitor_id][zone_key] then
-        preferences[app_name][monitor_id][zone_key] = {}
-    end
-    if not preferences[app_name][monitor_id][zone_key][tile_index] then
-        preferences[app_name][monitor_id][zone_key][tile_index] = 0
-    end
-    preferences[app_name][monitor_id][zone_key][tile_index] =
-        preferences[app_name][monitor_id][zone_key][tile_index] + 1
+local function commit_learned_position(app_name, monitor_id, zone_key, tile_index, win_frame, screen_frame)
+    if not preferences[app_name] then preferences[app_name] = {} end
+    if not preferences[app_name][monitor_id] then preferences[app_name][monitor_id] = {} end
+    if not preferences[app_name][monitor_id][zone_key] then preferences[app_name][monitor_id][zone_key] = {} end
 
-    debug_log("Learned (settled)", app_name, "on monitor", monitor_id, "zone:", zone_key, "tile:", tile_index,
-        "(New Count:", preferences[app_name][monitor_id][zone_key][tile_index], ")")
+    local stats = preferences[app_name][monitor_id][zone_key][tile_index]
+
+    -- Initialize if new or legacy number
+    if not stats or type(stats) ~= "table" then
+        stats = { count = (tonumber(stats) or 0), mean_ar = 0, mean_area = 0 }
+    end
+
+    -- Calculate new geometrics
+    local new_ar = 0
+    local new_area_ratio = 0
+
+    if win_frame and win_frame.w > 0 and win_frame.h > 0 and screen_frame and screen_frame.w > 0 then
+         new_ar = win_frame.w / win_frame.h
+         new_area_ratio = (win_frame.w * win_frame.h) / (screen_frame.w * screen_frame.h)
+    end
+
+    -- Update running averages
+    local n = stats.count
+    stats.mean_ar = ((stats.mean_ar * n) + new_ar) / (n + 1)
+    stats.mean_area = ((stats.mean_area * n) + new_area_ratio) / (n + 1)
+    stats.count = n + 1
+
+    preferences[app_name][monitor_id][zone_key][tile_index] = stats
+
+    debug_log("Learned (settled)", app_name, "on", monitor_id, zone_key..":"..tile_index,
+        string.format("(Count: %d, AR: %.2f, Area: %.2f)", stats.count, stats.mean_ar, stats.mean_area))
 end
 
 -- Called by tiler when a window is positioned
@@ -324,7 +357,9 @@ function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_i
             app_name = app_name,
             monitor_id = monitor_id,
             zone_key = zone_key,
-            tile_index = tile_index
+            tile_index = tile_index,
+            win_frame = window:frame(),
+            screen_frame = window:screen():frame()
         }
     }
 
@@ -334,7 +369,7 @@ function window_memory.on_window_positioned(window, monitor_id, zone_key, tile_i
         local learn_data = pending_learning[window_id] and pending_learning[window_id].data
         if learn_data then
             commit_learned_position(learn_data.app_name, learn_data.monitor_id, learn_data.zone_key,
-                learn_data.tile_index)
+                learn_data.tile_index, learn_data.win_frame, learn_data.screen_frame)
             pending_learning[window_id] = nil -- Clean up the pending entry
         end
     end)

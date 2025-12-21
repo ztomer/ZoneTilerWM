@@ -119,7 +119,8 @@ subgraph "Configuration"
 * **`window_actions.lua`**: Contains the low-level functions for manipulating windows (moving, resizing, applying frames). It's the "muscle" of the tiler, handling the direct `hs.window` API calls.
 * **`focus_manager.lua`**: Manages the complex logic for cycling focus between windows within a specific zone. It determines which windows belong to a zone and in what order they should be focused.
 * **`smart_placer.lua`**: Uses an advanced weighted scoring system (Area vs Position) to find the absolute best spot for a window. It handles gap-filling by applying continuous penalties for overlaps and excessive size (coverage), ensuring the grid stays dense and open.
-* **`auto_tiler.lua`**: Orchestrates the multi-pass global re-tiling algorithm. It uses recursive ripple/bump logic to resolve conflicts, compaction (gravity) to pull windows into primary slots, and greedy gap-filling via the SmartPlacer.
+* **`auto_tiler.lua`**: Orchestrates the global re-tiling process. It delegates the complex decision-making to `layout_solver.lua` to determine the optimal layout.
+* **`layout_solver.lua`**: Implements a Cost-Based Backtracking Solver to find the mathematically optimal assignment of windows to tiles, respecting spatial constraints (overlaps) and weighting factors (Memory, Aspect Ratio, Area).
 * **`placement_strategy.lua`**: Determines the best tile for a window based on a chosen strategy (e.g., rotation, largest free space). This module works in conjunction with `smart_placer.lua`.
 
 ### Utility & Features
