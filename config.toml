@@ -136,7 +136,13 @@ focus_modifier = ["shift", "ctrl", "cmd"]
 
 # Zones to EXCLUDE from geometric deduction.
 # Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
+# Zones to EXCLUDE from geometric deduction.
+# Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
 auto_tile_deduction_excludes = ["0"]
+
+# Priority zones for the focused window during Auto-Tile.
+# The focused window will be placed in the first available zone from this list (Tile 1).
+auto_tile_center_zones = ["j", "center", "0"]
 
 # Apps that require special handling (Disable internal window management)
 problem_apps = ["Firefox", "Zen"]

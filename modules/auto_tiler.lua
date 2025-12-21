@@ -77,8 +77,9 @@ local function _pass_focused_anchor(windows_to_tile, occupied_rects_by_monitor, 
 
     -- Determine candidates
     local candidates = {}
-    if config.tiler.auto_tile_center_zones then
-        candidates = config.tiler.auto_tile_center_zones
+    local explicit_config = config.tiler.auto_tile_center_zones
+    if explicit_config then
+        candidates = explicit_config
     else
         local deduced = auto_tiler.find_center_covering_zones(mid, screen)
         local excludes = config.tiler.auto_tile_deduction_excludes or {}
@@ -97,18 +98,32 @@ local function _pass_focused_anchor(windows_to_tile, occupied_rects_by_monitor, 
         target_index = (last_cycle_index % #zone_calculator.get(mid, last_zone_key)) + 1
         debug_log("Pass 0: Cycling focused window in zone", selected_zone_key, "to index", target_index)
     else
-        -- Best fit
-        local min_diff = math.huge
-        local win_frame = fw:frame()
-        local win_area = win_frame.w * win_frame.h
-        for _, key in ipairs(candidates) do
-            local tiles = zone_calculator.get(mid, key)
-            if not tiles then goto next_candidate end
-            for i, tile in ipairs(tiles) do
-                local diff = math.abs(win_area - (tile.w * tile.h))
-                if diff < min_diff then min_diff = diff selected_zone_key = key target_index = i end
+        -- If explicitly configured, prioritize the PRIMARY tile (Index 1) of the PRIMARY Zone.
+        -- This ensures "Take the entire middle" behavior regardless of window size.
+        if explicit_config then
+             -- Just pick the first candidate that exists
+             for _, key in ipairs(candidates) do
+                 local tiles = zone_calculator.get(mid, key)
+                 if tiles and tiles[1] then
+                     selected_zone_key = key
+                     target_index = 1
+                     break
+                 end
+             end
+        else
+            -- Original "Best Fit" Logic for geometric deduction
+            local min_diff = math.huge
+            local win_frame = fw:frame()
+            local win_area = win_frame.w * win_frame.h
+            for _, key in ipairs(candidates) do
+                local tiles = zone_calculator.get(mid, key)
+                if not tiles then goto next_candidate end
+                for i, tile in ipairs(tiles) do
+                    local diff = math.abs(win_area - (tile.w * tile.h))
+                    if diff < min_diff then min_diff = diff selected_zone_key = key target_index = i end
+                end
+                ::next_candidate::
             end
-            ::next_candidate::
         end
     end
 
