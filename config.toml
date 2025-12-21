@@ -388,10 +388,10 @@ restore = ["HYPER", "0"]
 [window_memory.app_zones]
 # Default zones for specific apps if no position is remembered
 "Arc" = "k"
-"iTerm" = "h"
+"Ghostty" = "h"
 "Visual Studio Code" = "h"
 "Notion" = "j"
-"Spotify" = "i"
+"YouTube Music" = "i"
 
 [layout_manager]
 enabled = true
