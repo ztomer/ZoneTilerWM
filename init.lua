@@ -92,7 +92,7 @@ local function init()
     auto_tiler.setup_hotkeys()
 
     -- Initialize app switching
-    appSwitcher.init_bindings(config.appCuts, config.hyperAppCuts, mash_app, HYPER)
+    appSwitcher.init_bindings(config.appCuts, config.hyperAppCuts)
 
     -- Initialize audio switcher
     audio_switcher.init(config, print)

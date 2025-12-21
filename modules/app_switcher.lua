@@ -133,24 +133,48 @@ end
 --[[
   Initializes application shortcut keybindings
 ]]
-function appSwitcher.init_bindings(appCuts, hyperAppCuts, mash_app, HYPER)
-    for key, app in pairs(appCuts) do
-        if app and app:match("%S") then -- check for non-nil and non-whitespace app names
-            hs.hotkey.bind(mash_app, key, function()
-                appSwitcher.toggle_app(app)
-            end)
+function appSwitcher.init_bindings(appCuts, hyperAppCuts)
+    -- Helper to resolve modifier string options
+    local function get_mods(mod_entry)
+        -- Handle string alias "HYPER"
+        if type(mod_entry) == "string" and config.keys[mod_entry] then
+             return config.keys[mod_entry]
+        end
+        -- Handle table array ["HYPER"] or ["mash_app"]
+        if type(mod_entry) == "table" and #mod_entry == 1 and type(mod_entry[1]) == "string" and config.keys[mod_entry[1]] then
+            return config.keys[mod_entry[1]]
+        end
+        return mod_entry
+    end
+
+    local function bind_group(group_table)
+        if not group_table then return end
+
+        -- Extract modifier, default to empty if missing (safety)
+        local raw_mod = group_table.modifier
+        if not raw_mod then
+            print("Warning: No 'modifier' key found in app shortcuts group")
+            return
+        end
+
+        local mods = get_mods(raw_mod)
+
+        for key, app in pairs(group_table) do
+            if key ~= "modifier" and app and app:match("%S") then
+                hs.hotkey.bind(mods, key, function()
+                    appSwitcher.toggle_app(app)
+                end)
+            end
         end
     end
 
-    for key, app in pairs(hyperAppCuts) do
-        if app and app:match("%S") then -- check for non-nil and non-whitespace app names
-            hs.hotkey.bind(HYPER, key, function()
-                appSwitcher.toggle_app(app)
-            end)
-        end
-    end
+    bind_group(appCuts)
+    bind_group(hyperAppCuts)
 
-    -- Help binding
+    -- Help binding (revisit this: where should help be bound? reusing mash_app from config for now or defining explicitly?)
+    -- Assuming a standard fallback for help or keeping it tied to one of the modifiers.
+    -- For now, let's look up mash_app from config directly since we aren't passing it in.
+    local mash_app = config.keys.mash_app
     hs.hotkey.bind(mash_app, ';', function()
         appSwitcher.display_help(appCuts, hyperAppCuts)
     end)

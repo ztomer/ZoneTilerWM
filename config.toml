@@ -8,7 +8,7 @@ mash = ["ctrl", "cmd"]
 mash_app = ["shift", "ctrl"]
 mash_shift = ["shift", "ctrl", "cmd"]
 HYPER = ["shift", "ctrl", "alt", "cmd"]
-zen = "\\"
+
 
 # =============================================================================
 # Audio Switcher
@@ -44,44 +44,46 @@ bambustudio = "bambu studio"
 # Direct lowercase mapping for app switching
 # =============================================================================
 [appCuts]
-q = "BambuStudio"
-w = "Whatsapp"
-e = "Finder"
-r = "ZTCronometer"
-t = "Ghostty"
-a = "Notion"
-s = "Notion Mail"
-d = "Notion Calendar"
-f = "Zen"
-g = "Gmail"
-z = "Nimble Commander"
-x = ""
-c = "Arc"
-v = "Antigravity"
-b = "YouTube Music"
+modifier = ["mash_app"]
+"q" = "BambuStudio"
+"w" = "Whatsapp"
+"e" = "Finder"
+"r" = "ZTCronometer"
+"t" = "Ghostty"
+"a" = "Notion"
+"s" = "Notion Mail"
+"d" = "Notion Calendar"
+"f" = "Zen"
+"g" = "Gmail"
+"z" = "Nimble Commander"
+"x" = ""
+"c" = "Arc"
+"v" = "Antigravity"
+"b" = "YouTube Music"
 
 # =============================================================================
 # Hyper Application Shortcuts
 # Typically used for less frequent apps or specific tools
 # =============================================================================
 [hyperAppCuts]
-q = "IBKR Desktop"
-w = "Weather"
-e = "Clock"
-r = "Discord"
-t = "ChatGpt"
-a = "KeePassXC"
-s = ""
-d = ""
-f = ""
-g = ""
-z = ""
-x = ""
-c = "Google Chrome"
-v = "Visual Studio Code"
-b = ""
-F1 = "GeminiDesk"
-F2 = "Claude"
+modifier = ["HYPER"]
+"q" = "IBKR Desktop"
+"w" = "Weather"
+"e" = "Clock"
+"r" = "Discord"
+"t" = "ChatGpt"
+"a" = "KeePassXC"
+"s" = ""
+"d" = ""
+"f" = ""
+"g" = ""
+"z" = ""
+"x" = ""
+"c" = "Google Chrome"
+"v" = "Visual Studio Code"
+"b" = ""
+"F1" = "GeminiDesk"
+"F2" = "Claude"
 
 # =============================================================================
 # System Hotkeys
