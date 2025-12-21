@@ -100,6 +100,40 @@ corpus.scenarios = {
                 ["WebBrowser"] = "WideZone"
             }
         }
+    },
+    {
+        name = "Maximize Coverage",
+        description = "Window is small (250x250). Available: Small Tile (250x250) vs Big Tile (500x500). Should pick Big Tile to maximize utility.",
+        windows = {
+            { id="SmallApp", w=250, h=250 }
+        },
+        tiles = {
+            { zone="SmallZone", idx=1, rect=R(0,0,250,250) },
+            { zone="BigZone", idx=1, rect=R(0,0,500,500) }
+        },
+        expect = {
+            assignments = {
+                ["SmallApp"] = "BigZone"
+            }
+        }
+    },
+    {
+        name = "Recency Priority",
+        description = "Two identical small windows. Available: Big Tile vs Small Tile. Recent window (Win1) should get the Big Tile.",
+        windows = {
+            { id="Win1_Recent", w=200, h=200 }, -- Index 1 (Most Recent)
+            { id="Win2_Old", w=200, h=200 }     -- Index 2 (Old)
+        },
+        tiles = {
+            { zone="BigZone", idx=1, rect=R(0,0,500,500) },
+            { zone="SmallZone", idx=1, rect=R(600,0,200,200) }
+        },
+        expect = {
+            assignments = {
+                ["Win1_Recent"] = "BigZone",
+                ["Win2_Old"] = "SmallZone"
+            }
+        }
     }
 }
 

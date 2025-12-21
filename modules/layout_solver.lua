@@ -21,7 +21,8 @@ local WEIGHTS = {
     ASPECT_RATIO = 500,   -- Penalty multiplier for AR mismatch
     AREA_RATIO   = 200,   -- Penalty for size mismatch
     MOVED_DIST   = 1,     -- Low penalty for physical movement distance
-    SKIP_WINDOW  = 5000   -- Cost to leave a window unassigned
+    SKIP_WINDOW  = 5000,  -- Cost to leave a window unassigned
+    COVERAGE     = -500   -- Reward for maximizing screen real estate
 }
 
 --- Calculate the cost of assigning a window to a tile.
@@ -43,7 +44,47 @@ local function calculate_assignment_cost(window, tile_rect, tile_index, zone_key
     local area_diff = math.abs(win_area_ratio - tile_area_ratio)
     cost = cost + (area_diff * WEIGHTS.AREA_RATIO)
 
-    -- 2. Memory Bonuses
+    -- 2. Coverage Reward
+    -- Subtract cost proportional to the tile's size on screen.
+    -- This makes larger tiles "cheaper" (more desirable).
+    -- SCALE BY RECENCY: Recent windows (Low Index) get higher reward to capture big tiles.
+    local rank = tile_index -- Wait, tile_index is useless here. We need WINDOW rank.
+    -- 'memory_stats' is passed as arg 6. We need a new arg for rank.
+end
+
+-- Changing signature requires changing caller.
+-- Let's redefine the signature.
+local function calculate_assignment_cost(window, tile_rect, tile_index, zone_key, monitor_id, memory_stats, window_rank)
+    local cost = 0
+
+    local win_frame = window:frame()
+    -- ... (Screen fetch) ...
+    local screen = window:screen()
+    local screen_frame = screen and screen:frame() or {w=1920, h=1080}
+
+    -- 1. Geometric Penalties
+    local tile_ar = tile_rect.w / tile_rect.h
+    local win_ar = win_frame.w / win_frame.h
+    local ar_diff = math.abs(win_ar - tile_ar)
+    cost = cost + (ar_diff * WEIGHTS.ASPECT_RATIO)
+
+    local tile_area_ratio = (tile_rect.w * tile_rect.h) / (screen_frame.w * screen_frame.h)
+    local win_area_ratio = (win_frame.w * win_frame.h) / (screen_frame.w * screen_frame.h)
+    local area_diff = math.abs(win_area_ratio - tile_area_ratio)
+    cost = cost + (area_diff * WEIGHTS.AREA_RATIO)
+
+    -- 2. Coverage Reward
+    -- Subtract cost proportional to the tile's size on screen.
+    -- This makes larger tiles "cheaper" (more desirable).
+    -- RECENCY BOOST: Rank 1 (1.0 + 1.0) = 2.0x. Rank 5 = 1.2x.
+    local recency_mult = 1.0
+    if window_rank then
+        recency_mult = 1.0 + (1.0 / window_rank)
+    end
+
+    cost = cost + (tile_area_ratio * WEIGHTS.COVERAGE * recency_mult)
+
+    -- 3. Memory Bonuses
     if memory_stats then
         for rank, pref in ipairs(memory_stats) do
             if pref.zone_key == zone_key then
@@ -142,9 +183,11 @@ function layout_solver.solve(windows, tiles, monitor_id)
     for i, win in ipairs(windows) do
         cost_matrix[i] = {}
         local app_name = win:application():name()
-        local mem = window_memory and window_memory.get_ranked_preferences(app_name, monitor_id)
+        local memory_stats = window_memory and window_memory.get_ranked_preferences(app_name, monitor_id)
         for j, tile in ipairs(tiles) do
-            cost_matrix[i][j] = calculate_assignment_cost(win, tile.rect, tile.tile_index, tile.zone_key, monitor_id, mem)
+            -- Pass 'i' as window_rank (Windows are sorted by Z-order/Recency)
+            local cost = calculate_assignment_cost(win, tile.rect, tile.tile_index, tile.zone_key, monitor_id, memory_stats, i)
+            cost_matrix[i][j] = cost
         end
     end
 
