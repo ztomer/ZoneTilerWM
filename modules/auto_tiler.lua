@@ -347,7 +347,7 @@ end
 
 function auto_tiler.init(cfg, _tiler, _wm, _sp, _zc, _mm, _wa)
     config, tiler_module, window_memory, smart_placer, zone_calculator, monitor_manager, window_actions = cfg, _tiler, _wm, _sp, _zc, _mm, _wa
-    layout_solver.init(window_memory)
+    layout_solver.init(window_memory, config.tiler.solver_weights)
     if tiler_module and tiler_module.set_reposition_callback then
         tiler_module.set_reposition_callback(auto_tiler.tile_all_windows)
     end

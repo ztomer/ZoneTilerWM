@@ -229,8 +229,26 @@ function layout_solver.solve(windows, tiles, monitor_id)
     return moves
 end
 
-function layout_solver.init(wm)
-    window_memory = wm
+--- Update internal weights from config
+local function update_weights(new_weights)
+    if not new_weights then return end
+    for k, v in pairs(new_weights) do
+        -- Convert config keys (lowercase) to internal keys (uppercase)
+        local key = string.upper(k)
+        if WEIGHTS[key] then
+            WEIGHTS[key] = v
+        end
+    end
+end
+
+--- Initialize the solver module.
+---@param wm_module table The window_memory module.
+---@param config_weights table|nil Optional table of weights from config.
+function layout_solver.init(wm_module, config_weights)
+    window_memory = wm_module
+    if config_weights then
+        update_weights(config_weights)
+    end
     debug_log("Layout Solver initialized (Backtracking)")
 end
 
