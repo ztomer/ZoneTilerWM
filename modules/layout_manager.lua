@@ -2,7 +2,7 @@
 -- Manages saving and loading of window layout snapshots.
 
 local layout_manager = {}
-local config = require "config"
+local config = require "modules.config"
 local json = require "hs.json"
 
 -- Debug logging (centralized)

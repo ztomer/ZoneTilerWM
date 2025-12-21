@@ -2,7 +2,7 @@
 -- Simple window position memory: load on startup, save on shutdown, auto-position new windows
 ---@module window_memory
 local window_memory = {}
-local config = require "config"
+local config = require "modules.config"
 local storage = require "modules.storage"
 
 -- Debug logging (centralized)

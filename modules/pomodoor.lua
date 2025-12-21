@@ -1,6 +1,6 @@
 --- Pomodoro module
 --------------------------------------------------------------------------------
-local config = require "config"
+local config = require "modules.config"
 
 local pom = {}
 pom.bar = {

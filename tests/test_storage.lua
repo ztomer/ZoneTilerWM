@@ -69,3 +69,4 @@ if loaded_data.test_key ~= "test_value" then
 end
 
 print("Storage tests passed!")
+io.open = original_io_open

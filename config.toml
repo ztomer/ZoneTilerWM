@@ -1,0 +1,413 @@
+version = "1.0.0"
+
+# =============================================================================
+# Key Combinations
+# =============================================================================
+[keys]
+mash = ["ctrl", "cmd"]
+mash_app = ["shift", "ctrl"]
+mash_shift = ["shift", "ctrl", "cmd"]
+HYPER = ["shift", "ctrl", "alt", "cmd"]
+zen = "\\"
+
+# =============================================================================
+# Audio Switcher
+# =============================================================================
+[audio_switcher]
+devices = ["Audioengine 2+", "Bose QC35 II", "WH-1000XM6"]
+hotkey = ["HYPER", "'"]
+# Name of the macOS Shortcut to run when the default audio device changes.
+# The shortcut should contain its own logic to detect the device and act accordingly.
+# An empty string "" will disable the callback.
+shortcut_callback = "SoundSourceSwitcherEx"
+
+# =============================================================================
+# Application Switcher
+# =============================================================================
+[app_switcher]
+# Apps that need menu-based hiding
+hide_workaround_apps = ["Arc"]
+
+# Ambiguous app pairs that should not be considered matching
+ambiguous_apps = [
+    ["notion", "notion calendar"],
+    ["notion", "notion mail"]
+]
+
+[app_switcher.special_app_mappings]
+# Apps that require exact mapping between launch name and display name
+# Format: "launch name" = "display name"
+bambustudio = "bambu studio"
+
+# =============================================================================
+# Application Shortcuts
+# Direct lowercase mapping for app switching
+# =============================================================================
+[appCuts]
+q = "BambuStudio"
+w = "Whatsapp"
+e = "Finder"
+r = "ZTCronometer"
+t = "Ghostty"
+a = "Notion"
+s = "Notion Mail"
+d = "Notion Calendar"
+f = "Zen"
+g = "Gmail"
+z = "Nimble Commander"
+x = ""
+c = "Arc"
+v = "Antigravity"
+b = "YouTube Music"
+
+# =============================================================================
+# Hyper Application Shortcuts
+# Typically used for less frequent apps or specific tools
+# =============================================================================
+[hyperAppCuts]
+q = "IBKR Desktop"
+w = "Weather"
+e = "Clock"
+r = "Discord"
+t = "ChatGpt"
+a = "KeePassXC"
+s = ""
+d = ""
+f = ""
+g = ""
+z = ""
+x = ""
+c = "Google Chrome"
+v = "Visual Studio Code"
+b = ""
+F1 = "GeminiDesk"
+F2 = "Claude"
+
+# =============================================================================
+# System Hotkeys
+# Window hints, reload, activity monitor, etc.
+# =============================================================================
+[system_hotkeys.window_hints]
+key = "-"
+mods = "HYPER"
+
+[system_hotkeys.activity_monitor]
+key = "="
+mods = "HYPER"
+
+[system_hotkeys.reload]
+key = "R"
+mods = "mash_shift"
+
+# =============================================================================
+# Pomodoro Timer
+# =============================================================================
+[pomodoro]
+enable_color_bar = true
+work_period_sec = 3120 # 52 minutes (52 * 60)
+rest_period_sec = 1020 # 17 minutes (17 * 60)
+indicator_height = 0.2 # ratio from the height of the menubar (0..1)
+indicator_alpha = 0.3
+indicator_in_all_spaces = true
+# Colors (converted to hs.drawing.color in loader)
+color_time_remaining = "green"
+color_time_used = "red"
+
+[pomodoro.hotkeys.enable]
+key = "9"
+mods = "mash"
+
+[pomodoro.hotkeys.disable]
+key = "0"
+mods = "mash"
+
+[pomodoro.hotkeys.reset]
+key = "0"
+mods = "mash_shift"
+
+# =============================================================================
+# Tiler Settings
+# =============================================================================
+[tiler]
+reposition_on_screen_change = true # Reposition windows when screen configuration changes
+center_modals = true # Automatically center modal dialogs
+modifier = ["ctrl", "cmd"]
+focus_modifier = ["shift", "ctrl", "cmd"]
+
+# Zones to EXCLUDE from geometric deduction.
+# Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
+auto_tile_deduction_excludes = ["0"]
+
+# Apps that require special handling (Disable internal window management)
+problem_apps = ["Firefox", "Zen"]
+
+# Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'
+placement_strategy = "hybrid"
+
+# Focus cycling settings
+flash_on_focus = true # Visual feedback when cycling focus
+overlap_threshold = 0.5 # Minimum overlap to consider window in zone (50%)
+focus_cycle_all_tiles = false # If true, cycle all tiles in zone, not just current tile
+
+[tiler.hotkeys.placement_mode]
+key = "p"
+mods = "mash"
+
+[tiler.hotkeys.zone_info]
+key = ";"
+mods = "mash"
+
+[tiler.hotkeys.zen_mode]
+key = "\\"
+mods = "HYPER"
+
+[tiler.hotkeys.resize_mode]
+key = "r"
+mods = "HYPER"
+
+[tiler.hotkeys.auto_tile_screen]
+key = "return"
+mods = "HYPER"
+
+[tiler.hotkeys.auto_tile_global]
+key = ""
+mods = "HYPER"
+
+[tiler.margins]
+enabled = true
+size = 5
+screen_edge = true
+
+# =============================================================================
+# Screen Detection
+# Mappings for specific monitor names and sizes to layouts
+# =============================================================================
+[tiler.screen_detection.patterns]
+# Special screen name patterns and corresponding layout type
+"DELL.*U32" = "4x3" # Dell 32-inch monitors
+"DELL U3223QE" = "4x3" # Exact match
+"LG.*QHD" = "1x3" # LG QHD in portrait mode
+"Built[-]?in" = "2x2" # MacBook built-in displays
+"Color LCD" = "2x2" # MacBook displays
+"internal" = "2x2" # Internal displays
+"MacBook" = "2x2" # MacBook displays
+
+[tiler.screen_detection.sizes.large]
+min = 27
+layout = "4x3" # 27" and larger
+
+[tiler.screen_detection.sizes.medium]
+min = 24
+max = 26.9
+layout = "3x3" # 24-26"
+
+[tiler.screen_detection.sizes.standard]
+min = 20
+max = 23.9
+layout = "3x2" # 20-23"
+
+[tiler.screen_detection.sizes.small]
+max = 19.9
+layout = "2x2" # Under 20"
+
+[tiler.screen_detection.portrait.large]
+min = 23
+layout = "1x3" # 23" and larger in portrait
+
+[tiler.screen_detection.portrait.small]
+max = 22.9
+layout = "1x2" # Under 23" in portrait
+
+# =============================================================================
+# Grid Specifications
+# Definitions of grid dimensions (cols x rows)
+# =============================================================================
+[tiler.grids."4x3"]
+cols = 4
+rows = 3
+
+[tiler.grids."3x3"]
+cols = 3
+rows = 3
+
+[tiler.grids."3x2"]
+cols = 3
+rows = 2
+
+[tiler.grids."2x2"]
+cols = 2
+rows = 2
+
+[tiler.grids."1x3"]
+cols = 1
+rows = 3
+
+[tiler.grids."1x2"]
+cols = 1
+rows = 2
+
+# =============================================================================
+# Custom Screen Overrides
+# specific grid/layout overrides by exact screen name
+# =============================================================================
+[tiler.custom_screens."DELL U3223QE"]
+layout = "4x3"
+[tiler.custom_screens."DELL U3223QE".grid]
+cols = 4
+rows = 3
+
+[tiler.custom_screens."LG IPS QHD"]
+layout = "1x3"
+[tiler.custom_screens."LG IPS QHD".grid]
+cols = 1
+rows = 3
+
+# =============================================================================
+# Layout Configurations
+# Mappings of zone keys to tile definitions (e.g. "a1:b2")
+# =============================================================================
+
+# -- 4x3 Layout (Large Displays) --
+[tiler.layouts."4x3"]
+y = ["a1:a2", "a1", "a1:b2"]
+h = ["a1:b3", "a1:a3", "a1:c3", "a2"]
+n = ["a3", "a2:a3", "a3:b3"]
+u = ["b1:b3", "b1:b2", "b1", "b1:c1"]
+j = ["b1:c3", "b1:b3", "b2", "b1:d3"]
+m = ["b1:b3", "b2:c3", "b3"]
+i = ["d1:d3", "d1:d2", "d1"]
+k = ["c1:d3", "c1:c3", "c2"]
+"," = ["d1:d3", "d2:d3", "d3"]
+o = ["c1:d1", "d1", "c1:d2"]
+l = ["d1:d3", "c1:d3", "b1:d3", "d2"]
+"." = ["d3", "d2:d3", "c3:d3"]
+"0" = ["b2:c2", "a1:d3", "center"]
+
+# -- 2x2 Layout (Small Displays / Laptops) --
+[tiler.layouts."2x2"]
+y = ["a1", "a1:a2", "a1:b1"] # Top-left
+h = ["a1:a2", "a1:b2"] # Left tile
+n = ["a2", "a2:b2"] # Bottom-left
+u = ["a1:b1", "b1"] # Top tile
+j = ["a1:b2"] # Center (full screen)
+m = ["a2:b2", "b2"] # Bottom tile
+i = ["b1", "a1:b1"] # Top-right
+k = ["b1:b2", "b2"] # Right tile
+"," = ["b2", "a2:b2"] # Bottom-right
+"0" = ["center", "a1:b2", "a1:b1"]
+
+# -- 3x2 Layout --
+[tiler.layouts."3x2"]
+y = ["a1", "a1:a2"]
+h = ["a1:a2", "a1:b2"]
+n = ["a2", "a1:a2"]
+u = ["b1", "b1:b2"]
+j = ["b1:b2", "a1:c2"]
+m = ["b2", "b1:b2"]
+i = ["c1", "c1:c2"]
+k = ["c1:c2", "b1:c2"]
+"," = ["c2", "c1:c2"]
+"0" = ["center", "b1:b2", "a1:c2"]
+
+# -- 3x3 Layout --
+[tiler.layouts."3x3"]
+y = ["a1", "a1:a2", "a1:b1"]
+h = ["a1:a3", "a1:a2", "a2"]
+n = ["a3", "a2:a3", "a3:b3"]
+u = ["b1", "b1:b2", "a1:b1"]
+j = ["b2", "b1:b3", "a1:c3"]
+m = ["b3", "b2:b3", "a3:c3"]
+i = ["c1", "c1:c2", "b1:c1"]
+k = ["c1:c3", "c2:c3", "c2"]
+"," = ["c3", "c2:c3", "b3:c3"]
+"0" = ["b2", "center", "a1:c3"]
+
+# -- Portrait Layouts --
+[tiler.layouts."1x3"]
+y = ["a1", "a1:a2"]
+h = ["a2", "a1:a3"]
+n = ["a3", "a2:a3"]
+"0" = ["a1:a3", "a2", "center"]
+
+[tiler.layouts."1x2"]
+y = ["a1", "a1:a2"]
+h = ["a2", "a1:a2"]
+"0" = ["a1:a2", "center"]
+
+# -- Default Fallback Layout --
+[tiler.layouts.default]
+y = ["top-half"]
+h = ["left-half"]
+n = ["bottom-half"]
+u = ["top-half"]
+j = ["full"]
+m = ["bottom-half"]
+i = ["top-half"]
+k = ["right-half"]
+"," = ["bottom-half"]
+"0" = ["center", "full"]
+
+# =============================================================================
+# Smart Placement
+# =============================================================================
+[tiler.smart_placement]
+enabled = true # Enable/disable smart placement
+cell_size = 50 # Grid cell size for placement calculation
+exclude_apps = ["Hammerspoon", "Alfred", "Raycast"] # Apps to exclude
+
+# =============================================================================
+# Delays & Timing
+# In seconds
+# =============================================================================
+[tiler.delays]
+screen_change_reposition_sec = 0.1 # Delay before repositioning windows after screen change
+new_window_initial_sec = 0.05 # Initial delay after a window is created before processing
+new_window_placement_sec = 0.1 # Secondary delay before final placement of a new window
+smart_placement_reposition_sec = 0.1 # Delay for smart placement during repositioning events
+flash_on_focus_duration_sec = 0.2 # Duration of the visual flash when cycling focus
+
+# =============================================================================
+# Cache Settings
+# =============================================================================
+[tiler.cache_size]
+positions = 500 # Window position cache size
+window_info = 200 # Window info cache size
+
+# =============================================================================
+# Window Handling
+# =============================================================================
+[window_handling]
+modal_dialog_behavior = "ignore" # "center", "tile", or "ignore"
+
+# =============================================================================
+# Window Memory
+# Persists window positions across sessions
+# =============================================================================
+[window_memory]
+enabled = true # Enable/disable window memory
+max_preference_entries = 1000 # Max unique entries to remember
+settle_delay_sec = 2.0 # Time to wait before learning a position
+save_interval_sec = 60 # Periodic save interval (0 to disable)
+cache_dir = "~/.config/ZoneTilerWM"
+excluded_apps = ["System Settings", "System Preferences", "Activity Monitor", "Calculator", "Photo Booth", "Hammerspoon", "KeyCastr", "Installer", "SupaSidebar"]
+auto_tile_fallback = true
+default_zone = "0"
+
+[window_memory.hotkeys.capture]
+key = "9"
+mods = ["shift", "ctrl", "alt", "cmd"]
+
+[window_memory.hotkeys.restore]
+key = "0"
+mods = ["shift", "ctrl", "alt", "cmd"]
+
+[window_memory.app_zones]
+# Default zones for specific apps if no position is remembered
+"Arc" = "k"
+"iTerm" = "h"
+"Visual Studio Code" = "h"
+"Notion" = "j"
+"Spotify" = "i"
+
+[layout_manager]
+enabled = true

@@ -1,5 +1,5 @@
 -- Hammerspoon configuration
-local config = require "config"
+local config = require "modules.config"
 local config_validator = require "modules.config_validator"
 
 -- Load debug system

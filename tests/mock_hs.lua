@@ -121,6 +121,7 @@ mock_hs.drawing = {
 
 -- Global hs injection
 _G.hs = mock_hs
+_G.hs.configdir = os.getenv("PWD")
 
 -- Mock module loading so `require "hs.json"` works
 package.loaded["hs.fs"] = mock_hs.fs

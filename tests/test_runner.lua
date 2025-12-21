@@ -32,6 +32,7 @@ package.path = package.path .. ";./?.lua;./modules/?.lua"
 
 local files = {
     "tests/test_storage.lua",
+    "tests/test_config_load.lua",
     "tests/test_window_memory.lua",
     "tests/test_config_validator.lua"
 }

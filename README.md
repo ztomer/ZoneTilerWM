@@ -14,7 +14,7 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 * **Pomodoro Timer**: A built-in Pomodoro timer to help you stay focused.
 * **Dynamic Resizing**: Adjust grid lines on the fly with visual feedback.
 * **Auto-Tiling**: Automatically arrange all windows into empty gaps with recursive ripple logic and top-left priority.
-* **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.lua` file.
+* **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.toml` file.
 * **Config Validation**: Startup checks to ensure your configuration is valid.
 
 ## Future Features
@@ -33,7 +33,7 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 1. Download and install [Hammerspoon](https://www.hammerspoon.org/).
 2. Clone this repository into `~/.hammerspoon/`.
 3. Launch Hammerspoon and reload configuration.
-4. Edit `config.lua` to customize zones, keybindings, and apps.
+4. Edit `config.toml` to customize zones, keybindings, and apps.
 
 ---
 
@@ -42,7 +42,8 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 ```text
 ~/.hammerspoon/
 ├── init.lua              # Entry point
-├── config.lua            # Configuration for keys, layouts, and features
+├── init.lua              # Entry point
+├── config.toml           # Main configuration file (TOML)
 ├── docs/                 # Documentation
 │   ├── ARCHITECTURE.md   # System design and module overview
 │   ├── auto-tiling_algorithmic_design.md # Advanced tiling logic and scoring
@@ -51,6 +52,8 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 │   ├── SPACES_RESEARCH.md # macOS Spaces implementation research
 │   └── keyboard_shortcuts.md # Complete keyboard reference
 ├── modules/              # Core functionality modules
+│   ├── config.lua        # Configuration loader (reads config.toml)
+
 │   ├── tiler.lua         # Core tiling orchestrator
 │   ├── monitor_manager.lua # Stable monitor identification
 │   ├── zone_calculator.lua # Zone and tile geometry calculation
@@ -165,7 +168,7 @@ Grid is mapped to your keyboard:
 
 ## Configuration Overview
 
-All settings are centralized in `config.lua`:
+All settings are centralized in `config.toml`:
 
 * Keybindings (`config.keys`)
 * Application hotkeys (`config.appCuts`)
@@ -188,13 +191,13 @@ ZoneTilerWM detects screen layouts in this order:
 4. Orientation-specific logic
 5. Fallback to resolution-based default
 
-You can extend the detection logic in `config.lua` under `config.tiler.screen_detection`.
+You can extend the detection logic in `config.toml` under `[tiler.screen_detection.patterns]`.
 
 ---
 
 ## Troubleshooting
 
-* Set `config.tiler.debug = true` to debug screen detection or zone placement
+* Set `tiler.debug = true` in `debug/config.lua` to debug screen detection or zone placement
 * Use the Hammerspoon console to check layout messages
 * Reload config: `Shift+Ctrl+Cmd+R`
 * Add screen pattern or custom name if detection fails

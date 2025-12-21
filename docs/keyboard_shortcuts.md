@@ -27,8 +27,8 @@
 
 | Shortcut | Description |
 |---|---|
-| `Shift`+`Ctrl` + `key` | Toggle application (defined in `config.lua`) |
-| `HYPER` + `key` | Toggle application (defined in `config.lua`) |
+| `Shift`+`Ctrl` + `key` | Toggle application (defined in `config.toml`) |
+| `HYPER` + `key` | Toggle application (defined in `config.toml`) |
 | `Shift`+`Ctrl` + `;` | Show application shortcuts |
 
 ## Window Memory Shortcuts
@@ -46,4 +46,4 @@
 
 ---
 *`HYPER` is defined as `Shift`+`Ctrl`+`Alt`+`Cmd`*
-*`zone_key` refers to the keys defined in the `layouts` section of your `config.lua` (e.g., y, u, h, j, k, etc.).*
+*`zone_key` refers to the keys defined in the `layouts` section of your `config.toml` (e.g., y, u, h, j, k, etc.).*

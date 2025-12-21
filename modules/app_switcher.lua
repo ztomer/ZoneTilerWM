@@ -1,5 +1,5 @@
 -- App switching module for Hammerspoon
-local config = require "config"
+local config = require "modules.config"
 local appSwitcher = {}
 
 -- Cache frequently accessed functions

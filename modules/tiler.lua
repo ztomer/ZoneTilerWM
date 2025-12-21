@@ -4,7 +4,7 @@
 -- binds hotkeys, and handles system-level events like window creation,
 -- destruction, and screen changes.
 -- @module tiler
-local config = require "config"
+local config = require "modules.config"
 local tiler = {}
 local hs_window = hs.window -- Cache for frequent use
 local hs_screen = hs.screen

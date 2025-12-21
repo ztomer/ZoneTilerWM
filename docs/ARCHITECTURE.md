@@ -53,8 +53,9 @@ graph TD
         ST("storage.lua")
     end
 
-    subgraph "Configuration"
-        CFG("config.lua")
+subgraph "Configuration"
+        CFG("config.toml")
+        CL("modules/config.lua")
     end
 
     A --> Tiler
@@ -89,11 +90,12 @@ graph TD
     RM -->|Save/Load| ST
     ST -->|Read/Write| Disk[(JSON Files)]
 
-    CFG --> Tiler
-    CFG --> ZC
-    CFG --> WM
-    CFG --> FM
-    CFG --> SP
+    CFG --> CL
+    CL --> Tiler
+    CL --> ZC
+    CL --> WM
+    CL --> FM
+    CL --> SP
 ```
 
 ## Module Responsibilities
@@ -101,7 +103,8 @@ graph TD
 ### Core
 
 * **`tiler.lua`**: The central hub and orchestrator. It initializes all other modules, binds hotkeys, subscribes to system events (window/screen changes), and delegates tasks to the appropriate logic or action module.
-* **`config.lua`**: The single source of truth for all user-configurable settings, including layouts, keybindings, colors, and feature toggles.
+* **`config.toml`**: The single source of truth for all user-configurable settings, including layouts, keybindings, colors, and feature toggles.
+* **`modules/config.lua`**: Loads and parses `config.toml`, handling post-processing and exposing the configuration to other modules.
 
 ### State & Calculation
 
@@ -127,7 +130,7 @@ graph TD
 * **`layout_manager.lua`**: Manages layout persistence, allowing saving and restoring of window layouts.
 * **`lru_cache.lua`**: A generic, reusable Least Recently Used (LRU) cache utility.
 * **`storage.lua`**: Provides a robust abstraction for saving and loading data to JSON files. It handles file I/O, JSON encoding/decoding, and error checking.
-* **`config_validator.lua`**: Validates the user's `config.lua` against a defined schema to prevent runtime errors during initialization.
+* **`config_validator.lua`**: Validates the loaded configuration against a defined schema to prevent runtime errors during initialization.
 * **`grid_overlay.lua`**: Renders a visual grid on the screen using `hs.canvas`. This is used to provide feedback during dynamic resizing.
 
 ### macOS Spaces Support
