@@ -125,8 +125,20 @@ function audio_switcher.init(cfg, log_fn)
     if config and config.audio_switcher and config.audio_switcher.devices and #config.audio_switcher.devices > 0 and
         config.audio_switcher.hotkey then
         local hotkey_config = config.audio_switcher.hotkey
-        hs_hotkey.bind(hotkey_config[1], hotkey_config[2], audio_switcher.toggle)
-        debug_log("Audio Switcher: Manual cycling hotkey enabled.")
+
+        -- Helper to resolve modifier string to actual modifier array
+        local function get_mods(mod_str)
+            if type(mod_str) == "string" and config.keys and config.keys[mod_str] then
+                return config.keys[mod_str]
+            end
+            return mod_str
+        end
+
+        local mods = get_mods(hotkey_config[1])
+        local key = hotkey_config[2]
+
+        hs_hotkey.bind(mods, key, audio_switcher.toggle)
+        debug_log("Audio Switcher: Manual cycling hotkey enabled (" .. (type(mods) == "table" and table.concat(mods, "+") or tostring(mods)) .. " + " .. key .. ")")
     else
         debug_log("Audio Switcher: Manual cycling not configured or disabled.")
     end

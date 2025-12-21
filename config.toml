@@ -87,17 +87,10 @@ F2 = "Claude"
 # System Hotkeys
 # Window hints, reload, activity monitor, etc.
 # =============================================================================
-[system_hotkeys.window_hints]
-key = "-"
-mods = "HYPER"
-
-[system_hotkeys.activity_monitor]
-key = "="
-mods = "HYPER"
-
-[system_hotkeys.reload]
-key = "R"
-mods = "mash_shift"
+[system_hotkeys]
+window_hints = ["HYPER", "-"]
+activity_monitor = ["HYPER", "="]
+reload = ["mash_shift", "R"]
 
 # =============================================================================
 # Pomodoro Timer
@@ -113,17 +106,10 @@ indicator_in_all_spaces = true
 color_time_remaining = "green"
 color_time_used = "red"
 
-[pomodoro.hotkeys.enable]
-key = "9"
-mods = "mash"
-
-[pomodoro.hotkeys.disable]
-key = "0"
-mods = "mash"
-
-[pomodoro.hotkeys.reset]
-key = "0"
-mods = "mash_shift"
+[pomodoro.hotkeys]
+enable = ["mash", "9"]
+disable = ["mash", "0"]
+reset = ["mash_shift", "0"]
 
 # =============================================================================
 # Tiler Settings
@@ -165,29 +151,13 @@ flash_on_focus = true # Visual feedback when cycling focus
 overlap_threshold = 0.5 # Minimum overlap to consider window in zone (50%)
 focus_cycle_all_tiles = false # If true, cycle all tiles in zone, not just current tile
 
-[tiler.hotkeys.placement_mode]
-key = "p"
-mods = "mash"
-
-[tiler.hotkeys.zone_info]
-key = ";"
-mods = "mash"
-
-[tiler.hotkeys.zen_mode]
-key = "\\"
-mods = "HYPER"
-
-[tiler.hotkeys.resize_mode]
-key = "r"
-mods = "HYPER"
-
-[tiler.hotkeys.auto_tile_screen]
-key = "return"
-mods = "HYPER"
-
-[tiler.hotkeys.auto_tile_global]
-key = ""
-mods = "HYPER"
+[tiler.hotkeys]
+placement_mode = ["mash", "p"]
+zone_info = ["mash", ";"]
+zen_mode = ["HYPER", "\\"]
+resize_mode = ["HYPER", "r"]
+auto_tile_screen = ["HYPER", "return"]
+auto_tile_global = ["HYPER", ""]
 
 [tiler.margins]
 enabled = true
@@ -409,13 +379,9 @@ excluded_apps = ["System Settings", "System Preferences", "Activity Monitor", "C
 auto_tile_fallback = true
 default_zone = "0"
 
-[window_memory.hotkeys.capture]
-key = "9"
-mods = ["shift", "ctrl", "alt", "cmd"]
-
-[window_memory.hotkeys.restore]
-key = "0"
-mods = ["shift", "ctrl", "alt", "cmd"]
+[window_memory.hotkeys]
+capture = ["HYPER", "9"]
+restore = ["HYPER", "0"]
 
 [window_memory.app_zones]
 # Default zones for specific apps if no position is remembered

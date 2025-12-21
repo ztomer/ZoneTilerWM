@@ -209,21 +209,21 @@ function pom.setup_hotkeys(cfg)
 
     -- Enable pomodoro
     if hotkeys.enable then
-        hs.hotkey.bind(get_mods(hotkeys.enable.mods), hotkeys.enable.key, function()
+        hs.hotkey.bind(get_mods(hotkeys.enable[1]), hotkeys.enable[2], function()
             pom.enable()
         end)
     end
 
     -- Disable pomodoro
     if hotkeys.disable then
-        hs.hotkey.bind(get_mods(hotkeys.disable.mods), hotkeys.disable.key, function()
+        hs.hotkey.bind(get_mods(hotkeys.disable[1]), hotkeys.disable[2], function()
             pom.disable()
         end)
     end
 
     -- Reset work count
     if hotkeys.reset then
-        hs.hotkey.bind(get_mods(hotkeys.reset.mods), hotkeys.reset.key, function()
+        hs.hotkey.bind(get_mods(hotkeys.reset[1]), hotkeys.reset[2], function()
             pom.reset_work()
         end)
     end

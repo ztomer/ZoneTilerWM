@@ -13,7 +13,11 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 * **Audio Device Switching**: Cycle through audio devices with a hotkey.
 * **Pomodoro Timer**: A built-in Pomodoro timer to help you stay focused.
 * **Dynamic Resizing**: Adjust grid lines on the fly with visual feedback.
-* **Auto-Tiling**: Automatically arrange all windows into optimal positions using a **Cost-Based Backtracking Solver** (minimizes overlap, maximizes memory and shape fit).
+* **Auto-Tiling**: Automatically arrange all windows into optimal positions using a **Cost-Based Backtracking Solver** (CSP).
+    *   **Recency-Weighted**: Prioritizes your most recently used windows for prime spots.
+    *   **Coverage Maximization**: Aggressively fills available screen space.
+    *   **Memory-Augmented**: Remembers where you like your apps.
+    *   **Shape-Aware**: Matches window aspect ratios to tile shapes.
 * **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.toml` file.
 * **Config Validation**: Startup checks to ensure your configuration is valid.
 

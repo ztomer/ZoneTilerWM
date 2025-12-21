@@ -65,6 +65,11 @@ function tiler.move_window_to_zone(zone_key)
         debug_log("No focused window for move_window_to_zone");
         return false
     end
+
+    if tiler.debug then
+        tiler.debug_zone(zone_key)
+    end
+
     return window_actions.move_window_to_zone(window, zone_key)
 end
 
@@ -468,34 +473,56 @@ function tiler.setup_hotkeys()
 
         -- Placement mode (move to next monitor)
         if hk.placement_mode then
-            hs_hotkey.bind(get_mods(hk.placement_mode.mods), hk.placement_mode.key, function()
+            hs_hotkey.bind(get_mods(hk.placement_mode[1]), hk.placement_mode[2], function()
                 tiler.move_window_to_monitor("next")
             end)
         end
 
         -- Zone info (move to previous monitor - keeping legacy behavior)
         if hk.zone_info then
-            hs_hotkey.bind(get_mods(hk.zone_info.mods), hk.zone_info.key, function()
+            hs_hotkey.bind(get_mods(hk.zone_info[1]), hk.zone_info[2], function()
                 tiler.move_window_to_monitor("previous")
             end)
         end
 
         -- Zen mode toggle
         if hk.zen_mode then
-            hs_hotkey.bind(get_mods(hk.zen_mode.mods), hk.zen_mode.key, function()
+            hs_hotkey.bind(get_mods(hk.zen_mode[1]), hk.zen_mode[2], function()
                 tiler.toggle_zen_mode()
             end)
         end
 
         -- Resize mode toggle
         if hk.resize_mode then
-            hs_hotkey.bind(get_mods(hk.resize_mode.mods), hk.resize_mode.key, function()
+            hs_hotkey.bind(get_mods(hk.resize_mode[1]), hk.resize_mode[2], function()
                 if resize_mode_active then
                     exit_resize_mode()
                 else
                     enter_resize_mode()
                 end
             end)
+        end
+
+        -- Auto Tile Screen
+        if hk.auto_tile_screen then
+             hs_hotkey.bind(get_mods(hk.auto_tile_screen[1]), hk.auto_tile_screen[2], function()
+                if auto_tiler and auto_tiler.tile_focused_screen then
+                    auto_tiler.tile_focused_screen()
+                else
+                    debug_log("Auto-Tiler module not available or function missing")
+                end
+             end)
+        end
+
+        -- Auto Tile Global
+        if hk.auto_tile_global and hk.auto_tile_global[2] ~= "" then
+             hs_hotkey.bind(get_mods(hk.auto_tile_global[1]), hk.auto_tile_global[2], function()
+                if auto_tiler and auto_tiler.tile_all_windows then
+                    auto_tiler.tile_all_windows()
+                else
+                    debug_log("Auto-Tiler module not available or function missing")
+                end
+             end)
         end
     end
 end

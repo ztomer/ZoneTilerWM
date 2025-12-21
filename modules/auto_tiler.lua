@@ -334,12 +334,20 @@ end
 function auto_tiler.setup_hotkeys()
     if config.tiler and config.tiler.hotkeys then
         local hk = config.tiler.hotkeys
-        if hk.auto_tile_screen and hk.auto_tile_screen.key ~= "" then
-            hs.hotkey.bind(config.keys[hk.auto_tile_screen.mods] or hk.auto_tile_screen.mods, hk.auto_tile_screen.key, auto_tiler.tile_focused_screen)
+
+        -- Helper to resolve modifier string to actual modifier array
+        local function get_mods(mod_str)
+            return config.keys[mod_str] or mod_str
+        end
+
+        if hk.auto_tile_screen and hk.auto_tile_screen[2] ~= "" then
+            hs.hotkey.bind(get_mods(hk.auto_tile_screen[1]), hk.auto_tile_screen[2], auto_tiler.tile_focused_screen)
             debug_log("Bound Auto-Tile Screen hotkey")
         end
-        if hk.auto_tile_global and hk.auto_tile_global.key ~= "" then
-            hs.hotkey.bind(config.keys[hk.auto_tile_global.mods] or hk.auto_tile_global.mods, hk.auto_tile_global.key, auto_tiler.tile_all_windows)
+        if hk.auto_tile_global and hk.auto_tile_global[2] ~= "" then
+            hs.hotkey.bind(get_mods(hk.auto_tile_global[1]), hk.auto_tile_global[2], function()
+                auto_tiler.tile_all_windows()
+            end)
             debug_log("Bound Auto-Tile Global hotkey")
         end
     end

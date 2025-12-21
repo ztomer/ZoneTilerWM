@@ -440,29 +440,37 @@ function window_memory.setup_hotkeys()
         return
     end
 
+    -- Helper to resolve modifier string to actual modifier array
+    local function get_mods(mod_str)
+        if type(mod_str) == "string" and config.keys and config.keys[mod_str] then
+            return config.keys[mod_str]
+        end
+        return mod_str
+    end
+
     -- Capture hotkey
     if config.window_memory.hotkeys.capture then
-        local key = config.window_memory.hotkeys.capture[1]
-        local mods = config.window_memory.hotkeys.capture[2]
+        local mods = get_mods(config.window_memory.hotkeys.capture[1])
+        local key = config.window_memory.hotkeys.capture[2]
         if key and mods then
             hs.hotkey.bind(mods, key, function()
                 local count = window_memory.save_all_positions()
                 hs.alert.show("Captured " .. count .. " window positions")
             end)
-            debug_log("Set up capture hotkey:", table.concat(mods, "+") .. "+" .. key)
+            debug_log("Set up capture hotkey")
         end
     end
 
     -- Restore hotkey
     if config.window_memory.hotkeys.restore then
-        local key = config.window_memory.hotkeys.restore[1]
-        local mods = config.window_memory.hotkeys.restore[2]
+        local mods = get_mods(config.window_memory.hotkeys.restore[1])
+        local key = config.window_memory.hotkeys.restore[2]
         if key and mods then
             hs.hotkey.bind(mods, key, function()
                 local count = window_memory.restore_all_positions()
                 hs.alert.show("Restored " .. count .. " window positions")
             end)
-            debug_log("Set up restore hotkey:", table.concat(mods, "+") .. "+" .. key)
+            debug_log("Set up restore hotkey")
         end
     end
 end

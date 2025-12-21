@@ -37,13 +37,13 @@ local function init_system_hotkeys()
     -- Window hints
     if config.system_hotkeys.window_hints then
         local hk = config.system_hotkeys.window_hints
-        hs.hotkey.bind(get_mods(hk.mods), hk.key, hs.hints.windowHints)
+        hs.hotkey.bind(get_mods(hk[1]), hk[2], hs.hints.windowHints)
     end
 
     -- Activity Monitor toggle
     if config.system_hotkeys.activity_monitor then
         local hk = config.system_hotkeys.activity_monitor
-        hs.hotkey.bind(get_mods(hk.mods), hk.key, function()
+        hs.hotkey.bind(get_mods(hk[1]), hk[2], function()
             appSwitcher.toggle_app("Activity Monitor")
         end)
     end
@@ -51,7 +51,7 @@ local function init_system_hotkeys()
     -- Hot reload configuration
     if config.system_hotkeys.reload then
         local hk = config.system_hotkeys.reload
-        hs.hotkey.bind(get_mods(hk.mods), hk.key, function()
+        hs.hotkey.bind(get_mods(hk[1]), hk[2], function()
             hs.reload()
             hs.alert.show("Config reloaded!")
         end)
