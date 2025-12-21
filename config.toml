@@ -148,8 +148,8 @@ auto_tile_center_zones = ["j", "center", "0"] # Priority zones for focused windo
 [tiler.solver_weights]
 memory_exact = -2000  # Bonus for exact memory match (ID + Monitor + Zone + Tile)
 memory_zone  = -500   # Bonus for correct zone, but wrong tile
-coverage     = -500   # Reward for maximizing screen real estate (Base value, scales with Recency)
-aspect_ratio = 500    # Penalty for mismatching aspect ratio (Square window in Tall slot)
+coverage     = -2000  # Reward for maximizing screen real estate (Base value, scales with Recency)
+aspect_ratio = 300    # Penalty for mismatching aspect ratio (Square window in Tall slot)
 area_ratio   = 200    # Penalty for mismatching area size (Small window in Big slot)
 moved_dist   = 1      # Cost per pixel of movement (Keep close to original)
 skip_window  = 5000   # Cost to leave a window unassigned (High = Force placement)

@@ -21,12 +21,26 @@ function MockWindow:id() return self._id end
 
 local GLOBAL_MEMORY = {}
 
--- Init Solver
+local toml = require("modules.toml")
+local config_path = "config.toml"
+
+local function load_config()
+    local f = io.open(config_path, "r")
+    if not f then return nil end
+    local content = f:read("*a")
+    f:close()
+    return toml.parse(content)
+end
+
+local full_config = load_config()
+local weights = full_config and full_config.tiler and full_config.tiler.solver_weights
+
+-- Init Solver with Configured Weights
 layout_solver.init({
     get_ranked_preferences = function(app_name, mid)
         return GLOBAL_MEMORY[app_name] or {}
     end
-})
+}, weights) -- Pass weights from TOML
 
 --------------------------------------------------------------------------------
 -- ASSERTIONS

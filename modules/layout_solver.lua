@@ -17,12 +17,12 @@ local window_memory = nil
 
 local WEIGHTS = {
     MEMORY_EXACT = -2000, -- Dominant bonus for exact memory match
-    MEMORY_ZONE  = -500,  -- Bonus for correct zone, wrong tile
-    ASPECT_RATIO = 500,   -- Penalty multiplier for AR mismatch
+    MEMORY_ZONE  = -500,  -- Bonus for correct zone, but wrong tile
+    ASPECT_RATIO = 300,   -- Penalty multiplier for AR mismatch (Reduced to allow coverage wins)
     AREA_RATIO   = 200,   -- Penalty for size mismatch
     MOVED_DIST   = 1,     -- Low penalty for physical movement distance
     SKIP_WINDOW  = 5000,  -- Cost to leave a window unassigned
-    COVERAGE     = -500   -- Reward for maximizing screen real estate
+    COVERAGE     = -2000  -- Reward for maximizing screen real estate (Significantly boosted)
 }
 
 --- Calculate the cost of assigning a window to a tile.

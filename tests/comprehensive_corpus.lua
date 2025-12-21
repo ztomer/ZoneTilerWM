@@ -241,6 +241,24 @@ corpus.scenarios = {
         expect = {
             assignments = { ["MemApp"] = "Zone1" }
         }
+    },
+
+    -- ========================================================================
+    -- 8. AGGRESSIVE COVERAGE
+    -- ========================================================================
+    {
+        name = "Coverage vs Shape (Force Fill)",
+        description = "Square Window (500x500). Option A: Square Tile (Small, 25%). Option B: Wide Tile (Big, 50%). User wants B.",
+        windows = {
+            { id="SquareApp", w=500, h=500 }
+        },
+        tiles = {
+            { zone="SmallSquare", idx=1, rect=R(0,0,500,500) },   -- 0.25 Area. AR Match. Cost = low.
+            { zone="BigWide", idx=1, rect=R(0,0,1000,500) }       -- 0.50 Area. AR Mismatch (2.0 vs 1.0). Cost = Penalty - Reward.
+        },
+        expect = {
+            assignments = { ["SquareApp"] = "BigWide" }
+        }
     }
 }
 
