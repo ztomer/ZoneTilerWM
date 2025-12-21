@@ -106,7 +106,7 @@ function toml.parse(data)
             end
         elseif line:find("=") then
             -- Key-value pair
-            local key, value = line:match("^%s*([%w_%-\"]+)%s*=%s*(.+)$")
+            local key, value = line:match("^%s*(.-)%s*=%s*(.+)$")
             if key and value then
                 key = trim(key)
                 if key:find('^".*"$') or key:find("^'.*'$") then

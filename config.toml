@@ -255,56 +255,56 @@ rows = 3
 
 # -- 4x3 Layout (Large Displays) --
 [tiler.layouts."4x3"]
-y = ["a1:a2", "a1", "a1:b2"]
-h = ["a1:b3", "a1:a3", "a1:c3", "a2"]
-n = ["a3", "a2:a3", "a3:b3"]
-u = ["b1:b3", "b1:b2", "b1", "b1:c1"]
-j = ["b1:c3", "b1:b3", "b2", "b1:d3"]
-m = ["b1:b3", "b2:c3", "b3"]
-i = ["d1:d3", "d1:d2", "d1"]
-k = ["c1:d3", "c1:c3", "c2"]
+"y" = ["a1:a2", "a1", "a1:b2"]
+"h" = ["a1:b3", "a1:a3", "a1:c3", "a2"]
+"n" = ["a3", "a2:a3", "a3:b3"]
+"u" = ["b1:b3", "b1:b2", "b1", "b1:c1"]
+"j" = ["b1:c3", "b1:b3", "b2", "b1:d3"]
+"m" = ["b1:b3", "b2:c3", "b3"]
+"i" = ["d1:d3", "d1:d2", "d1"]
+"k" = ["c1:d3", "c1:c3", "c2"]
 "," = ["d1:d3", "d2:d3", "d3"]
-o = ["c1:d1", "d1", "c1:d2"]
-l = ["d1:d3", "c1:d3", "b1:d3", "d2"]
+"o" = ["c1:d1", "d1", "c1:d2"]
+"l" = ["d1:d3", "c1:d3", "b1:d3", "d2"]
 "." = ["d3", "d2:d3", "c3:d3"]
 "0" = ["b2:c2", "a1:d3", "center"]
 
 # -- 2x2 Layout (Small Displays / Laptops) --
 [tiler.layouts."2x2"]
-y = ["a1", "a1:a2", "a1:b1"] # Top-left
-h = ["a1:a2", "a1:b2"] # Left tile
-n = ["a2", "a2:b2"] # Bottom-left
-u = ["a1:b1", "b1"] # Top tile
-j = ["a1:b2"] # Center (full screen)
-m = ["a2:b2", "b2"] # Bottom tile
-i = ["b1", "a1:b1"] # Top-right
-k = ["b1:b2", "b2"] # Right tile
+"y" = ["a1", "a1:a2", "a1:b1"] # Top-left
+"h" = ["a1:a2", "a1:b2"] # Left tile
+"n" = ["a2", "a2:b2"] # Bottom-left
+"u" = ["a1:b1", "b1"] # Top tile
+"j" = ["a1:b2"] # Center (full screen)
+"m" = ["a2:b2", "b2"] # Bottom tile
+"i" = ["b1", "a1:b1"] # Top-right
+"k" = ["b1:b2", "b2"] # Right tile
 "," = ["b2", "a2:b2"] # Bottom-right
 "0" = ["center", "a1:b2", "a1:b1"]
 
 # -- 3x2 Layout --
 [tiler.layouts."3x2"]
-y = ["a1", "a1:a2"]
-h = ["a1:a2", "a1:b2"]
-n = ["a2", "a1:a2"]
-u = ["b1", "b1:b2"]
-j = ["b1:b2", "a1:c2"]
-m = ["b2", "b1:b2"]
-i = ["c1", "c1:c2"]
-k = ["c1:c2", "b1:c2"]
+"y" = ["a1", "a1:a2"]
+"h" = ["a1:a2", "a1:b2"]
+"n" = ["a2", "a1:a2"]
+"u" = ["b1", "b1:b2"]
+"j" = ["b1:b2", "a1:c2"]
+"m" = ["b2", "b1:b2"]
+"i" = ["c1", "c1:c2"]
+"k" = ["c1:c2", "b1:c2"]
 "," = ["c2", "c1:c2"]
 "0" = ["center", "b1:b2", "a1:c2"]
 
 # -- 3x3 Layout --
 [tiler.layouts."3x3"]
-y = ["a1", "a1:a2", "a1:b1"]
-h = ["a1:a3", "a1:a2", "a2"]
-n = ["a3", "a2:a3", "a3:b3"]
-u = ["b1", "b1:b2", "a1:b1"]
-j = ["b2", "b1:b3", "a1:c3"]
-m = ["b3", "b2:b3", "a3:c3"]
-i = ["c1", "c1:c2", "b1:c1"]
-k = ["c1:c3", "c2:c3", "c2"]
+"y" = ["a1", "a1:a2", "a1:b1"]
+"h" = ["a1:a3", "a1:a2", "a2"]
+"n" = ["a3", "a2:a3", "a3:b3"]
+"u" = ["b1", "b1:b2", "a1:b1"]
+"j" = ["b2", "b1:b3", "a1:c3"]
+"m" = ["b3", "b2:b3", "a3:c3"]
+"i" = ["c1", "c1:c2", "b1:c1"]
+"k" = ["c1:c3", "c2:c3", "c2"]
 "," = ["c3", "c2:c3", "b3:c3"]
 "0" = ["b2", "center", "a1:c3"]
 
