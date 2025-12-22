@@ -1,75 +1,98 @@
-# Auto-Tiler Algorithmic Design: The Global Cost-Solver
+# Auto-Tiler Algorithmic Design
 
-> **Status**: Production (V2)
+> **Status**: Production
 > **Implementation**: `modules/auto_tiler.lua`, `modules/layout_solver.lua`
 
-## 1. Executive Summary
+## 1. Problem Formulation
 
-The **Auto-Tiler V2** abandons the traditional "Iterative Greedy" approach (placing one window at a time based on immediate heuristics) in favor of a **Global Cost-Minimization Solver**.
+The Auto-Tiler solves a **Resource Constraint Assignment Problem**.
 
-It formulates window management as a **Weighted Assignment Problem** with **Spatial Constraints**:
-> *"Given N windows and M overlapping tiles, find the assignment configuration that produces the minimum total 'unhappiness' (Cost)."*
+Given:
+*   $W$: A set of $N$ windows needing placement.
+*   $T$: A set of $M$ potential layout tiles on the screen (defined by the user's grid).
+*   $C(w, t)$: A cost function quantifying the "unhappiness" of placing window $w$ in tile $t$.
 
-This approach ensures stable, deterministic, and content-aware layouts, solving complex edge cases like "Wide vs Tall" windows and overlapping grid definitions that previous heuristics failed to handle.
+The objective is to find an injective mapping $f: W' \to T$ (where $W' \subseteq W$) that minimizes the **Total Global Cost**:
 
----
+$$ \text{minimize} \sum_{w \in W'} C(w, f(w)) + \text{Penalty}_{skip} \cdot (|W| - |W'|) $$
 
-## 2. The Algorithm: Multi-Pass Architecture
-
-The tiling process is divided into two distinct passes to balance user intent (Focus) with global optimality (Solver).
-
-### Pass 0: The Anchor (User Intent)
-**Objective**: Guarantee that the user's primary focus is respected immediately.
-
-1.  **Selection**: Identify the **Focused Window**.
-2.  **Targeting**:
-    *   If the window has never been auto-tiled before: Assign to the **Primary Center Zone** (usually `j` or `center`).
-    *   If previously auto-tiled: Cycle through the available tiles in that zone (Cycle 1 -> Cycle 2 -> ...).
-3.  **Constraint Generation**: The selected tile is marked as **Occupied**. This becomes an immutable hard constraint for the subsequent solver.
-
-### Pass 1: The Global Solver (Optimality)
-**Objective**: Arrange all remaining windows around the Anchor to minimize global cost.
-
-1.  **Filter**: Gather all non-minimized, standard windows on the screen (excluding the Anchor).
-2.  **Map**: Identify all available tiles from the screen's layout (e.g., "Left Half", "Left Third", "Top-Left Quarter").
-3.  **Solve**: Execute the **Recursive Backtracking Solver** to find the optimal assignment.
+**Constraints:**
+1.  **Spatial Exclusivity**: If tile $t_a$ and tile $t_b$ geometrically intersect, they cannot both be part of the solution set.
+    $$ \forall w_i, w_j \in W': \text{Intersection}(f(w_i), f(w_j)) = \emptyset $$
+2.  **Uniqueness**: A tile can hold at most one window.
+3.  **Completeness**: The solver must attempt to place every window, incurring a heavy penalty for any window left unassigned ($W \setminus W'$).
 
 ---
 
-## 3. The Solver Core (Recursive Backtracking)
+## 2. System Architecture
 
-We use recursive backtracking instead of the Hungarian Algorithm because our "slots" (tiles) are not independent. They have **Spatial Exclusivity**:
-*   *Example*: Assigning a window to "Left Half" implicitly destroys "Left Third" and "Top-Left Quarter" because they physically overlap.
+The tiling process executes in two deterministic passes to balance user intent with global optimality.
 
-### Pseudocode Representation
+### Phase 1: The Anchor (Hard Constraint)
+The **Focused Window** is the "Anchor" of the system. It is processed first to ensure the user's immediate context is preserved.
+1.  The system identifies the optimal zone for the focused window (based on simple geometric centering or cycling logic).
+2.  This selected tile is marked as **Occupied**.
+3.  This occupancy becomes an immutable hard constraint for Phase 2.
+
+### Phase 2: The Global Solver
+All remaining windows are passed to the solver. The solver considers the entire monitor's layout definition and finds the configuration that fits the remaining windows best around the Anchor.
+
+---
+
+## 3. The Solver Algorithm: Recursive Backtracking
+
+We employ a **Depth-First Search (DFS) with Branch & Bound** to explore the state space.
+
+**Why Backtracking?**
+Classic assignment algorithms like the *Hungarian Algorithm* cannot be used because our "resources" (tiles) are not independent. A generic grid often defines overlapping regions (e.g., a "Left Half" tile and a "Left Third" tile occupy the same space). Selecting one invalidates the other. Recursive backtracking naturally handles these complex dependencies.
+
+### Complexity Analysis
+*   **Worst Case**: $O(M^N)$, where $M$ is the number of tiles and $N$ is the number of windows.
+*   **Practicality**: Since $N$ is typically small (2-8 windows), the state space is manageable ($< 10^5$ nodes).
+*   **Pruning**: We maintain a global `min_total_cost`. Any branch whose partial cost exceeds this value is immediately pruned, significantly reducing the effective search space.
+
+### Pseudocode Implementation
 
 ```lua
-function solve(windows, tiles)
-    State = { min_total_cost = Infinity, best_assignment = {} }
-    recurse(window_index=1, current_cost=0, occupied_rects={Anchor})
-    return State.best_assignment
+-- Global State
+MinCost = Infinity
+BestAssignment = {}
+
+function Solve(windows, tiles)
+    CostMatrix = PreCalculateCosts(windows, tiles)
+    Occupied = { AnchorTile } -- Initial constraint from Phase 1
+    Recurse(window_idx=1, current_cost=0, current_assignment={}, occupied)
+    return BestAssignment
 end
 
-function recurse(w_idx, cost, occupied)
-    -- 1. Pruning (Branch & Bound)
-    if cost >= State.min_total_cost then return end
+function Recurse(w_idx, current_cost, assignment, occupied)
+    -- Branch & Bound Pruning
+    if current_cost >= MinCost then return end
 
-    -- 2. Base Case (Solution Found)
-    if w_idx > #windows then
-        State.min_total_cost = cost
-        State.best_assignment = current_path
+    -- Base Case: All windows processed
+    if w_idx > Count(windows) then
+        MinCost = current_cost
+        BestAssignment = Clone(assignment)
         return
     end
 
-    -- 3. Branch A: The "Skip" Option (Pigeonhole Principal)
-    -- If no tiles fit, we accept a heavy penalty to leave the window floating.
-    recurse(w_idx+1, cost + PENALTY_SKIP, occupied)
+    -- Branch A: The "Skip" Option (Soft Constraint)
+    -- Attempt to solve the rest of the problem without placing this window.
+    Recurse(w_idx + 1, current_cost + PENALTY_SKIP, assignment, occupied)
 
-    -- 4. Branch B: Attempt Assignments
-    for Tile T in tiles do
-        if not intersects(T, occupied) then
-            local move_cost = calculate_cost(Window[w_idx], T)
-            recurse(w_idx+1, cost + move_cost, occupied + T)
+    -- Branch B: Attempt Assignments
+    for t_idx, tile in tiles do
+        if Not Intersects(tile, occupied) then
+            -- 1. Modify State
+            Add(assignment, windows[w_idx] -> tile)
+            Add(occupied, tile)
+
+            -- 2. Recurse
+            Recurse(w_idx + 1, current_cost + CostMatrix[w_idx][t_idx], assignment, occupied)
+
+            -- 3. Backtrack (Restore State)
+            Remove(assignment, windows[w_idx])
+            Remove(occupied, tile)
         end
     end
 end
@@ -77,54 +100,52 @@ end
 
 ---
 
-## 4. The Cost Function (The "Brain")
+## 4. The Cost Function (Optimization Criteria)
 
-The "Intelligence" of the tiler lies entirely in how it calculates the cost of putting Window $W$ into Tile $T$.
-Lower Cost = Better Fit.
+The quality of the layout depends entirely on the detailed construction of the cost matrix $C(w, t)$.
+Lower Cost = Higher Utility.
 
-$$ Cost = (W_{Mem} \cdot -2000) + (W_{AR} \cdot 500) + (W_{Area} \cdot 200) + (W_{Cov} \cdot -2000) + (W_{Idx} \cdot 10) $$
+The total cost is a weighted sum of five key heuristics:
 
-### Cost Factors Breakdown
+$$ C(w, t) = \alpha C_{mem} + \beta C_{geo} + \gamma C_{cov} + \delta C_{stab} $$
 
-| Factor | Weight | Purpose | Logic |
-| :--- | :--- | :--- | :--- |
-| **Memory Match** | **-2000** | **Persistence** | If the user previously put this app in this specific tile, heavily reward putting it back there. Dominates all other factors. |
-| **Zone Match** | **-500** | **Flexibility** | If exact tile isn't available, prefer the same *general zone* (e.g., Left side) over a random spot. |
-| **Coverage** | **-2000** | **Efficiency** | Reward occupying screen space. Larger tiles get larger rewards, encouraging the solver to use "Main" slots before "tiny" corners. Scaled by **Recency**: Recent windows want bigger slots. |
-| **Aspect Ratio ($\Delta AR$)** | **500** | **Content-Aware** | Penalty for shape mismatch. $|W_{ar} - T_{ar}|$. Prevents wide windows (Terminal) from going into tall slots (Sidebar). |
-| **Area Difference ($\Delta Area$)** | **200** | **Fit** | Penalty for size mismatch. Prevents tiny windows (Calculator) from taking full-screen slots. |
-| **Skip Window** | **5000** | **Completeness** | Massive penalty for failing to place a window. Forces the solver to "cram" windows in even if the fit is poor, rather than leaving them untiled. |
-| **Movement** | **1** | **Stability** | Tiny penalty for moving a window far from its current position. Acts as a tie-breaker to prevent pointless shuffling. |
+### 1. Persistence ($C_{mem}$)
+*   **Weight**: Extremely High (-2000)
+*   **Goal**: Ensure muscle memory.
+*   **Logic**: If the window memory database records that the user previously placed Window $A$ in Tile $T$, the cost is massively reduced.
+    *   *Exact Match*: Best score.
+    *   *Zone Match*: Good score (e.g., window was in "Left Side", accepts "Left Half" or "Left Third").
 
----
+### 2. Geometric Fit ($C_{geo}$)
+*   **Weight**: High (500)
+*   **Goal**: Content-Type awareness.
+*   **Logic**: Compares the Aspect Ratio (AR) of the window contents to the tile.
+    *   $$ \text{Cost} = | \frac{W_w}{W_h} - \frac{T_w}{T_h} | $$
+    *   A "Wide" window (e.g., Video Player, Diff View) incurs high cost in a "Tall" tile (Sidebar).
+    *   A "Tall" window (e.g., Chat, Mobile Sim) incurs high cost in a "Wide" tile.
 
-## 5. Key Advantages over Heuristics
+### 3. Screen Coverage ($C_{cov}$)
+*   **Weight**: High (-2000, scaled by area)
+*   **Goal**: Maximize screen real estate usage.
+*   **Logic**:
+    *   $$ \text{Cost} = -1 \times (\frac{T_{area}}{Screen_{area}}) $$
+    *   Larger tiles provide a larger "discount".
+    *   This forces the solver to fill the "Main" (large) slots first before resorting to "Corner" (small) slots.
+    *   *Recency Scaling*: The most recently focused windows get a multiplier on this discount, ensuring active tasks get the biggest monitor areas.
 
-### 1. Spatial Correctness (The "Overlap" Problem)
-*   **Old Way**: Pass 1 might put App A in "Left Half". Pass 2 might put App B in "Left Third". Result: Messy overlap.
-*   **New Way**: The solver knows that "Left Half" and "Left Third" intersect. If Branch A picks "Left Half", Branch B *cannot* pick "Left Third". It finds a combination of non-overlapping tiles (e.g., "Left Half" + "Right Half") that minimizes cost.
+### 4. Stability ($C_{stab}$)
+*   **Weight**: Low (1)
+*   **Goal**: Eliminate jitter.
+*   **Logic**: A negligible penalty proportional to the distance between the window's *current* position and the *proposed* tile. This serves as a tie-breaker: if two layouts are otherwise identical, the one requiring less movement is chosen.
 
-### 2. Intelligent "Cramming"
-*   **Scenario**: 5 Windows, 4 Slots.
-*   The solver will mathematically determine which window is the "least important" (lowest Memory/Size score) and choose to **Skip** that one, while successfully tiling the other 4. Heuristics would often fail completely or stack them randomly.
-
-### 3. Aspect Ratio Sensitivity
-*   **Scenario**: A vertical implementation plan (Tall) and a wide code diff (Wide).
-*   The solver compares specific `w/h` ratios. It "costs more" to put the diff in a vertical slot than the plan. The global minimum naturally swaps them to their ideal orientations.
-
----
-
-## 6. Future Extensibility
-
-The Cost Matrix design is easily extensible. We can verify new behaviors simply by adding terms to the cost function:
-
-*   **Co-occurrence**: Add a cost reduction if App A and App B are placed in adjacent zones.
-*   **Color Matching**: Add a tiny cost for placing dark-mode apps next to light-mode apps (aesthetic).
-*   **Frequency Heatmap**: Reward placing frequently used apps in "easy to reach" zones (center coverage).
+### 5. Completeness (Penalty)
+*   **Weight**: Massive (5000)
+*   **Goal**: Minimize unassigned windows.
+*   **Logic**: The "Skip Window" branch incurs this fixed penalty. This ensures the solver essentially operates in "Cram Mode"—it will accept very poor geometric fits if the alternative is not tiling the window at all.
 
 ---
 
-## 7. Testing & Validation
+## 5. Testing & Validation
 
 The algorithm is validated through a dedicated test suite ensuring stability across edge cases.
 
