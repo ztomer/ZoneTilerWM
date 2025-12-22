@@ -136,14 +136,22 @@ end
 function appSwitcher.init_bindings(appCuts, hyperAppCuts)
     -- Helper to resolve modifier string options
     local function get_mods(mod_entry)
-        -- Handle string alias "HYPER"
+        -- Handle string alias "HYPER" (if somehow passed as string)
         if type(mod_entry) == "string" and config.keys[mod_entry] then
              return config.keys[mod_entry]
         end
+
         -- Handle table array ["HYPER"] or ["mash_app"]
+        -- Case 1: Pre-resolved nested alias (Global Resolution result: [ {mods} ])
+        if type(mod_entry) == "table" and #mod_entry == 1 and type(mod_entry[1]) == "table" then
+            return mod_entry[1]
+        end
+
+        -- Case 2: Standard alias wrapper that wasn't resolved globally? (Shouldn't happen with string aliases, but defensive)
         if type(mod_entry) == "table" and #mod_entry == 1 and type(mod_entry[1]) == "string" and config.keys[mod_entry[1]] then
             return config.keys[mod_entry[1]]
         end
+
         return mod_entry
     end
 

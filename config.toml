@@ -3,7 +3,7 @@ version = "1.0.0"
 # =============================================================================
 # Key Combinations
 # =============================================================================
-[keys]
+[aliases]
 mash = ["ctrl", "cmd"]
 mash_app = ["shift", "ctrl"]
 mash_shift = ["shift", "ctrl", "cmd"]
@@ -119,8 +119,8 @@ reset = ["mash_shift", "0"]
 [tiler]
 reposition_on_screen_change = true # Reposition windows when screen configuration changes
 center_modals = true # Automatically center modal dialogs
-modifier = ["ctrl", "cmd"]
-focus_modifier = ["shift", "ctrl", "cmd"]
+modifier = "mash"
+focus_modifier = "mash_shift"
 
 # Zones to EXCLUDE from geometric deduction.
 # Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
@@ -129,6 +129,17 @@ auto_tile_deduction_excludes = ["0"]
 # Priority zones for the focused window during Auto-Tile.
 # The focused window will be placed in the first available zone from this list (Tile 1).
 auto_tile_center_zones = ["j", "center", "0"] # Priority zones for focused window (auto-tile)
+
+# Apps that require special handling (Disable internal window management)
+problem_apps = ["Firefox", "Zen"]
+
+# Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'
+placement_strategy = "hybrid"
+
+# Focus cycling settings
+flash_on_focus = true # Visual feedback when cycling focus
+overlap_threshold = 0.5 # Minimum overlap to consider window in zone (50%)
+focus_cycle_all_tiles = false # If true, cycle all tiles in zone, not just current tile
 
 # Solver Weights (Tuning)
 # These control the Auto-Tiler's decision making.
@@ -141,17 +152,6 @@ aspect_ratio = 300    # Penalty for mismatching aspect ratio (Square window in T
 area_ratio   = 200    # Penalty for mismatching area size (Small window in Big slot)
 moved_dist   = 1      # Cost per pixel of movement (Keep close to original)
 skip_window  = 5000   # Cost to leave a window unassigned (High = Force placement)
-
-# Apps that require special handling (Disable internal window management)
-problem_apps = ["Firefox", "Zen"]
-
-# Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'
-placement_strategy = "hybrid"
-
-# Focus cycling settings
-flash_on_focus = true # Visual feedback when cycling focus
-overlap_threshold = 0.5 # Minimum overlap to consider window in zone (50%)
-focus_cycle_all_tiles = false # If true, cycle all tiles in zone, not just current tile
 
 [tiler.hotkeys]
 placement_mode = ["mash", "p"]

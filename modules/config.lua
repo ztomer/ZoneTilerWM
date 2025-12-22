@@ -44,8 +44,32 @@ local function load_config()
         config.window_memory.cache_dir = config.window_memory.cache_dir:gsub("^~", os.getenv("HOME"))
     end
 
-    -- Post-processing: Helper function to get valid modifiers
-    -- This mimics the logic that might be expected elsewhere
+    -- Post-processing: Global Alias Resolution
+    if config.aliases then
+        local aliases = config.aliases
+
+        -- Aliases for backward compatibility access to [keys]
+        -- This ensures any code still referencing config.keys works
+        config.keys = aliases
+
+        local function resolve_recursively(tbl)
+            for k, v in pairs(tbl) do
+                 -- Skip resolving inside the aliases/keys table itself
+                if tbl == aliases or tbl == config.keys then
+                   -- do nothing
+                elseif type(v) == "table" then
+                    resolve_recursively(v)
+                elseif type(v) == "string" then
+                    if aliases[v] then
+                        tbl[k] = aliases[v]
+                    end
+                end
+            end
+        end
+
+        resolve_recursively(config)
+    end
+
     -- ensuring key tables are accessible as they were before
     -- The toml parser returns array as indexed table which is compatible with Lua lists
 

@@ -29,6 +29,12 @@ local current_focus_cycle_manager = {
     -- Otherwise, it's the 1-based index of the last window focused in this cycle
 }
 
+-- Singleton to manage the flash capability
+local current_flash = nil
+local current_flash_timer = nil
+
+
+
 --- Gets the Z-order (stacking order) of a window.
 -- @local
 -- @param window (hs.window) The window to check.
@@ -304,8 +310,18 @@ function focus_manager.cycle_windows_in_zone(focused_window_before_call, target_
         window_to_focus:focus()
 
         if config.tiler.flash_on_focus then
+            -- Cleanup any existing flash
+            if current_flash then
+                current_flash:delete()
+                current_flash = nil
+            end
+            if current_flash_timer then
+                current_flash_timer:stop()
+                current_flash_timer = nil
+            end
+
             local frame = window_to_focus:frame()
-            local flash = hs_canvas.new(frame):appendElements({
+            current_flash = hs_canvas.new(frame):appendElements({
                 type = "rectangle",
                 action = "fill",
                 fillColor = {
@@ -313,11 +329,20 @@ function focus_manager.cycle_windows_in_zone(focused_window_before_call, target_
                     green = 0.5,
                     blue = 1.0,
                     alpha = 0.3
-                }
+                },
+                frame = { x = 0, y = 0, w = frame.w, h = frame.h }
             })
-            flash:show()
-            hs_timer.doAfter(config.tiler.delays.flash_on_focus_duration_sec, function()
-                flash:delete()
+            current_flash:show()
+
+            local delay = tonumber(config.tiler.delays.flash_on_focus_duration_sec) or 0.2
+
+            -- We keep a reference to the timer to prevent GC and allow cancellation
+            current_flash_timer = hs_timer.doAfter(delay, function()
+                if current_flash then
+                    current_flash:delete()
+                    current_flash = nil
+                end
+                current_flash_timer = nil -- Clear timer reference
             end)
         end
         return true

@@ -108,7 +108,16 @@ mock_hs.screen = {
 -- Mock hs.hotkey
 mock_hs.hotkey = {
     bind = function()
-    end
+    end,
+    modal = {
+        new = function()
+            return {
+                bind = function() end,
+                enter = function() end,
+                exit = function() end
+            }
+        end
+    }
 }
 
 -- Mock hs.drawing
@@ -117,6 +126,19 @@ mock_hs.drawing = {
         green = {red=0, green=1, blue=0, alpha=1},
         red = {red=1, green=0, blue=0, alpha=1}
     }
+}
+
+-- Mock hs.canvas
+mock_hs.canvas = {
+    new = function()
+        return {
+            show = function() end,
+            hide = function() end,
+            delete = function() end,
+            replaceElements = function() end,
+            frame = function() return {x=0,y=0,w=0,h=0} end,
+        }
+    end
 }
 
 -- Global hs injection
@@ -130,5 +152,6 @@ package.loaded["hs.window"] = mock_hs.window
 package.loaded["hs.screen"] = mock_hs.screen
 package.loaded["hs.timer"] = mock_hs.timer
 package.loaded["hs.hotkey"] = mock_hs.hotkey
+package.loaded["hs.canvas"] = mock_hs.canvas
 
 return mock_hs

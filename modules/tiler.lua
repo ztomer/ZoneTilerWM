@@ -428,6 +428,8 @@ end
 --- Setup tiler hotkeys
 -- Registers all hotkeys for zone switching, placement, zen mode, etc.
 -- Reads configuration from config.tiler.hotkeys and config.tiler.modifier
+-- Reads configuration from config.tiler.hotkeys and config.tiler.modifier
+-- Reads configuration from config.tiler.hotkeys and config.tiler.modifier
 function tiler.setup_hotkeys()
     local modifier = config.tiler.modifier
     local focus_modifier = config.tiler.focus_modifier
