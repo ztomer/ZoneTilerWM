@@ -55,7 +55,7 @@ modifier = ["mash_app"]
 "d" = "Notion Calendar"
 "f" = "Zen"
 "g" = "Gmail"
-"z" = "Nimble Commander"
+"z" = "Bloom"
 "x" = ""
 "c" = "Arc"
 "v" = "Antigravity"
@@ -81,7 +81,7 @@ modifier = ["HYPER"]
 "x" = ""
 "c" = "Google Chrome"
 "v" = "Visual Studio Code"
-"b" = ""
+"b" = "Feishin"
 "F1" = "GeminiDesk"
 "F2" = "Claude"
 
@@ -130,8 +130,7 @@ auto_tile_deduction_excludes = ["0"]
 # The focused window will be placed in the first available zone from this list (Tile 1).
 auto_tile_center_zones = ["j", "center", "0"] # Priority zones for focused window (auto-tile)
 
-# Apps that require special handling (Disable internal window management)
-problem_apps = ["Firefox", "Zen"]
+
 
 # Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'
 placement_strategy = "hybrid"

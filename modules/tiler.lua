@@ -551,13 +551,7 @@ function tiler.start()
     config.tiler.delays.smart_placement_reposition_sec = config.tiler.delays.smart_placement_reposition_sec or 0.1
     config.tiler.delays.flash_on_focus_duration_sec = config.tiler.delays.flash_on_focus_duration_sec or 0.2
 
-    -- Pre-process problem apps list for efficient lookup
-    tiler.processed_problem_apps = {}
-    if config.tiler.problem_apps then
-        for _, name in ipairs(config.tiler.problem_apps) do
-            table.insert(tiler.processed_problem_apps, name:lower())
-        end
-    end
+
 
     -- Initialize sub-modules
     monitor_manager.init(debug_log)
@@ -585,8 +579,7 @@ function tiler.start()
     }
     placement_strategy.init(config, tiler_utils, window_state_manager, debug_log)
 
-    window_actions.init(config, monitor_manager, zone_calculator, window_state_manager, placement_strategy, tiler.processed_problem_apps,
-        debug_log)
+    window_actions.init(config, monitor_manager, zone_calculator, window_state_manager, placement_strategy, debug_log)
     smart_placer.init(config, monitor_manager, zone_calculator, window_state_manager, window_actions, debug_log)
     focus_manager.init(config, monitor_manager, zone_calculator, window_state_manager, debug_log)
 

@@ -1,18 +1,18 @@
 -- Hammerspoon configuration
-local config = require "modules.config"
-local config_validator = require "modules.config_validator"
+local config = require('modules.config')
+local config_validator = require('modules.config_validator')
 
 -- Load debug system
-local debug = require "debug.init"
+local debug = require('debug.init')
 
 -- Load modules
-local pom = require "modules.pomodoor"
-local tiler = require "modules.tiler"
-local appSwitcher = require "modules.app_switcher"
-local window_memory = require "modules.window_memory"
-local audio_switcher = require "modules.audio_switcher"
-local layout_manager = require "modules.layout_manager"
-local auto_tiler = require "modules.auto_tiler"
+local pom = require('modules.pomodoor')
+local tiler = require('modules.tiler')
+local appSwitcher = require('modules.app_switcher')
+local window_memory = require('modules.window_memory')
+local audio_switcher = require('modules.audio_switcher')
+local layout_manager = require('modules.layout_manager')
+local auto_tiler = require('modules.auto_tiler')
 
 -- Get key combinations from config
 local mash = config.keys.mash
@@ -44,7 +44,7 @@ local function init_system_hotkeys()
     if config.system_hotkeys.activity_monitor then
         local hk = config.system_hotkeys.activity_monitor
         hs.hotkey.bind(get_mods(hk[1]), hk[2], function()
-            appSwitcher.toggle_app("Activity Monitor")
+            appSwitcher.toggle_app('Activity Monitor')
         end)
     end
 
@@ -53,7 +53,7 @@ local function init_system_hotkeys()
         local hk = config.system_hotkeys.reload
         hs.hotkey.bind(get_mods(hk[1]), hk[2], function()
             hs.reload()
-            hs.alert.show("Config reloaded!")
+            hs.alert.show('Config reloaded!')
         end)
     end
 end
@@ -62,13 +62,13 @@ end
   Main initialization function
 ]]
 local function init()
-    print("-------------- Loading Hammerspoon config --------------")
+    print('-------------- Loading Hammerspoon config --------------')
 
     -- Validate configuration
     local valid, err = config_validator.validate(config)
     if not valid then
-        hs.alert.show("Config Error: " .. err, 5)
-        print("Config Error: " .. err)
+        hs.alert.show('Config Error: ' .. err, 5)
+        print('Config Error: ' .. err)
         return -- Stop initialization
     end
 
@@ -88,7 +88,15 @@ local function init()
     end
 
     -- Initialize Auto Tiler
-    auto_tiler.init(config, tiler, window_memory, tiler.smart_placer, tiler.zone_calculator, tiler.monitors, tiler.window_actions)
+    auto_tiler.init(
+        config,
+        tiler,
+        window_memory,
+        tiler.smart_placer,
+        tiler.zone_calculator,
+        tiler.monitors,
+        tiler.window_actions
+    )
     auto_tiler.setup_hotkeys()
 
     -- Initialize app switching
@@ -109,9 +117,11 @@ local function init()
 
     -- Make debug globally accessible for console access
     _G.zt_debug = debug
-    _G.zt_run_auto_tile = function() auto_tiler.tile_all_windows() end
+    _G.zt_run_auto_tile = function()
+        auto_tiler.tile_all_windows()
+    end
 
-    print("Hammerspoon configuration loaded successfully!")
+    print('Hammerspoon configuration loaded successfully!')
     print("Debug commands available: type 'zt_debug.help()' for info")
 end
 

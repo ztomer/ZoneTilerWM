@@ -6,7 +6,7 @@
 -- @module window_actions
 local hs_window = hs.window
 local hs_screen = hs.screen
-local hs_axuielement = hs.axuielement
+
 
 local window_actions = {}
 
@@ -20,26 +20,10 @@ local monitor_manager = nil -- Set in init
 local zone_calculator = nil -- Set in init
 local window_state_manager = nil -- Set in init
 local placement_strategy = nil -- Set in init
-local processed_problem_apps = {} -- Set in init
+
 local window_memory_module = nil -- Set via setter from tiler
 
---- Checks if an application is in the configured list of problem applications.
--- @local
--- @param app_name (string) The name of the application.
--- @return (boolean) `true` if the app is a problem app, `false` otherwise.
-local function is_problem_app(app_name)
-    if not processed_problem_apps or #processed_problem_apps == 0 or not app_name then
-        return false
-    end
-    local lower_app_name = app_name:lower()
-    -- Iterate over pre-processed list of lowercase app names
-    for _, problem_app_lower_name in ipairs(processed_problem_apps) do
-        if problem_app_lower_name == lower_app_name then
-            return true
-        end
-    end
-    return false
-end
+
 
 --- Prepares a window and frame for manipulation.
 -- Validates the window and frame, normalizes the frame table, and moves the window
@@ -51,8 +35,7 @@ end
 -- @param caller_func_name_for_log (string) The name of the calling function for logging.
 -- @param is_problem_app_log_detail (boolean) Whether to add extra logging for problem apps.
 -- @return (table|nil) A normalized frame table or `nil` on failure.
-local function _prepare_window_and_frame(window, frame, force_screen_obj, caller_func_name_for_log,
-    is_problem_app_log_detail)
+local function _prepare_window_and_frame(window, frame, force_screen_obj, caller_func_name_for_log)
     if not window or not window:isStandard() then
         debug_log(caller_func_name_for_log .. ": Invalid window (nil or not standard).")
         return nil
@@ -79,34 +62,10 @@ local function _prepare_window_and_frame(window, frame, force_screen_obj, caller
     if force_screen_obj and window:screen():id() ~= force_screen_obj:id() then
         local app_for_log = window:application()
         local app_name_for_log = app_for_log and app_for_log:name() or "UnknownApp"
-        local log_prefix = is_problem_app_log_detail and "problem " or ""
-        debug_log("Moving " .. log_prefix .. "window '", app_name_for_log, "' to screen: '", force_screen_obj:name(),
+        debug_log("Moving window '", app_name_for_log, "' to screen: '", force_screen_obj:name(),
             "' as part of " .. caller_func_name_for_log)
 
-        if is_problem_app_log_detail then
-            local app = window:application()
-            local ax_app_prep = nil
-            if app then
-                ax_app_prep = hs_axuielement.applicationElement(app)
-            end
-
-            if ax_app_prep then
-                local was_enhanced_prep = ax_app_prep.AXEnhancedUserInterface
-                local original_animation_duration_prep = hs_window.animationDuration
-
-                ax_app_prep.AXEnhancedUserInterface = false
-                hs_window.animationDuration = 0
-                window:moveToScreen(force_screen_obj, false, true, 0)
-                hs_window.animationDuration = original_animation_duration_prep
-                ax_app_prep.AXEnhancedUserInterface = was_enhanced_prep
-            else
-                debug_log(caller_func_name_for_log .. ": Could not get AX element for problem app '", app_name_for_log,
-                    "', moving without AX tweaks.")
-                window:moveToScreen(force_screen_obj, false, true, 0)
-            end
-        else
-            window:moveToScreen(force_screen_obj, false, true, 0)
-        end
+        window:moveToScreen(force_screen_obj, false, true, 0)
     end
     return normalized_frame
 end
@@ -118,7 +77,7 @@ end
 -- @param force_screen_obj (hs.screen|nil) If provided, moves the window to this screen before setting the frame.
 -- @return (boolean) `true` on success, `false` on failure.
 local function apply_frame(window, frame, force_screen_obj)
-    local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame", false)
+    local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame")
     if not valid_frame then
         return false
     end
@@ -137,48 +96,7 @@ local function apply_frame(window, frame, force_screen_obj)
     return success
 end
 
---- Applies a frame to a "problem" application, using accessibility workarounds.
--- This temporarily disables `AXEnhancedUserInterface` to prevent unwanted side effects.
--- @local
--- @param window (hs.window) The window to modify.
--- @param frame (table) The frame to apply `{x, y, w, h}`.
--- @param app_name (string) The name of the application for logging.
--- @param force_screen_obj (hs.screen|nil) If provided, moves the window to this screen first.
--- @return (boolean) `true` on success, `false` on failure.
-local function apply_frame_to_problem_app(window, frame, app_name, force_screen_obj)
-    local valid_frame = _prepare_window_and_frame(window, frame, force_screen_obj, "apply_frame_to_problem_app", true)
-    if not valid_frame then
-        return false
-    end
 
-    debug_log("Using accessibility API for problem app:", app_name)
-
-    local app = window:application()
-    local ax_app = nil
-    if app then
-        ax_app = hs_axuielement.applicationElement(app)
-    end
-
-    local was_enhanced -- Keep nil if ax_app is nil
-    local original_animation_duration = hs_window.animationDuration
-
-    if ax_app then
-        was_enhanced = ax_app.AXEnhancedUserInterface
-        ax_app.AXEnhancedUserInterface = false
-    else
-        local app_name_for_log = app and app:name() or "UnknownApp"
-        debug_log("apply_frame_to_problem_app: Could not get AX element for '", app_name_for_log,
-            "'. Proceeding without AXEnhancedUserInterface tweak.")
-    end
-    hs_window.animationDuration = 0
-    local success = window:setFrame(valid_frame)
-    hs_window.animationDuration = original_animation_duration
-    if ax_app then
-        ax_app.AXEnhancedUserInterface = was_enhanced
-    end
-
-    return success
-end
 
 --- Applies a calculated tile frame to a window, dispatching to the correct frame application function.
 -- @local
@@ -191,12 +109,7 @@ local function apply_tile(window, tile, screen_obj)
         debug_log("apply_tile: Invalid window or tile.")
         return false
     end
-    local app_name = window:application():name()
-    if is_problem_app(app_name) then
-        return apply_frame_to_problem_app(window, tile, app_name, screen_obj)
-    else
-        return apply_frame(window, tile, screen_obj)
-    end
+    return apply_frame(window, tile, screen_obj)
 end
 
 --- Moves a given window to a specified zone.
@@ -411,34 +324,7 @@ function window_actions.move_window_to_monitor(window, direction)
     -- If all else fails, just move it to the screen without tiling
     debug_log("Could not find suitable tile, moving window", app_name, "to screen", target_screen_obj:name(),
         "without tiling.")
-    if is_problem_app(app_name) then
-        debug_log("Applying AX tweaks for problem app '", app_name, "' during final moveToScreen fallback.")
-        local app = window:application()
-        local ax_app = nil
-        if app then
-            ax_app = hs_axuielement.applicationElement(app)
-        end
-
-        local was_enhanced -- Keep nil if ax_app is nil
-        local original_animation_duration = hs_window.animationDuration
-
-        if ax_app then
-            was_enhanced = ax_app.AXEnhancedUserInterface
-            ax_app.AXEnhancedUserInterface = false
-        else
-            local app_name_for_log = app and app:name() or "UnknownApp"
-            debug_log("move_window_to_monitor fallback: Could not get AX element for '", app_name_for_log,
-                "'. Proceeding without AXEnhancedUserInterface tweak.")
-        end
-        hs_window.animationDuration = 0
-        window:moveToScreen(target_screen_obj)
-        hs_window.animationDuration = original_animation_duration
-        if ax_app then
-            ax_app.AXEnhancedUserInterface = was_enhanced
-        end
-    else
-        window:moveToScreen(target_screen_obj)
-    end
+    window:moveToScreen(target_screen_obj)
     window_state_manager.cleanup(window_id) -- Clean up tiler state if not successfully tiled
     return true
 end
@@ -508,13 +394,12 @@ end
 -- @param ps (table) The `placement_strategy` module.
 -- @param problem_apps_list (table) A list of lowercase application names that require special handling.
 -- @param log_func (function) The logging function to use.
-function window_actions.init(cfg, mm, zc, wsm, ps, problem_apps_list, log_func)
+function window_actions.init(cfg, mm, zc, wsm, ps, log_func)
     config = cfg
     monitor_manager = mm
     zone_calculator = zc
     window_state_manager = wsm
     placement_strategy = ps
-    processed_problem_apps = problem_apps_list
     debug_log = log_func or debug_log
     debug_log("WindowActions initialized")
 end

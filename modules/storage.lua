@@ -1,8 +1,8 @@
 --- Abstract storage adapter for persisting data.
 -- Currently implements a JSON file adapter.
 -- @module storage
-local json = require "hs.json"
-local fs = require "hs.fs"
+local json = require('hs.json')
+local fs = require('hs.fs')
 
 local storage = {}
 
@@ -12,7 +12,7 @@ local storage = {}
 
 -- Default configuration
 local config = {
-    dir = os.getenv("HOME") .. "/.config/ZoneTilerWM"
+    dir = os.getenv('HOME') .. '/.config/ZoneTilerWM',
 }
 
 --- Ensures the storage directory exists.
@@ -24,7 +24,7 @@ end
 ---@param key string The storage key (filename without extension).
 ---@return string The full path.
 local function get_path(key)
-    return config.dir .. "/" .. key .. ".json"
+    return config.dir .. '/' .. key .. '.json'
 end
 
 --- Saves data to disk as JSON.
@@ -37,18 +37,18 @@ function storage.save(key, data)
     local path = get_path(key)
 
     -- Add timestamp
-    if type(data) == "table" then
+    if type(data) == 'table' then
         data._timestamp = os.time()
     end
 
     local content = json.encode(data)
     if not content then
-        return false, "Failed to encode data to JSON"
+        return false, 'Failed to encode data to JSON'
     end
 
-    local file = io.open(path, "w")
+    local file = io.open(path, 'w')
     if not file then
-        return false, "Failed to open file for writing: " .. path
+        return false, 'Failed to open file for writing: ' .. path
     end
 
     file:write(content)
@@ -61,17 +61,19 @@ end
 ---@return table|nil data The loaded data or nil if not found/error.
 function storage.load(key)
     local path = get_path(key)
-    local file = io.open(path, "r")
+    local file = io.open(path, 'r')
     if not file then
         return nil
     end
 
-    local content = file:read("*all")
+    local content = file:read('*all')
     file:close()
 
-    local success, data = pcall(function() return json.decode(content) end)
+    local success, data = pcall(function()
+        return json.decode(content)
+    end)
     if not success then
-        print("[Storage] Failed to decode JSON from " .. path)
+        print('[Storage] Failed to decode JSON from ' .. path)
         return nil
     end
 

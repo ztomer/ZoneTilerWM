@@ -9,14 +9,14 @@ local hs_screen = hs.screen
 local monitor_manager = {}
 
 -- Debug logging (centralized)
-local debug = require "debug.init"
-local debug_log = debug.create_debug_log("monitor_manager")
+local debug = require('debug.init')
+local debug_log = debug.create_debug_log('monitor_manager')
 
 -- Module state
 local monitors = {
     -- Stable monitor IDs that persist across reconnections
     registry = {}, -- monitor_key -> {system_id, name, frame, logical_id, key}
-    next_logical_id = 1
+    next_logical_id = 1,
 }
 
 --- Generates a stable key for a monitor based on its persistent UUID.
@@ -43,13 +43,13 @@ function monitor_manager.get_id(screen)
             name = screen:name(),
             frame = screen:frame(),
             logical_id = monitors.next_logical_id,
-            key = key
+            key = key,
         }
         monitors.next_logical_id = monitors.next_logical_id + 1
-        debug_log("Registered new monitor:", key, "logical_id:", monitors.registry[key].logical_id)
-        print(" [Debug] Registry Keys so far:")
+        debug_log('Registered new monitor:', key, 'logical_id:', monitors.registry[key].logical_id)
+        print(' [Debug] Registry Keys so far:')
         for k, v in pairs(monitors.registry) do
-            print("   - " .. k .. " -> ID " .. v.logical_id)
+            print('   - ' .. k .. ' -> ID ' .. v.logical_id)
         end
     else
         -- Update system ID and frame in case it changed (e.g. screen arrangement, resolution)
@@ -80,7 +80,7 @@ function monitor_manager.get_screen(monitor_id)
         return hs_screen.find(monitor_uuid)
     end
 
-    debug_log("Could not find screen for monitor_id:", monitor_id)
+    debug_log('Could not find screen for monitor_id:', monitor_id)
     return nil -- Not found in registry or not currently connected
 end
 
@@ -91,21 +91,21 @@ end
 -- @param log_func (function) The logging function to use.
 function monitor_manager.reinitialize_monitors(all_screens, log_func)
     debug_log = log_func or debug_log
-    debug_log("Updating monitor registry...")
+    debug_log('Updating monitor registry...')
     -- By not clearing the registry, we preserve logical IDs for monitors that
     -- might be temporarily disconnected. get_id will create new entries for
     -- new monitors and update existing ones for those that are still connected.
     for _, screen_obj in ipairs(all_screens) do
         monitor_manager.get_id(screen_obj) -- Re-register all currently active monitors
     end
-    debug_log("Monitor registry reinitialized.")
+    debug_log('Monitor registry reinitialized.')
 end
 
 --- Initializes the `monitor_manager` module.
 -- @param log_func (function) The logging function to use.
 function monitor_manager.init(log_func)
     debug_log = log_func or debug_log
-    debug_log("MonitorManager initialized")
+    debug_log('MonitorManager initialized')
 end
 
 -- Expose internal state for external modules like window_memory if needed

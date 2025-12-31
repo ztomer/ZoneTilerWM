@@ -13,35 +13,35 @@ local config = {}
   See debug/README.md for complete documentation.
 ]]
 
-local toml = require "modules.toml"
+local toml = require('modules.toml')
 
 -- Load the TOML configuration
 local function load_config()
-    local config_file = hs.configdir .. "/config.toml"
-    local file, err = io.open(config_file, "r")
+    local config_file = hs.configdir .. '/config.toml'
+    local file, err = io.open(config_file, 'r')
     if not file then
-        print("Error: Could not open config file: " .. config_file .. " Error: " .. tostring(err))
+        print('Error: Could not open config file: ' .. config_file .. ' Error: ' .. tostring(err))
         return nil
     end
 
-    local content = file:read("*all")
+    local content = file:read('*all')
     file:close()
 
     local config = toml.parse(content)
 
     -- Post-processing: Convert colors
     if config.pomodoro then
-        if config.pomodoro.color_time_remaining == "green" then
+        if config.pomodoro.color_time_remaining == 'green' then
             config.pomodoro.color_time_remaining = hs.drawing.color.green
         end
-        if config.pomodoro.color_time_used == "red" then
+        if config.pomodoro.color_time_used == 'red' then
             config.pomodoro.color_time_used = hs.drawing.color.red
         end
     end
 
     -- Post-processing: Expand home directory in cache_dir
     if config.window_memory and config.window_memory.cache_dir then
-        config.window_memory.cache_dir = config.window_memory.cache_dir:gsub("^~", os.getenv("HOME"))
+        config.window_memory.cache_dir = config.window_memory.cache_dir:gsub('^~', os.getenv('HOME'))
     end
 
     -- Post-processing: Global Alias Resolution
@@ -54,12 +54,12 @@ local function load_config()
 
         local function resolve_recursively(tbl)
             for k, v in pairs(tbl) do
-                 -- Skip resolving inside the aliases/keys table itself
+                -- Skip resolving inside the aliases/keys table itself
                 if tbl == aliases or tbl == config.keys then
-                   -- do nothing
-                elseif type(v) == "table" then
+                -- do nothing
+                elseif type(v) == 'table' then
                     resolve_recursively(v)
-                elseif type(v) == "string" then
+                elseif type(v) == 'string' then
                     if aliases[v] then
                         tbl[k] = aliases[v]
                     end
@@ -84,6 +84,6 @@ if not config then
 end
 
 -- Print version
-print("Loaded ZoneTilerWM Configuration Version: " .. (config.version or "Unknown"))
+print('Loaded ZoneTilerWM Configuration Version: ' .. (config.version or 'Unknown'))
 
 return config

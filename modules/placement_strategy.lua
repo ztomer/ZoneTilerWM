@@ -23,10 +23,7 @@ local find_by_hybrid_strategy
 -- @param r2 (table) A rectangle with `{x, y, w, h}`.
 -- @return (boolean) `true` if they intersect, `false` otherwise.
 local function rectangles_intersect(r1, r2)
-    return not (r2.x >= r1.x + r1.w or
-        r2.x + r2.w <= r1.x or
-        r2.y >= r1.y + r1.h or
-        r2.y + r2.h <= r1.y)
+    return not (r2.x >= r1.x + r1.w or r2.x + r2.w <= r1.x or r2.y >= r1.y + r1.h or r2.y + r2.h <= r1.y)
 end
 
 --- Initializes the `placement_strategy` module.
@@ -39,7 +36,7 @@ function placement_strategy.init(cfg, utils, wsm, log_func)
     tiler_utils = utils
     window_state_manager = wsm
     log = log_func or log
-    log("placement_strategy initialized")
+    log('placement_strategy initialized')
 end
 
 --- Finds the best tile for a window in a zone using the configured placement strategy.
@@ -51,17 +48,17 @@ end
 -- @param all_tiles_in_zone (table) A list of all possible tile frames for the zone.
 -- @return (table|nil) A tile frame (e.g., `{x, y, w, h}`), or `nil` if no suitable tile is found.
 function placement_strategy.find_best_tile(window, zone_key, zone_windows, zone, all_tiles_in_zone)
-    local strategy = config.tiler.placement_strategy or "rotate"
-    log("Using placement strategy: ", strategy)
+    local strategy = config.tiler.placement_strategy or 'rotate'
+    log('Using placement strategy: ', strategy)
 
-    if strategy == "hybrid" then
+    if strategy == 'hybrid' then
         return find_by_hybrid_strategy(window, zone_key, zone_windows, zone, all_tiles_in_zone)
-    elseif strategy == "largest_free_space" then
+    elseif strategy == 'largest_free_space' then
         return find_largest_free_tile(window, all_tiles_in_zone)
-    elseif strategy == "rotate" then
+    elseif strategy == 'rotate' then
         return find_by_rotation(window, zone_key, zone_windows, all_tiles_in_zone)
     else
-        log("Unknown placement strategy: ", strategy, ". Defaulting to 'rotate'.")
+        log('Unknown placement strategy: ', strategy, ". Defaulting to 'rotate'.")
         return find_by_rotation(window, zone_key, zone_windows, all_tiles_in_zone)
     end
 end
@@ -100,7 +97,7 @@ end
 -- @return (table|nil) A tile frame or `nil`.
 find_by_rotation = function(window, zone_key, zone_windows, all_tiles_in_zone)
     if not all_tiles_in_zone or #all_tiles_in_zone == 0 then
-        log("Rotation strategy: No tiles available in this zone.")
+        log('Rotation strategy: No tiles available in this zone.')
         return nil
     end
 
@@ -110,13 +107,13 @@ find_by_rotation = function(window, zone_key, zone_windows, all_tiles_in_zone)
     if current_pos and current_pos.zone_key == zone_key then
         -- Window is already in the target zone, so we cycle to the next tile.
         local next_tile_index = (current_pos.tile_index % num_tiles) + 1
-        log("Rotation strategy: Cycling window to tile", next_tile_index)
+        log('Rotation strategy: Cycling window to tile', next_tile_index)
         return all_tiles_in_zone[next_tile_index]
     else
         -- Window is new to this zone.
         local num_windows = #zone_windows
         if num_windows >= num_tiles then
-            log("Rotation strategy: All tiles are likely occupied.")
+            log('Rotation strategy: All tiles are likely occupied.')
             local tile_index = (num_windows % num_tiles) + 1
             return all_tiles_in_zone[tile_index]
         else
@@ -134,13 +131,13 @@ end
 -- @return (table|nil) A tile frame or `nil`.
 find_largest_free_tile = function(window, all_tiles_in_zone)
     if not all_tiles_in_zone or #all_tiles_in_zone == 0 then
-        log("Largest-free-space strategy: No tiles available in this zone.")
+        log('Largest-free-space strategy: No tiles available in this zone.')
         return nil
     end
 
     local screen = window:screen()
     if not screen then
-        log("Largest-free-space strategy: Window has no screen.")
+        log('Largest-free-space strategy: Window has no screen.')
         return find_by_rotation(window, nil, {}, all_tiles_in_zone) -- fallback
     end
 
@@ -176,10 +173,10 @@ find_largest_free_tile = function(window, all_tiles_in_zone)
     end
 
     if best_tile then
-        log("Largest-free-space strategy: Found best tile.")
+        log('Largest-free-space strategy: Found best tile.')
         return best_tile
     else
-        log("Largest-free-space strategy: No free tiles found, falling back to rotation.")
+        log('Largest-free-space strategy: No free tiles found, falling back to rotation.')
         return find_by_rotation(window, nil, {}, all_tiles_in_zone)
     end
 end

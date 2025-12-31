@@ -13,7 +13,7 @@ local window_state = {
     positions = {},
 
     -- app_name -> monitor_id -> {zone_key, tile_index}
-    app_memory = {}
+    app_memory = {},
 }
 
 local zen_mode_active = false
@@ -21,8 +21,8 @@ local zen_hidden_windows = {}
 local zen_focused_window = nil
 
 -- Debug logging (centralized)
-local debug = require "debug.init"
-local debug_log = debug.create_debug_log("window_state_manager")
+local debug = require('debug.init')
+local debug_log = debug.create_debug_log('window_state_manager')
 
 local window_memory_module = nil -- Reference to the window_memory module
 local zone_calculator = nil
@@ -38,7 +38,7 @@ function window_state_manager.set(window_id, monitor_id, zone_key, tile_index, s
     window_state.positions[window_id] = {
         monitor_id = monitor_id,
         zone_key = zone_key,
-        tile_index = tile_index
+        tile_index = tile_index,
     }
     -- App memory update
     local window = hs_window.get(window_id)
@@ -49,7 +49,7 @@ function window_state_manager.set(window_id, monitor_id, zone_key, tile_index, s
         end
         window_state.app_memory[app_name][monitor_id] = {
             zone_key = zone_key,
-            tile_index = tile_index
+            tile_index = tile_index,
         }
 
         -- Notify window_memory if available and not suppressed
@@ -71,7 +71,9 @@ end
 -- @return (table|nil) The tile frame `{x, y, w, h}` or `nil` if the window or tile is not found.
 function window_state_manager.get_tile(window_id)
     local pos = window_state_manager.get(window_id)
-    if not pos then return nil end
+    if not pos then
+        return nil
+    end
 
     local zone_tiles = zone_calculator.get(pos.monitor_id, pos.zone_key)
     if not zone_tiles or not zone_tiles[pos.tile_index] then
@@ -93,7 +95,7 @@ end
 -- This is called when a window is destroyed.
 -- @param window_id (number) The ID of the window to clean up.
 function window_state_manager.cleanup(window_id)
-    debug_log("Cleaning up window state for ID:", window_id)
+    debug_log('Cleaning up window state for ID:', window_id)
     window_state.positions[window_id] = nil
     -- Note: App memory is not cleaned up here, it persists until overwritten or app is excluded.
 end
@@ -102,7 +104,7 @@ end
 -- @param wm (table) The initialized `window_memory` module.
 function window_state_manager.set_window_memory_module(wm)
     window_memory_module = wm
-    debug_log("WindowMemory module reference set in WindowStateManager")
+    debug_log('WindowMemory module reference set in WindowStateManager')
 end
 
 --- Gets all window objects currently occupying a specific zone.
@@ -135,7 +137,7 @@ function window_state_manager.activate_zen_mode(hidden_wins, focused_win)
     zen_mode_active = true
     zen_hidden_windows = hidden_wins
     zen_focused_window = focused_win
-    debug_log("Zen mode activated, hiding " .. #hidden_wins .. " windows.")
+    debug_log('Zen mode activated, hiding ' .. #hidden_wins .. ' windows.')
 end
 
 --- Deactivates Zen Mode.
@@ -147,7 +149,7 @@ function window_state_manager.deactivate_zen_mode()
     local previously_focused = zen_focused_window
     zen_hidden_windows = {}
     zen_focused_window = nil
-    debug_log("Zen mode deactivated.")
+    debug_log('Zen mode deactivated.')
     return previously_hidden, previously_focused
 end
 
@@ -159,7 +161,7 @@ function window_state_manager.init(wm, zc, log_func)
     debug_log = log_func or debug_log
     window_memory_module = wm -- Can be nil initially
     zone_calculator = zc
-    debug_log("WindowStateManager initialized")
+    debug_log('WindowStateManager initialized')
 end
 
 -- Expose internal state for external modules like window_memory if needed

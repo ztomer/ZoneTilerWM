@@ -37,7 +37,8 @@ local stats = my_cache:stats()
 print("Cache hits:", stats.hits)
 print("Cache misses:", stats.misses)
 print("Current size:", stats.size)
-]] -- Create the module
+]]
+-- Create the module
 local lru_cache = {}
 
 -- Create a new LRU cache
@@ -64,12 +65,12 @@ function lru_cache.new(max_size)
 
         -- Configuration
         _max_size = max_size,
-        _current_size = 0
+        _current_size = 0,
     }
 
     -- Set metatable for OO-style usage
     setmetatable(cache, {
-        __index = lru_cache
+        __index = lru_cache,
     })
 
     return cache
@@ -81,7 +82,7 @@ local function create_node(key, value)
         key = key,
         value = value,
         next = nil,
-        prev = nil
+        prev = nil,
     }
 end
 
@@ -247,7 +248,7 @@ function lru_cache:stats()
         misses = self._misses,
         size = self._current_size,
         max_size = self._max_size,
-        hit_ratio = self._hits / math.max(1, (self._hits + self._misses))
+        hit_ratio = self._hits / math.max(1, (self._hits + self._misses)),
     }
 end
 
@@ -274,11 +275,11 @@ end
 -- Return a serialized version of a key suitable for caching
 function lru_cache.key_maker(...)
     local key_parts = {}
-    local args = {...}
+    local args = { ... }
 
     for i, arg in ipairs(args) do
-        if type(arg) == "table" then
-            table.insert(key_parts, "T" .. tostring(i) .. "{")
+        if type(arg) == 'table' then
+            table.insert(key_parts, 'T' .. tostring(i) .. '{')
             -- Sort keys for consistent serialization
             local sorted_keys = {}
             for k in pairs(arg) do
@@ -288,11 +289,11 @@ function lru_cache.key_maker(...)
 
             for _, k in ipairs(sorted_keys) do
                 local v = arg[k]
-                table.insert(key_parts, tostring(k) .. ":" .. tostring(v) .. ",")
+                table.insert(key_parts, tostring(k) .. ':' .. tostring(v) .. ',')
             end
-            table.insert(key_parts, "}")
+            table.insert(key_parts, '}')
         else
-            table.insert(key_parts, tostring(arg) .. "|")
+            table.insert(key_parts, tostring(arg) .. '|')
         end
     end
 

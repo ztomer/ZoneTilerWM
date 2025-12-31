@@ -1,5 +1,5 @@
 -- App switching module for Hammerspoon
-local config = require "modules.config"
+local config = require('modules.config')
 local appSwitcher = {}
 
 -- Cache frequently accessed functions
@@ -14,15 +14,20 @@ local ambiguous_apps = config.app_switcher.ambiguous_apps
 local processed_ambiguous_pairs = {}
 if ambiguous_apps then
     for _, tuple in ipairs(ambiguous_apps) do
-        if type(tuple) == "table" and tuple[1] and tuple[2] and type(tuple[1]) == "string" and type(tuple[2]) ==
-            "string" then
+        if
+            type(tuple) == 'table'
+            and tuple[1]
+            and tuple[2]
+            and type(tuple[1]) == 'string'
+            and type(tuple[2]) == 'string'
+        then
             local app1_lower = tuple[1]:lower()
             local app2_lower = tuple[2]:lower()
             local key
             if app1_lower < app2_lower then
-                key = app1_lower .. "||" .. app2_lower
+                key = app1_lower .. '||' .. app2_lower
             else
-                key = app2_lower .. "||" .. app1_lower
+                key = app2_lower .. '||' .. app1_lower
             end
             processed_ambiguous_pairs[key] = true
         end
@@ -32,7 +37,7 @@ end
 local processed_special_app_mappings = {}
 if special_app_mappings then
     for key, value in pairs(special_app_mappings) do
-        if type(key) == "string" and type(value) == "string" then
+        if type(key) == 'string' and type(value) == 'string' then
             processed_special_app_mappings[key:lower()] = value:lower()
         end
     end
@@ -54,9 +59,9 @@ local function ambiguous_app_name(app_name_lower, title_lower)
 
     local key
     if app_name_lower < title_lower then
-        key = app_name_lower .. "||" .. title_lower
+        key = app_name_lower .. '||' .. title_lower
     else
-        key = title_lower .. "||" .. app_name_lower
+        key = title_lower .. '||' .. app_name_lower
     end
     return processed_ambiguous_pairs[key] == true
 end
@@ -93,7 +98,7 @@ function appSwitcher.toggle_app(app)
         -- Handle apps that need special hiding via menu
         for _, workaround_app in ipairs(hide_workaround_apps) do
             if front_app_name == workaround_app then
-                front_app:selectMenuItem("Hide " .. front_app_name)
+                front_app:selectMenuItem('Hide ' .. front_app_name)
                 return
             end
         end
@@ -114,14 +119,14 @@ function appSwitcher.display_help(appCuts, hyperAppCuts)
     local help_text = nil
 
     if not help_text then
-        local t = {"Keyboard shortcuts\n", "--------------------\n"}
+        local t = { 'Keyboard shortcuts\n', '--------------------\n' }
 
         for key, app in pairs(appCuts) do
-            table.insert(t, "Control + CMD + " .. key .. "\t :\t" .. app .. "\n")
+            table.insert(t, 'Control + CMD + ' .. key .. '\t :\t' .. app .. '\n')
         end
 
         for key, app in pairs(hyperAppCuts) do
-            table.insert(t, "HYPER + " .. key .. "\t:\t" .. app .. "\n")
+            table.insert(t, 'HYPER + ' .. key .. '\t:\t' .. app .. '\n')
         end
 
         help_text = table.concat(t)
@@ -137,18 +142,23 @@ function appSwitcher.init_bindings(appCuts, hyperAppCuts)
     -- Helper to resolve modifier string options
     local function get_mods(mod_entry)
         -- Handle string alias "HYPER" (if somehow passed as string)
-        if type(mod_entry) == "string" and config.keys[mod_entry] then
-             return config.keys[mod_entry]
+        if type(mod_entry) == 'string' and config.keys[mod_entry] then
+            return config.keys[mod_entry]
         end
 
         -- Handle table array ["HYPER"] or ["mash_app"]
         -- Case 1: Pre-resolved nested alias (Global Resolution result: [ {mods} ])
-        if type(mod_entry) == "table" and #mod_entry == 1 and type(mod_entry[1]) == "table" then
+        if type(mod_entry) == 'table' and #mod_entry == 1 and type(mod_entry[1]) == 'table' then
             return mod_entry[1]
         end
 
         -- Case 2: Standard alias wrapper that wasn't resolved globally? (Shouldn't happen with string aliases, but defensive)
-        if type(mod_entry) == "table" and #mod_entry == 1 and type(mod_entry[1]) == "string" and config.keys[mod_entry[1]] then
+        if
+            type(mod_entry) == 'table'
+            and #mod_entry == 1
+            and type(mod_entry[1]) == 'string'
+            and config.keys[mod_entry[1]]
+        then
             return config.keys[mod_entry[1]]
         end
 
@@ -156,7 +166,9 @@ function appSwitcher.init_bindings(appCuts, hyperAppCuts)
     end
 
     local function bind_group(group_table)
-        if not group_table then return end
+        if not group_table then
+            return
+        end
 
         -- Extract modifier, default to empty if missing (safety)
         local raw_mod = group_table.modifier
@@ -168,7 +180,7 @@ function appSwitcher.init_bindings(appCuts, hyperAppCuts)
         local mods = get_mods(raw_mod)
 
         for key, app in pairs(group_table) do
-            if key ~= "modifier" and app and app:match("%S") then
+            if key ~= 'modifier' and app and app:match('%S') then
                 hs.hotkey.bind(mods, key, function()
                     appSwitcher.toggle_app(app)
                 end)

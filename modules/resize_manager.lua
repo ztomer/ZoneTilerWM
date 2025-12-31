@@ -2,7 +2,7 @@
 -- Allows users to adjust the position of grid lines (separators) for each monitor.
 -- @module resize_manager
 local resize_manager = {}
-local storage = require "modules.storage"
+local storage = require('modules.storage')
 
 -- State: monitor_id -> { x = { [index] = offset }, y = { [index] = offset } }
 -- Offsets are relative to the default grid line position (0.0 - 1.0 scale or pixels? Let's use pixels for simplicity in calculation, or percentage?)
@@ -11,12 +11,12 @@ local offsets = {}
 
 -- Configuration
 local config = {
-    step_size = 0.02 -- 2% adjustment per step
+    step_size = 0.02, -- 2% adjustment per step
 }
 
 --- Loads saved offsets from storage.
 function resize_manager.load()
-    local data = storage.load("grid_offsets")
+    local data = storage.load('grid_offsets')
     if data then
         offsets = data
     end
@@ -24,7 +24,7 @@ end
 
 --- Saves offsets to storage.
 function resize_manager.save()
-    storage.save("grid_offsets", offsets)
+    storage.save('grid_offsets', offsets)
 end
 
 --- Gets the offset for a specific grid line.
@@ -58,8 +58,12 @@ function resize_manager.adjust(monitor_id, axis, index, delta)
 
     -- Limit offset to reasonable bounds (e.g., +/- 40% of cell size?)
     -- For now, just hard clamp to +/- 0.4 (40% of total screen dimension shift)
-    if new_val > 0.4 then new_val = 0.4 end
-    if new_val < -0.4 then new_val = -0.4 end
+    if new_val > 0.4 then
+        new_val = 0.4
+    end
+    if new_val < -0.4 then
+        new_val = -0.4
+    end
 
     offsets[monitor_id][axis][index] = new_val
     resize_manager.save()
