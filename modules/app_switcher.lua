@@ -10,30 +10,6 @@ local hide_workaround_apps = config.app_switcher.hide_workaround_apps
 local special_app_mappings = config.app_switcher.special_app_mappings
 local ambiguous_apps = config.app_switcher.ambiguous_apps
 
--- Pre-process ambiguous_apps for efficient and case-insensitive lookup
-local processed_ambiguous_pairs = {}
-if ambiguous_apps then
-    for _, tuple in ipairs(ambiguous_apps) do
-        if
-            type(tuple) == 'table'
-            and tuple[1]
-            and tuple[2]
-            and type(tuple[1]) == 'string'
-            and type(tuple[2]) == 'string'
-        then
-            local app1_lower = tuple[1]:lower()
-            local app2_lower = tuple[2]:lower()
-            local key
-            if app1_lower < app2_lower then
-                key = app1_lower .. '||' .. app2_lower
-            else
-                key = app2_lower .. '||' .. app1_lower
-            end
-            processed_ambiguous_pairs[key] = true
-        end
-    end
-end
-
 local processed_special_app_mappings = {}
 if special_app_mappings then
     for key, value in pairs(special_app_mappings) do
@@ -53,17 +29,35 @@ end
 local function ambiguous_app_name(app_name_lower, title_lower)
     -- Some application names are ambiguous - may be part of a different app name or vice versa.
     -- this function disambiguates some known applications.
-    if not next(processed_ambiguous_pairs) then
+    if not ambiguous_apps then
         return false
-    end -- Empty or nil
-
-    local key
-    if app_name_lower < title_lower then
-        key = app_name_lower .. '||' .. title_lower
-    else
-        key = title_lower .. '||' .. app_name_lower
     end
-    return processed_ambiguous_pairs[key] == true
+
+    local function trim(s)
+        return s:match('^%s*(.-)%s*$')
+    end
+
+    local a1 = trim(app_name_lower)
+    local a2 = trim(title_lower)
+
+    for _, pair in ipairs(ambiguous_apps) do
+        if
+            type(pair) == 'table'
+            and pair[1]
+            and pair[2]
+            and type(pair[1]) == 'string'
+            and type(pair[2]) == 'string'
+        then
+            local p1 = trim(pair[1]:lower())
+            local p2 = trim(pair[2]:lower())
+
+            if (a1 == p1 and a2 == p2) or (a1 == p2 and a2 == p1) then
+                return true
+            end
+        end
+    end
+
+    return false
 end
 
 --[[
@@ -88,7 +82,9 @@ function appSwitcher.toggle_app(app)
     end
 
     -- Check if they're related apps with different naming conventions
-    if not ambiguous_app_name(front_app_lower, target_app_lower) then
+    local is_ambiguous = ambiguous_app_name(front_app_lower, target_app_lower)
+
+    if not is_ambiguous then
         if string.find(front_app_lower, target_app_lower) or string.find(target_app_lower, front_app_lower) then
             switching_to_same_app = true
         end

@@ -90,13 +90,28 @@ function toml.parse(data)
     local result = {}
     local current_table = result
 
+    local accumulating = false
+    local accumulator = ""
+    local acc_key = nil
+
     for line in data:gmatch('[^\r\n]+') do
-        -- Remove comments (basic)
+        -- Remove comments (basic) - note: inside strings this might be aggressive but keeps consistent with existing logic
         line = line:gsub('%s*#.*$', '')
         line = trim(line)
 
         if line == '' then
             -- Skip empty lines
+        elseif accumulating then
+            accumulator = accumulator .. line
+            -- Check if balanced
+            local opens = select(2, accumulator:gsub('%[', ''))
+            local closes = select(2, accumulator:gsub('%]', ''))
+            if opens == closes then
+                 current_table[acc_key] = parse_value(accumulator)
+                 accumulating = false
+                 accumulator = ""
+                 acc_key = nil
+            end
         elseif line:sub(1, 1) == '[' and line:sub(-1) == ']' then
             -- Table definition
             local table_name = line:sub(2, -2)
@@ -123,11 +138,23 @@ function toml.parse(data)
                     key = parse_string(key)
                 end
 
-                -- Check for multiline arrays or strings?
-                -- Ideally the parser should accumulate lines if brackets are unbalanced.
-                -- For this simplified version, assume single line for now as we will generate clean TOML.
-
-                current_table[key] = parse_value(value)
+                local v_trimmed = trim(value)
+                -- Check for start of array
+                if v_trimmed:sub(1,1) == '[' then
+                    -- Check if balanced on single line
+                    local opens = select(2, v_trimmed:gsub('%[', ''))
+                    local closes = select(2, v_trimmed:gsub('%]', ''))
+                    if opens == closes then
+                        current_table[key] = parse_value(v_trimmed)
+                    else
+                        -- Start accumulating
+                        accumulating = true
+                        acc_key = key
+                        accumulator = v_trimmed
+                    end
+                else
+                    current_table[key] = parse_value(v_trimmed)
+                end
             end
         end
     end
