@@ -1,0 +1,5 @@
+context:
+  files:
+    - "docs/GEMINI.md"
+    - "docs/ARCHITECTURE.md"
+    - "docs/CONTRIBUTING.md"

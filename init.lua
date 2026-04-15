@@ -1,104 +1,129 @@
--- refers to grid.lua in this directory, taken from the Hydra wiki:  
--- https://github.com/sdegutis/hydra/wiki/Useful-Hydra-libraries
+-- Hammerspoon configuration
+local config = require('modules.config')
+local config_validator = require('modules.config_validator')
 
--- init grid
-hs.grid.MARGINX = 0
-hs.grid.MARGINY = 0
-hs.grid.GRIDWIDTH = 7
-hs.grid.GRIDHEIGHT = 3
+-- Load debug system
+local debug = require('debug.init')
 
--- disable animation
-hs.window.animationDuration = 0
+-- Load modules
+local pom = require('modules.pomodoor')
+local tiler = require('modules.tiler')
+local appSwitcher = require('modules.app_switcher')
+local window_memory = require('modules.window_memory')
+local audio_switcher = require('modules.audio_switcher')
+local layout_manager = require('modules.layout_manager')
+local auto_tiler = require('modules.auto_tiler')
 
--- hotkey mash
-local mash_app = {"cmd", "alt", "ctrl"}
-local mash = {"ctrl", "alt"}
-local mashshift = {"ctrl", "alt", "shift"}
+-- Get key combinations from config
+local mash = config.keys.mash
+local mash_app = config.keys.mash_app
+local mash_shift = config.keys.mash_shift
+local HYPER = config.keys.HYPER
 
-local function open_help()
-  help_str = "d - Dictionary, 1 - Terminal, 2 - Pathfinder, " ..
-            "3 - Chrome, 4 - Dash, 5 - Trello, 6 - Quiver"        
-  hs.alert.show(
-   help_str, 2)
+--[[
+  Initializes system keybindings (window hints, reload, etc.)
+  Reads configuration from config.system_hotkeys
+]]
+local function init_system_hotkeys()
+    if not config.system_hotkeys then
+        return
+    end
+
+    -- Helper to resolve modifier string to actual modifier array
+    local function get_mods(mod_str)
+        return config.keys[mod_str] or mod_str
+    end
+
+    -- Window hints
+    if config.system_hotkeys.window_hints then
+        local hk = config.system_hotkeys.window_hints
+        hs.hotkey.bind(get_mods(hk[1]), hk[2], hs.hints.windowHints)
+    end
+
+    -- Activity Monitor toggle
+    if config.system_hotkeys.activity_monitor then
+        local hk = config.system_hotkeys.activity_monitor
+        hs.hotkey.bind(get_mods(hk[1]), hk[2], function()
+            appSwitcher.toggle_app('Activity Monitor')
+        end)
+    end
+
+    -- Hot reload configuration
+    if config.system_hotkeys.reload then
+        local hk = config.system_hotkeys.reload
+        hs.hotkey.bind(get_mods(hk[1]), hk[2], function()
+            hs.reload()
+            hs.alert.show('Config reloaded!')
+        end)
+    end
 end
 
-local function open_dictionary()
-  --hydra.alert("Lexicon, at your service.", 0.75)
-  hs.application.launchOrFocus("Dictionary")
+--[[
+  Main initialization function
+]]
+local function init()
+    print('-------------- Loading Hammerspoon config --------------')
+
+    -- Validate configuration
+    local valid, err = config_validator.validate(config)
+    if not valid then
+        hs.alert.show('Config Error: ' .. err, 5)
+        print('Config Error: ' .. err)
+        return -- Stop initialization
+    end
+
+    -- Disable animation for speed
+    hs.window.animationDuration = 0
+
+    -- Initialize simplified tiler
+    tiler.start()
+
+    if config.window_memory and config.window_memory.enabled then
+        window_memory.init(tiler)
+        window_memory.setup_hotkeys() -- Optional, for manual capture/restore
+    end
+
+    if config.layout_manager and config.layout_manager.enabled then
+        layout_manager.init(tiler)
+    end
+
+    -- Initialize Auto Tiler
+    auto_tiler.init(
+        config,
+        tiler,
+        window_memory,
+        tiler.smart_placer,
+        tiler.zone_calculator,
+        tiler.monitors,
+        tiler.window_actions
+    )
+    auto_tiler.setup_hotkeys()
+
+    -- Initialize app switching
+    appSwitcher.init_bindings(config.appCuts, config.hyperAppCuts)
+
+    -- Initialize audio switcher
+    audio_switcher.init(config, print)
+
+    -- Initialize system hotkeys (window hints, reload, etc.)
+    init_system_hotkeys()
+
+    -- Initialize pomodoro (including its hotkeys)
+    pom.init(config)
+
+    -- Initialize debug system
+    -- Note: tiler must be fully initialized before debug.init() is called
+    debug.init(config, tiler, nil, nil, audio_switcher)
+
+    -- Make debug globally accessible for console access
+    _G.zt_debug = debug
+    _G.zt_run_auto_tile = function()
+        auto_tiler.tile_all_windows()
+    end
+
+    print('Hammerspoon configuration loaded successfully!')
+    print("Debug commands available: type 'zt_debug.help()' for info")
 end
 
-local function open_terminal()
-	hs.application.launchOrFocus("iterm")
-end
-
-local function open_pathfinder()
-	hs.application.launchOrFocus("Path Finder")
-end
-
-local function open_chrome()
-	hs.application.launchOrFocus("Google Chrome")
-end
-
-local function open_trello()
-	hs.application.launchOrFocus("Trello X")
-end
-
-local function open_quiver()
-  hs.application.launchOrFocus("Quiver")
-end
--- Launch applications
-hs.hotkey.bind(mash_app, 'D', open_dictionary)
-hs.hotkey.bind(mash_app, '1', open_terminal)
-hs.hotkey.bind(mash_app, '2', open_pathfinder)
-hs.hotkey.bind(mash_app, '3', open_chrome)
--- mash_app '4' reserved for dash global key
-hs.hotkey.bind(mash_app, '5', open_trello)
-hs.hotkey.bind(mash_app, '6', open_quiver)
-hs.hotkey.bind(mash_app, '/', open_help)
-
---hs.hotkey.bind(mash, '0',hs.hints.windowHints)
-
--- global operations
-hs.hotkey.bind(mash, ';', 
-  function() hs.grid.snap(hs.window.focusedWindow()) end)
-hs.hotkey.bind(mash, "'", 
-  function() hs.fnutil.map(hs.window.visibleWindows(), hs.grid.snap) end)
-
--- adjust grid size
-hs.hotkey.bind(mash, '=', function() hs.grid.adjustWidth( 1) end)
-hs.hotkey.bind(mash, '-', function() hs.grid.adjustWidth(-1) end)
-hs.hotkey.bind(mash, ']', function() hs.grid.adjustHeight( 1) end)
-hs.hotkey.bind(mash, '[', function() hs.grid.adjustHeight(-1) end)
-
--- change focus
-hs.hotkey.bind(mashshift, 'H',
- function() hs.window.focusedWindow():focusWindowWest() end)
-hs.hotkey.bind(mashshift, 'L',
- function() hs.window.focusedWindow():focusWindowEast() end)
-hs.hotkey.bind(mashshift, 'K', 
-  function() hs.window.focusedWindow():focusWindowNorth() end)
-hs.hotkey.bind(mashshift, 'J', 
-  function() hs.window.focusedWindow():focusWindowSouth() end)
-
-hs.hotkey.bind(mash, 'M', hs.grid.maximizeWindow)
-
--- multi monitor
-hs.hotkey.bind(mash, 'N', hs.grid.pushWindowNextScreen)
-hs.hotkey.bind(mash, 'P', hs.grid.pushWindowPrevScreen)
-
--- move windows
-hs.hotkey.bind(mash, 'H', hs.grid.pushWindowLeft)
-hs.hotkey.bind(mash, 'J', hs.grid.pushWindowDown)
-hs.hotkey.bind(mash, 'K', hs.grid.pushWindowUp)
-hs.hotkey.bind(mash, 'L', hs.grid.pushWindowRight)
-
--- resize windows
-hs.hotkey.bind(mash, 'Y', hs.grid.resizeWindowThinner)
-hs.hotkey.bind(mash, 'U', hs.grid.resizeWindowShorter)
-hs.hotkey.bind(mash, 'I', hs.grid.resizeWindowTaller)
-hs.hotkey.bind(mash, 'O', hs.grid.resizeWindowWider)
-
--- Window Hints
-hs.hotkey.bind(mash, '.', hs.hints.windowHints)
-
-
+-- Start the configuration
+init()
