@@ -100,7 +100,7 @@ function tiler.setup_hotkeys()
             end
         end
     end
-    
+
     for zk, _ in pairs(all_zone_keys) do
         table.insert(zone_key_list_for_debug, zk)
     end
@@ -127,20 +127,36 @@ function tiler.setup_hotkeys()
     if config.tiler and config.tiler.hotkeys then
         local hk = config.tiler.hotkeys
         
-        -- Placement mode
+        -- Placement mode - move to next screen
         if hk.placement_mode then
             hs_hotkey.bind(get_mods(hk.placement_mode[1]), hk.placement_mode[2], function()
-                tiler.enter_placement_mode()
+                local focused = hs_window.focusedWindow()
+                if focused then
+                    window_actions.move_window_to_monitor(focused, "next")
+                end
             end)
         end
         
-        -- Zone info
+        -- Zone info - move focus to previous screen
         if hk.zone_info then
             hs_hotkey.bind(get_mods(hk.zone_info[1]), hk.zone_info[2], function()
-                tiler.move_window_to_monitor("previous")
+                local focused = hs_window.focusedWindow()
+                if focused then
+                    window_actions.move_window_to_monitor(focused, "previous")
+                end
             end)
         end
     end
+end
+
+--- Moves the currently focused window to the next/previous monitor.
+function tiler.move_window_to_monitor(direction)
+    local focused = hs_window.focusedWindow()
+    if not focused then
+        debug_log("move_window_to_monitor: No focused window")
+        return false
+    end
+    return window_actions.move_window_to_monitor(focused, direction)
 end
 
 --- Moves the currently focused window to a specified zone.
