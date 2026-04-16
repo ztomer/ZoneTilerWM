@@ -117,10 +117,19 @@ reset = ["mash_shift", "0"]
 # Tiler Settings
 # =============================================================================
 [tiler]
+
 reposition_on_screen_change = true # Reposition windows when screen configuration changes
 center_modals = true # Automatically center modal dialogs
 modifier = "mash"
 focus_modifier = "mash_shift"
+
+# =============================================================================
+# Auto-Tiler Settings
+# =============================================================================
+# Mode for auto-tiling sort order: "usage" (Maker workflow) or "session" (Manager workflow)
+# - "usage": Prioritizes historical frequency (muscle memory). Z-order is the tie-breaker.
+# - "session": Prioritizes recent use (Z-order). Historical frequency is the tie-breaker.
+auto_tiling_mode = "usage"
 
 # Zones to EXCLUDE from geometric deduction.
 # Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
@@ -368,6 +377,13 @@ flash_on_focus_duration_sec = 0.2 # Duration of the visual flash when cycling fo
 [tiler.cache_size]
 positions = 500 # Window position cache size
 window_info = 200 # Window info cache size
+
+[tiler.working_set]
+# Time in seconds before an unfocused window is considered "Stale" and sent to Limbo
+time_limit_sec = 1800 # 30 minutes
+
+# The maximum number of background windows allowed on screen at once
+max_capacity = 6
 
 # =============================================================================
 # Window Handling

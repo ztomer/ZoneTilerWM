@@ -1,6 +1,8 @@
 --- Manages dynamic grid resizing offsets.
 -- Allows users to adjust the position of grid lines (separators) for each monitor.
 -- @module resize_manager
+local hs_timer = hs.timer
+local save_debouncer = nil
 local resize_manager = {}
 local storage = require('modules.storage')
 
@@ -11,7 +13,7 @@ local offsets = {}
 
 -- Configuration
 local config = {
-    step_size = 0.02, -- 2% adjustment per step
+    step_size = 0.02 -- 2% adjustment per step
 }
 
 --- Loads saved offsets from storage.
@@ -46,18 +48,19 @@ end
 ---@param delta number The amount to change (e.g., 1 for +step, -1 for -step)
 function resize_manager.adjust(monitor_id, axis, index, delta)
     if not offsets[monitor_id] then
-        offsets[monitor_id] = { x = {}, y = {} }
+        offsets[monitor_id] = {
+            x = {},
+            y = {}
+        }
     end
     if not offsets[monitor_id][axis] then
         offsets[monitor_id][axis] = {}
     end
 
     local current = offsets[monitor_id][axis][index] or 0
-    local change = delta * config.step_size
-    local new_val = current + change
+    local new_val = current + (delta * config.step_size)
 
-    -- Limit offset to reasonable bounds (e.g., +/- 40% of cell size?)
-    -- For now, just hard clamp to +/- 0.4 (40% of total screen dimension shift)
+    -- Clamp
     if new_val > 0.4 then
         new_val = 0.4
     end
@@ -66,7 +69,16 @@ function resize_manager.adjust(monitor_id, axis, index, delta)
     end
 
     offsets[monitor_id][axis][index] = new_val
-    resize_manager.save()
+
+    -- ONLY update the UI instantly. Defer the disk write.
+    if save_debouncer then
+        save_debouncer:stop()
+    end
+    save_debouncer = hs_timer.delayed.new(1.0, function()
+        resize_manager.save()
+        save_debouncer = nil
+    end)
+    save_debouncer:start()
 end
 
 --- Resets offsets for a monitor.

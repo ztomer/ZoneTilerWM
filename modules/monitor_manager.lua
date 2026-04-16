@@ -105,6 +105,11 @@ end
 -- @param log_func (function) The logging function to use.
 function monitor_manager.init(log_func)
     debug_log = log_func or debug_log
+    -- Register all currently connected screens so the registry is populated
+    -- before any module tries to look up a monitor by logical ID.
+    for _, screen in ipairs(hs_screen.allScreens()) do
+        monitor_manager.get_id(screen)
+    end
     debug_log('MonitorManager initialized')
 end
 

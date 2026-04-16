@@ -5,6 +5,30 @@ Extreme slowness when moving windows in ZoneTilerWM on machines with SentinelOne
 
 ## Timeline
 
+### 2026-04-15: Auto-Tiler Improvements - COMPLETED
+
+#### Issues Found
+- Auto-tiler was missing tiles due to grid coordinate calculation failures with margins
+- Fill gaps feature had inefficient overlap calculations
+- Windows weren't optimally distributed - small windows getting stuck in large tiles while large windows had no options
+
+#### Fixes Applied
+
+1. **Grid-based occupancy map**: Replaced overlap ratio calculations with simple 2D boolean grid
+   - Creates `grid[col][row]` boolean map based on monitor's cols×rows (e.g., 4×3)
+   - Marks occupied cells based on window positions
+   - Tile availability checked via O(1) grid lookup instead of O(tiles × occupied) loops
+
+2. **Fixed tile coordinate calculation**: Replaced failing `get_grid_coords_for_tile()` with direct calculation from tile position
+
+3. **Fill gaps optimization**:
+   - Sort move_queue by current area (smallest first) so small windows get first pick
+   - Track used tiles to prevent conflicts
+   - Update grid when assigning tiles for subsequent windows
+   - Iterate up to cols×rows times until no more improvements (max 12 for 4x3)
+
+4. **Removed duplicate function**: Fixed syntax error from orphaned duplicate `_pass_fill_gaps` function
+
 ### 2026-04-14: Investigation & Fixes - COMPLETED
 
 #### Root Cause Identified
@@ -43,6 +67,7 @@ Extreme slowness when moving windows in ZoneTilerWM on machines with SentinelOne
 - **Speed**: Very fast on SentinelOne machine (no more 2-second delays)
 - **Rotation**: Works correctly - cycles through tiles based on available space when already in zone
 - **Debug logging**: Gated behind `debug_logging = true` in `[tiler.advanced]` section of config
+- **Fill gaps**: Iteratively improves tile assignment to fill empty spaces
 
 ## Config Settings
 - `enterprise_mode = true` - enables AXEnhancedUI workaround
@@ -54,3 +79,4 @@ Extreme slowness when moving windows in ZoneTilerWM on machines with SentinelOne
 - `/Users/ztomer/Projects/ZoneTilerWM/modules/window_cache.lua` - NEW: Cache module for window data
 - `/Users/ztomer/Projects/ZoneTilerWM/modules/placement_strategy.lua` - Fixed rotation, smart cycling, uses cache
 - `/Users/ztomer/Projects/ZoneTilerWM/modules/window_actions.lua` - Removed get_windows_in_zone call, fixed args
+- `/Users/ztomer/Projects/ZoneTilerWM/modules/auto_tiler.lua` - Grid-based fill gaps, iterative optimization

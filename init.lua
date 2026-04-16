@@ -75,28 +75,24 @@ local function init()
     -- Disable animation for speed
     hs.window.animationDuration = 0
 
-    -- Initialize simplified tiler
-    tiler.start()
-
+    -- 1. Initialize Window Memory FIRST (Independent)
     if config.window_memory and config.window_memory.enabled then
-        window_memory.init(tiler)
-        window_memory.setup_hotkeys() -- Optional, for manual capture/restore
+        window_memory.init(config)
+        window_memory.setup_hotkeys()
     end
 
+    -- 2. Initialize Tiler (Inject memory downwards)
+    local tiler_instance = tiler.start(window_memory)
+
+    -- 3. Initialize Layout Manager
     if config.layout_manager and config.layout_manager.enabled then
-        layout_manager.init(tiler)
+        layout_manager.init(tiler_instance, tiler_instance.window_actions)
     end
 
-    -- Initialize Auto Tiler
-    auto_tiler.init(
-        config,
-        tiler,
-        window_memory,
-        tiler.smart_placer,
-        tiler.zone_calculator,
-        tiler.monitors,
-        tiler.window_actions
-    )
+    -- 4. Initialize Auto Tiler
+    auto_tiler.init(config, tiler_instance, window_memory, nil, tiler_instance.zone_calculator, tiler_instance.monitors,
+        tiler_instance.window_actions)
+
     auto_tiler.setup_hotkeys()
 
     -- Initialize app switching

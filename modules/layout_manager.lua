@@ -1,6 +1,5 @@
 -- layout_manager.lua
 -- Manages saving and loading of window layout snapshots.
-
 local layout_manager = {}
 local config = require('modules.config')
 local json = require('hs.json')
@@ -11,6 +10,7 @@ local debug_log = debug.create_debug_log('layout_manager')
 
 -- Module state
 local tiler = nil -- Set during initialization
+local window_actions = nil
 local layouts = {} -- In-memory store for layouts
 
 -- Get layout filename
@@ -71,7 +71,7 @@ function layout_manager.capture_layout(name)
 
     local layout = {
         name = name,
-        windows = {},
+        windows = {}
     }
 
     local window_cache = require("modules.window_cache")
@@ -86,7 +86,7 @@ function layout_manager.capture_layout(name)
                 title = window:title(),
                 monitor_id = pos.monitor_id,
                 zone_key = pos.zone_key,
-                tile_index = pos.tile_index,
+                tile_index = pos.tile_index
             })
         end
     end
@@ -112,22 +112,10 @@ function layout_manager.restore_layout(name)
         -- Find a window that matches the app name and title
         local window = hs.window.find(win_info.app_name)
         if window then
-            debug_log(
-                'Restoring '
-                    .. win_info.app_name
-                    .. ' to zone: '
-                    .. win_info.zone_key
-                    .. ', tile: '
-                    .. win_info.tile_index
-            )
-            if
-                tiler.window_actions.position_window_from_memory(
-                    window,
-                    win_info.monitor_id,
-                    win_info.zone_key,
-                    win_info.tile_index
-                )
-            then
+            debug_log('Restoring ' .. win_info.app_name .. ' to zone: ' .. win_info.zone_key .. ', tile: ' ..
+                          win_info.tile_index)
+            if window_actions.position_window_from_memory(window, win_info.monitor_id, win_info.zone_key,
+                win_info.tile_index) then
                 restored_count = restored_count + 1
             end
         end
@@ -137,8 +125,9 @@ function layout_manager.restore_layout(name)
 end
 
 -- Initialize the layout manager
-function layout_manager.init(tiler_module)
+function layout_manager.init(tiler_module, window_actions_module)
     tiler = tiler_module
+    window_actions = window_actions_module
     layout_manager.debug = config.layout_manager and config.layout_manager.debug or false
 
     layout_manager.load_layouts()

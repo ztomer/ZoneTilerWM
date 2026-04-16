@@ -137,9 +137,9 @@ local function save_memory_to_disk()
                         tile_index = tile_index
                     }
                     if type(stats) == "table" then
-                         entry.data = stats
+                        entry.data = stats
                     else
-                         entry.count = stats -- Legacy fallback
+                        entry.count = stats -- Legacy fallback
                     end
                     table.insert(preferences_array, entry)
                 end
@@ -287,15 +287,25 @@ end
 
 -- Commits a learned position after a window has "settled"
 local function commit_learned_position(app_name, monitor_id, zone_key, tile_index, win_frame, screen_frame)
-    if not preferences[app_name] then preferences[app_name] = {} end
-    if not preferences[app_name][monitor_id] then preferences[app_name][monitor_id] = {} end
-    if not preferences[app_name][monitor_id][zone_key] then preferences[app_name][monitor_id][zone_key] = {} end
+    if not preferences[app_name] then
+        preferences[app_name] = {}
+    end
+    if not preferences[app_name][monitor_id] then
+        preferences[app_name][monitor_id] = {}
+    end
+    if not preferences[app_name][monitor_id][zone_key] then
+        preferences[app_name][monitor_id][zone_key] = {}
+    end
 
     local stats = preferences[app_name][monitor_id][zone_key][tile_index]
 
     -- Initialize if new or legacy number
     if not stats or type(stats) ~= "table" then
-        stats = { count = (tonumber(stats) or 0), mean_ar = 0, mean_area = 0 }
+        stats = {
+            count = (tonumber(stats) or 0),
+            mean_ar = 0,
+            mean_area = 0
+        }
     end
 
     -- Calculate new geometrics
@@ -303,8 +313,8 @@ local function commit_learned_position(app_name, monitor_id, zone_key, tile_inde
     local new_area_ratio = 0
 
     if win_frame and win_frame.w > 0 and win_frame.h > 0 and screen_frame and screen_frame.w > 0 then
-         new_ar = win_frame.w / win_frame.h
-         new_area_ratio = (win_frame.w * win_frame.h) / (screen_frame.w * screen_frame.h)
+        new_ar = win_frame.w / win_frame.h
+        new_area_ratio = (win_frame.w * win_frame.h) / (screen_frame.w * screen_frame.h)
     end
 
     -- Update running averages
@@ -315,7 +325,7 @@ local function commit_learned_position(app_name, monitor_id, zone_key, tile_inde
 
     preferences[app_name][monitor_id][zone_key][tile_index] = stats
 
-    debug_log("Learned (settled)", app_name, "on", monitor_id, zone_key..":"..tile_index,
+    debug_log("Learned (settled)", app_name, "on", monitor_id, zone_key .. ":" .. tile_index,
         string.format("(Count: %d, AR: %.2f, Area: %.2f)", stats.count, stats.mean_ar, stats.mean_area))
 end
 
@@ -428,8 +438,7 @@ function window_memory.restore_all_positions()
 
                 if remembered then
                     debug_log("Restoring", app_name, "to zone:", remembered.zone_key, "tile:", remembered.tile_index)
-                    if tiler.position_window_from_memory(window, monitor_id, remembered.zone_key,
-                        remembered.tile_index) then
+                    if tiler.position_window_from_memory(window, monitor_id, remembered.zone_key, remembered.tile_index) then
                         count = count + 1
                     end
                 end
@@ -484,48 +493,38 @@ function window_memory.setup_hotkeys()
 end
 
 -- Initialize window memory system
----@param tiler_module table
----@return table window_memory
-function window_memory.init(tiler_module)
-    tiler = tiler_module
-    window_memory.debug = config.window_memory and config.window_memory.debug or false
-
-    -- Set default values for timeouts if not provided in config.lua.
-    -- This makes the config values the single source of truth for the module.
-    if config.window_memory.settle_delay_sec == nil then
-        config.window_memory.settle_delay_sec = 2.0
+function window_memory.init(cfg)
+    -- Update configs
+    if cfg.window_memory.settle_delay_sec == nil then
+        cfg.window_memory.settle_delay_sec = 2.0
     end
-    if config.window_memory.save_interval_sec == nil then
-        config.window_memory.save_interval_sec = 0 -- 0 means disabled
+    if cfg.window_memory.save_interval_sec == nil then
+        cfg.window_memory.save_interval_sec = 0
     end
 
-    -- Initialize storage with config dir
-    if config.window_memory.cache_dir then
-        storage.init({dir = config.window_memory.cache_dir})
+    if cfg.window_memory.cache_dir then
+        storage.init({
+            dir = cfg.window_memory.cache_dir
+        })
     else
         storage.init()
     end
 
-    -- Set up integration with tiler
-    tiler.set_window_memory(window_memory)
+    -- Notice: tiler.set_window_memory is DELETED. No more upward dependencies.
 
-    -- Load positions from disk
     load_positions()
 
-    -- Periodic saving
-    local save_interval = config.window_memory.save_interval_sec
+    local save_interval = cfg.window_memory.save_interval_sec
     if save_interval > 0 then
         if save_timer then
             save_timer:stop()
         end
-        save_timer = hs.timer.doEvery(save_interval, save_memory_to_disk) -- Periodic save should NOT capture
-        debug_log("Enabled periodic position saving every", save_interval, "seconds.")
+        save_timer = hs.timer.doEvery(save_interval, save_memory_to_disk)
     end
 
-    -- Save positions on shutdown
     local existing_callback = hs.shutdownCallback
     hs.shutdownCallback = function()
-        capture_and_save_positions() -- Capture final state on shutdown
+        capture_and_save_positions()
         if existing_callback then
             existing_callback()
         end

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/ztomer/.hammerspoon/modules/**)",
+      "Read(//Users/ztomer/Projects/ZoneTilerWM/modules/**)"
+    ]
+  }
+}

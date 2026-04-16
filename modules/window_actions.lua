@@ -287,8 +287,15 @@ function window_actions.position_window_from_memory(window, monitor_id, zone_key
 
     local zone_tiles = zone_calculator.get(monitor_id, zone_key)
     if not zone_tiles or not zone_tiles[tile_index] then
-        debug_log("Could not find tile", tile_index, "in zone", zone_key, "on monitor", monitor_id)
-        return false
+        if not zone_calculator.has_zones(monitor_id) then
+            debug_log("Zones not initialized for monitor", monitor_id, "- initializing now.")
+            zone_calculator.create_for_monitor(monitor_id, screen_obj)
+            zone_tiles = zone_calculator.get(monitor_id, zone_key)
+        end
+        if not zone_tiles or not zone_tiles[tile_index] then
+            debug_log("Could not find tile", tile_index, "in zone", zone_key, "on monitor", monitor_id)
+            return false
+        end
     end
 
     local tile = zone_tiles[tile_index]
@@ -543,6 +550,14 @@ end
 -- @return (boolean) True if using AppleScript for window movement.
 function window_actions.get_use_applescript()
     return use_applescript
+end
+
+--- Applies a frame directly to a window (public method for auto-tiler)
+-- @param window (hs.window) The window to modify.
+-- @param frame (table) The frame to apply `{x, y, w, h}`.
+-- @return (boolean) `true` on success, `false` on failure.
+function window_actions.apply_frame(window, frame)
+    return apply_frame(window, frame, nil)
 end
 
 --- Injects the `window_memory` module as a dependency.

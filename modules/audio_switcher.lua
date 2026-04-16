@@ -28,21 +28,27 @@ function audio_switcher.log_devices()
 end
 
 -- Runs the user-defined shortcut when the audio device changes.
+-- Runs the user-defined shortcut when the audio device changes.
 local function run_device_change_shortcut()
-    local shortcut_name = config.audio_switcher.shortcut_callback
-    -- Check for nil or empty string before running
-    if shortcut_name and shortcut_name ~= '' then
-        debug_log('Audio Switcher: Running shortcut via AppleScript: ' .. shortcut_name)
-        local script = string.format('tell application "Shortcuts" to run shortcut "%s"', shortcut_name)
-        local ok, result = hs_applescript.applescript(script)
+    if not config or not config.audio_switcher then
+        return
+    end
 
-        if ok then
-            debug_log("Audio Switcher: Successfully ran shortcut '" .. shortcut_name .. "'")
-        else
-            debug_log("Audio Switcher: FAILED to run shortcut '" .. shortcut_name .. "'. Error: " .. tostring(result))
-        end
-    else
-        debug_log('Audio Switcher: `shortcut_callback` is not defined or is empty. Doing nothing.')
+    local shortcut_name = config.audio_switcher.shortcut_callback
+    if shortcut_name and shortcut_name ~= '' then
+        debug_log('Audio Switcher: Triggering shortcut asynchronously via shell task: ' .. shortcut_name)
+
+        -- Bypass Hammerspoon's broken osascript module.
+        -- We spawn a background UNIX process. It runs on its own thread and reports back when done.
+        local task = hs.task.new("/usr/bin/shortcuts", function(exitCode, stdOut, stdErr)
+            if exitCode ~= 0 then
+                debug_log("Shortcut background execution failed: " .. tostring(stdErr))
+            else
+                debug_log("Shortcut background execution completed.")
+            end
+        end, {"run", shortcut_name})
+
+        task:start()
     end
 end
 
@@ -122,13 +128,8 @@ function audio_switcher.init(cfg, log_fn)
     debug_log = log_fn or debug_log
 
     -- Hotkey for manual cycling
-    if
-        config
-        and config.audio_switcher
-        and config.audio_switcher.devices
-        and #config.audio_switcher.devices > 0
-        and config.audio_switcher.hotkey
-    then
+    if config and config.audio_switcher and config.audio_switcher.devices and #config.audio_switcher.devices > 0 and
+        config.audio_switcher.hotkey then
         local hotkey_config = config.audio_switcher.hotkey
 
         -- Helper to resolve modifier string to actual modifier array
@@ -143,13 +144,8 @@ function audio_switcher.init(cfg, log_fn)
         local key = hotkey_config[2]
 
         hs_hotkey.bind(mods, key, audio_switcher.toggle)
-        debug_log(
-            'Audio Switcher: Manual cycling hotkey enabled ('
-                .. (type(mods) == 'table' and table.concat(mods, '+') or tostring(mods))
-                .. ' + '
-                .. key
-                .. ')'
-        )
+        debug_log('Audio Switcher: Manual cycling hotkey enabled (' ..
+                      (type(mods) == 'table' and table.concat(mods, '+') or tostring(mods)) .. ' + ' .. key .. ')')
     else
         debug_log('Audio Switcher: Manual cycling not configured or disabled.')
     end

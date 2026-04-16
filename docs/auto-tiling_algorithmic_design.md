@@ -26,7 +26,7 @@ $$ \text{minimize} \sum_{w \in W'} C(w, f(w)) + \text{Penalty}_{skip} \cdot (|W|
 
 ## 2. System Architecture
 
-The tiling process executes in two deterministic passes to balance user intent with global optimality.
+The tiling process executes in multiple deterministic passes to balance user intent with global optimality.
 
 ### Phase 1: The Anchor (Hard Constraint)
 The **Focused Window** is the "Anchor" of the system. It is processed first to ensure the user's immediate context is preserved.
@@ -36,6 +36,12 @@ The **Focused Window** is the "Anchor" of the system. It is processed first to e
 
 ### Phase 2: The Global Solver
 All remaining windows are passed to the solver. The solver considers the entire monitor's layout definition and finds the configuration that fits the remaining windows best around the Anchor.
+
+### Phase 3: Fill Gaps (Post-Optimization)
+After initial tiling, a fallback pass optimizes tile assignments to fill unused screen space:
+1.  **Grid-based occupancy**: Uses a simple 2D boolean grid (cols×rows) to track occupied cells
+2.  **Iterative improvement**: Repeats until no more improvements or max iterations (cols×rows) reached
+3.  **Priority**: Smallest windows get first pick of available tiles to maximize coverage
 
 ---
 
@@ -100,7 +106,36 @@ end
 
 ---
 
-## 4. The Cost Function (Optimization Criteria)
+## 4. Fill Gaps Algorithm
+
+The fill gaps phase uses a greedy approach with iterative improvement.
+
+### Grid-based Occupancy Map
+Instead of calculating geometric overlaps, uses a simple boolean grid:
+```lua
+-- For 4x3 monitor: grid[1..4][1..3] = false
+-- Mark occupied cells based on window positions
+-- Check tile availability via grid lookup (O(1))
+```
+
+### Iterative Optimization
+```lua
+max_iterations = cols * rows  -- e.g., 12 for 4x3
+repeat
+    -- Sort windows by current area (smallest first)
+    -- Assign each window to the largest available tile
+    -- Update grid when tiles are assigned
+until no_improvements or max_iterations
+```
+
+**Why iterate?**
+- Single pass may leave gaps because early assignments block later ones
+- Re-sorting after each iteration accounts for updated positions
+- Max iterations bounded by grid size ensures termination
+
+---
+
+## 5. The Cost Function (Optimization Criteria)
 
 The quality of the layout depends entirely on the detailed construction of the cost matrix $C(w, t)$.
 Lower Cost = Higher Utility.
@@ -145,7 +180,7 @@ $$ C(w, t) = \alpha C_{mem} + \beta C_{geo} + \gamma C_{cov} + \delta C_{stab} $
 
 ---
 
-## 5. Testing & Validation
+## 6. Testing & Validation
 
 The algorithm is validated through a dedicated test suite ensuring stability across edge cases.
 
