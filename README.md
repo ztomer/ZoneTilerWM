@@ -46,7 +46,6 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 ```text
 ~/.hammerspoon/
 ├── init.lua              # Entry point
-├── init.lua              # Entry point
 ├── config.toml           # Main configuration file (TOML)
 ├── docs/                 # Documentation
 │   ├── ARCHITECTURE.md   # System design and module overview
@@ -57,7 +56,6 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
 │   └── keyboard_shortcuts.md # Complete keyboard reference
 ├── modules/              # Core functionality modules
 │   ├── config.lua        # Configuration loader (reads config.toml)
-
 │   ├── tiler.lua         # Core tiling orchestrator
 │   ├── monitor_manager.lua # Stable monitor identification
 │   ├── zone_calculator.lua # Zone and tile geometry calculation
