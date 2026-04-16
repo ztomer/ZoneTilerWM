@@ -99,7 +99,9 @@ local function calculate_assignment_cost(window, tile_rect, tile_index, zone_key
     end
 
     -- 3. Base "Occupancy" Cost
-    cost = cost + (tile_index * 10)
+    -- tile_index may be a string like "4a"/"4b" when split tiles are passed in from the fallback splitter;
+    -- tonumber() returns nil for those, so fall back to 0 (no occupancy bias for synthetic tiles).
+    cost = cost + ((tonumber(tile_index) or 0) * 10)
 
     return cost
 end
