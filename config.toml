@@ -358,7 +358,7 @@ use_applescript_window_movement = false
 # Enable window caching for enterprise performance (avoids allWindows() queries)
 use_window_cache = true
 # Disable AXEnhancedUI for faster window moves on enterprise machines (SentinelOne, etc)
-enterprise_mode = true  # Set to true to enable AXEnhancedUI workaround
+enterprise_mode = false  # Set to true to enable AXEnhancedUI workaround
 # Enable verbose debug logging (performance impact - only for debugging)
 debug_logging = false
 

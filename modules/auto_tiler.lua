@@ -487,6 +487,27 @@ local function _pass_fill_gaps(move_queue, processed_ids, occupied_rects)
 
                 for _, tile in ipairs(all_tiles) do
                     if not used_tiles[tile] and tile.area > current_area then
+                        -- Double-check tile is still free by checking grid
+                        local tx = tile.rect.x - screen_frame.x
+                        local ty = tile.rect.y - screen_frame.y
+                        local c1 = math.floor(tx / cell_w) + 1
+                        local r1 = math.floor(ty / cell_h) + 1
+                        local c2 = math.floor((tx + tile.rect.w - 1) / cell_w) + 1
+                        local r2 = math.floor((ty + tile.rect.h - 1) / cell_h) + 1
+                        local is_occupied = false
+                        for c = c1, c2 do
+                            for ro = r1, r2 do
+                                if grid[c] and grid[c][ro] then
+                                    is_occupied = true
+                                    break
+                                end
+                            end
+                            if is_occupied then break end
+                        end
+                        if is_occupied then
+                            goto skip_tile
+                        end
+
                         debug_log("Fill gaps: iter " .. iteration .. " moving " .. (m.window:application():name() or "?") ..
                             " from " .. m.zone_key .. " to " .. tile.zone_key ..
                             " (area " .. current_area .. " -> " .. tile.area .. ")")
@@ -498,12 +519,6 @@ local function _pass_fill_gaps(move_queue, processed_ids, occupied_rects)
                         made_improvement = true
 
                         -- Mark tile's grid cells as occupied for subsequent windows
-                        local tx = tile.rect.x - screen_frame.x
-                        local ty = tile.rect.y - screen_frame.y
-                        local c1 = math.floor(tx / cell_w) + 1
-                        local r1 = math.floor(ty / cell_h) + 1
-                        local c2 = math.floor((tx + tile.rect.w - 1) / cell_w) + 1
-                        local r2 = math.floor((ty + tile.rect.h - 1) / cell_h) + 1
                         for c = c1, c2 do
                             for ro = r1, r2 do
                                 if grid[c] then grid[c][ro] = true end
@@ -511,6 +526,7 @@ local function _pass_fill_gaps(move_queue, processed_ids, occupied_rects)
                         end
                         break
                     end
+                    ::skip_tile::
                 end
             end
         end
