@@ -77,7 +77,7 @@ modifier = ["HYPER"]
 "d" = ""
 "f" = ""
 "g" = ""
-"z" = ""
+"z" = "OpenCode"
 "x" = ""
 "c" = "Google Chrome"
 "v" = "Visual Studio Code"
@@ -170,6 +170,8 @@ zen_mode = ["HYPER", "\\"]
 resize_mode = ["HYPER", "r"]
 auto_tile_screen = ["HYPER", "return"]
 auto_tile_global = ["HYPER", ""]
+focus_next_screen = ["mash_shift", "p"]
+focus_prev_screen = ["mash_shift", ";"]
 
 [tiler.margins]
 enabled = true

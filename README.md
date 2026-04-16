@@ -89,6 +89,23 @@ ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement
     ├── test_storage.lua  # Storage module tests
     ├── test_window_memory.lua # Window memory tests
     ├── test_config_validator.lua # Config validation tests
+    ├── test_config_load.lua # Config loading tests
+    ├── test_layout_solver.lua # Layout solver tests
+    ├── test_auto_tiler.lua # Auto-tiler unit tests
+    ├── test_auto_tiler_solver.lua # Auto-tiler solver tests
+    ├── test_auto_tiler_functional.lua # Auto-tiler functional tests
+    ├── test_auto_tiler_advanced.lua # Auto-tiler advanced tests
+    ├── test_toml.lua # TOML parser tests
+    ├── test_toml_multiline.lua # TOML multiline tests
+    ├── test_zone_n.lua # Zone tests
+    ├── test_zones.lua # Zone tests
+    ├── test_tile.lua # Tile tests
+    ├── test_coord.lua # Coordinate tests
+    ├── test_cache.lua # Cache tests
+    ├── test_timing.lua # Timing tests
+    ├── solver_corpus.lua # Solver test corpus
+    ├── run_comprehensive.lua # Run all comprehensive tests
+    ├── run_corpus.lua # Run solver corpus
     └── mock_hs.lua       # Hammerspoon API mocks
 ```
 
