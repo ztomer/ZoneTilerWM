@@ -220,6 +220,16 @@ public final class SettingsModel: ObservableObject {
                         tile: $0.tile_index.sortKey, count: $0.data.count) }
             .sorted { $0.count > $1.count }
     }
+
+    /// Total learned count per zone key (optionally for one monitor), for the usage heatmap.
+    public func zoneUsage(monitor: String?) -> [String: Int] {
+        var out: [String: Int] = [:]
+        for p in preferences where monitor == nil || p.monitor == monitor {
+            out[p.zone, default: 0] += p.count
+        }
+        return out
+    }
+    public var monitorsInData: [String] { Array(Set(preferences.map { $0.monitor })).sorted() }
 }
 
 public struct SettingsView: View {

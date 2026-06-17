@@ -189,18 +189,6 @@ struct AdvancedTab: View {
         Form {
             WindowMemorySection(model: model)
             AdvancedSettings(model: model)
-            Section("Learned placements") {
-                Text("Where the auto-tiler has learned to put each app (read-only).")
-                    .font(.caption).foregroundColor(.secondary)
-                Table(model.preferences) {
-                    TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 110, ideal: 150)
-                    TableColumn("Mon") { Text($0.monitor) }.width(min: 44, ideal: 52, max: 70)
-                    TableColumn("Zone") { Text($0.zone) }.width(min: 44, ideal: 52, max: 64)
-                    TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
-                    TableColumn("Count") { Text("\($0.count)") }.width(min: 52, ideal: 64, max: 80)
-                }
-                .frame(minHeight: 220)
-            }
         }
         .formStyle(.grouped)
     }

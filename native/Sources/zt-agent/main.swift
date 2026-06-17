@@ -114,6 +114,7 @@ final class AgentController: NSObject {
     private let configURL: URL
     private var configWatcher: ConfigWatcher?
     private var settings: SettingsWindowController?
+    private var analytics: AnalyticsWindowController?
 
     init(config: ConfigLoader.LoadedConfig, configURL: URL) {
         let screens = NSScreenProvider()
@@ -618,6 +619,9 @@ final class AgentController: NSObject {
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        let analyticsItem = NSMenuItem(title: "Window Analytics…", action: #selector(openAnalytics), keyEquivalent: "")
+        analyticsItem.target = self
+        menu.addItem(analyticsItem)
         let reloadItem = NSMenuItem(title: "Reload Config", action: #selector(reloadConfig), keyEquivalent: "r")
         reloadItem.target = self
         menu.addItem(reloadItem)
@@ -627,6 +631,13 @@ final class AgentController: NSObject {
     }
 
     @objc func reloadConfig() { reloadFromDisk() }
+
+    @objc func openAnalytics() {
+        if analytics == nil {
+            analytics = AnalyticsWindowController(model: SettingsModel(configURL: configURL, config: config, memory: learnedMemory))
+        }
+        analytics?.show()
+    }
 
     @objc func openSettings() {
         if settings == nil {
