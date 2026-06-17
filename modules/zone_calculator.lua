@@ -152,19 +152,31 @@ function zone_calculator.get_layout_config(screen)
     local is_portrait = frame.h > frame.w
     local layout_key
 
-    -- Check custom screens first
+    -- Check custom screens first.
+    -- NOTE: iterate keys in sorted order (not pairs()) so the chosen match is
+    -- deterministic when several patterns match the same screen name. First match
+    -- in sorted order wins (previously the last hash-order match won).
     if config.tiler.custom_screens then
-        for screen_name_pattern, custom_config in pairs(config.tiler.custom_screens) do
+        local keys = {}
+        for k in pairs(config.tiler.custom_screens) do keys[#keys + 1] = k end
+        table.sort(keys)
+        for _, screen_name_pattern in ipairs(keys) do
+            local custom_config = config.tiler.custom_screens[screen_name_pattern]
             if name == screen_name_pattern or name:match(screen_name_pattern) then
                 debug_log("Using custom screen layout for:", name, "->", custom_config.layout)
                 layout_key = custom_config.layout
+                break
             end
         end
     end
 
-    -- Check pattern matches
+    -- Check pattern matches (sorted order for determinism; first match wins).
     if not layout_key and config.tiler.screen_detection and config.tiler.screen_detection.patterns then
-        for pattern, l_key in pairs(config.tiler.screen_detection.patterns) do
+        local keys = {}
+        for k in pairs(config.tiler.screen_detection.patterns) do keys[#keys + 1] = k end
+        table.sort(keys)
+        for _, pattern in ipairs(keys) do
+            local l_key = config.tiler.screen_detection.patterns[pattern]
             if name:match(pattern) then
                 debug_log("Screen name", name, "matched pattern", pattern, "-> using layout", l_key)
                 layout_key = l_key

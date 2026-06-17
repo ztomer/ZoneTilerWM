@@ -94,9 +94,10 @@ function toml.parse(data)
     local accumulator = ""
     local acc_key = nil
 
-    for line in data:gmatch('[^\r\n]+') do
+    for raw_line in data:gmatch('[^\r\n]+') do
         -- Remove comments (basic) - note: inside strings this might be aggressive but keeps consistent with existing logic
-        line = line:gsub('%s*#.*$', '')
+        -- (Lua 5.5 makes generic-for variables const, so shadow with a mutable local.)
+        local line = raw_line:gsub('%s*#.*$', '')
         line = trim(line)
 
         if line == '' then
@@ -117,8 +118,8 @@ function toml.parse(data)
             local table_name = line:sub(2, -2)
             current_table = result
 
-            for part in table_name:gmatch('[^%.]+') do
-                part = trim(part)
+            for raw_part in table_name:gmatch('[^%.]+') do
+                local part = trim(raw_part)
                 -- Handle quoted keys
                 if part:find('^".*"$') or part:find("^'.*'$") then
                     part = parse_string(part)
