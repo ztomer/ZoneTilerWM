@@ -49,6 +49,55 @@ final class PlacementStrategyTests: XCTestCase {
         XCTAssertEqual(t, tiles[1])
     }
 
+    func testLargestFreeAlreadyInZoneCyclesToNextOption() {
+        // Already in zone, current frame == tile 1, both tiles free → cycle to the next option.
+        let t = PlacementStrategy.findBestTile(
+            strategy: .largestFreeSpace, tiles: tiles, zoneKey: "h",
+            currentFrame: tiles[0],
+            stateZoneKey: "h", stateTileIndex: 1, occupied: [], selfId: 999)
+        XCTAssertEqual(t, tiles[1])
+    }
+
+    func testLargestFreeAlreadyInZoneFallsBackToStateTileIndex() {
+        // Already in zone but current frame matches no tile (not found among options) → use the
+        // remembered stateTileIndex.
+        let t = PlacementStrategy.findBestTile(
+            strategy: .largestFreeSpace, tiles: tiles, zoneKey: "h",
+            currentFrame: ZTRect(x: 500, y: 500, w: 10, h: 10),
+            stateZoneKey: "h", stateTileIndex: 2, occupied: [], selfId: 999)
+        XCTAssertEqual(t, tiles[1])   // tiles[stateTileIndex - 1]
+    }
+
+    func testLargestFreeNotInZoneCyclesFromCurrentTile() {
+        // Not already in zone, but the current frame equals a tile (cti found) → cycle, not opt[0].
+        let t = PlacementStrategy.findBestTile(
+            strategy: .largestFreeSpace, tiles: tiles, zoneKey: "h",
+            currentFrame: tiles[0],
+            stateZoneKey: "other", stateTileIndex: nil, occupied: [], selfId: 999)
+        XCTAssertEqual(t, tiles[1])
+    }
+
+    func testLargestFreeAllBlockedSingleTileReturnsFirst() {
+        // One tile, fully occupied, current frame matches nothing → tile 1 (no cycle possible).
+        let one = [ZTRect(x: 0, y: 0, w: 960, h: 1080)]
+        let occ = [PlacementStrategy.OccupiedWindow(id: 1, frame: one[0])]
+        let t = PlacementStrategy.findBestTile(
+            strategy: .largestFreeSpace, tiles: one, zoneKey: "h",
+            currentFrame: ZTRect(x: 500, y: 500, w: 10, h: 10),
+            stateZoneKey: nil, stateTileIndex: nil, occupied: occ, selfId: 999)
+        XCTAssertEqual(t, one[0])
+    }
+
+    func testLargestFreeSelfIdExcludedFromOverlap() {
+        // The window's own frame (selfId) must not count as occupancy against its candidate tile.
+        let occ = [PlacementStrategy.OccupiedWindow(id: 42, frame: tiles[0])]
+        let t = PlacementStrategy.findBestTile(
+            strategy: .largestFreeSpace, tiles: tiles, zoneKey: "h",
+            currentFrame: ZTRect(x: 1, y: 1, w: 1, h: 1),
+            stateZoneKey: nil, stateTileIndex: nil, occupied: occ, selfId: 42)
+        XCTAssertEqual(t, tiles[0])   // own overlap ignored → tile 1 still counts as free, wins tie
+    }
+
     func testEmptyTilesReturnsNil() {
         XCTAssertNil(PlacementStrategy.findBestTile(
             strategy: .rotate, tiles: [], zoneKey: "h",

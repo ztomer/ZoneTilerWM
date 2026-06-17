@@ -281,4 +281,46 @@ final class TilerCoordinatorTests: XCTestCase {
                                      zoneConfig: zoneConfig(), placementStrategy: "rotate")
         XCTAssertEqual(coord.moveFocusedToZone("y"), .failure(.noScreenForWindow))
     }
+
+    func testCycleFocusMovesToNextWindowInZone() {
+        // Two windows both fully inside zone "j" (full screen). Focus starts on 1 → cycle to 2.
+        let ws = FakeWindowSystem()
+        let w1 = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 10, y: 10, w: 200, h: 200), screenUUID: "M1")
+        let w2 = LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 20, y: 20, w: 200, h: 200), screenUUID: "M1")
+        ws.focused = w1; ws.onScreen = [w1, w2]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        XCTAssertEqual(coord.cycleFocus("j"), 2)
+        XCTAssertEqual(ws.focusedIds, [2])
+    }
+
+    func testCycleFocusReturnsNilOnEmptyZone() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 100, h: 100), screenUUID: "M1")
+        ws.onScreen = [ws.focused!]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        XCTAssertNil(coord.cycleFocus("zzz"))   // no such zone
+    }
+
+    func testMoveToMonitorUsesRememberedPosition() {
+        // A learned preference for "Zen" on the target monitor (logical id 2 = M2) should win
+        // over the default-zone fallback, placing the window into the remembered zone "k".
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 100, y: 100, w: 300, h: 300), screenUUID: "M1")
+        let mem = WindowMemory()
+        let mm = MonitorManager()
+        mm.reregister(uuids: ["M1", "M2"])   // M1=1, M2=2
+        // Learn a placement for Zen in zone "k" tile 1 on monitor "2".
+        mem.positionWindow(windowId: 1, app: "Zen", monitor: "2", zone: "k", tile: .int(1),
+                           winW: 500, winH: 1000, screenW: 1000, screenH: 1000)
+        mem.flush(windowId: 1)
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider(twoScreens()),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     memory: mem, monitorManager: mm)
+        let outcome = coord.moveFocusedToMonitor(.next)
+        XCTAssertEqual(outcome?.zoneKey, "k")
+        // "k" = b1:b2 (right column) on M2 (x:1000,w:1000) → right half x:1500,w:500.
+        XCTAssertEqual(outcome?.target, ZTRect(x: 1500, y: 0, w: 500, h: 1000))
+    }
 }

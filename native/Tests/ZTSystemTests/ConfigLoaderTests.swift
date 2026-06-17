@@ -92,4 +92,40 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(at.workingSetMaxCapacity, 6)
         XCTAssertEqual(at.weights.memoryExact, -2000)
     }
+
+    func testHotkeyResolversAndDerivedAccessors() throws {
+        let cfg = try ConfigLoader.load(tomlString: String(contentsOf: repoConfigURL(), encoding: .utf8),
+                                        homeDirectory: "/Users/test")
+
+        // resolvedHotkey: a real action resolves to (resolved modifier tokens, key); unknown → nil.
+        if let resize = cfg.resolvedHotkey("resize_mode", in: cfg.tilerHotkeys) {
+            XCTAssertFalse(resize.modifier.isEmpty)
+            XCTAssertFalse(resize.key.isEmpty)
+        } else {
+            XCTFail("resize_mode should resolve")
+        }
+        XCTAssertNil(cfg.resolvedHotkey("does_not_exist", in: cfg.tilerHotkeys))
+
+        // Pomodoro / system hotkey groups are populated.
+        XCTAssertFalse(cfg.pomodoroHotkeys.isEmpty)
+        XCTAssertNotNil(cfg.resolvedHotkey("reset", in: cfg.pomodoroHotkeys))
+
+        // zoneKeys: union of layout keys minus the "default" marker, sorted & unique.
+        let zk = cfg.zoneKeys
+        XCTAssertFalse(zk.isEmpty)
+        XCTAssertFalse(zk.contains("default"))
+        XCTAssertEqual(zk, zk.sorted())
+        XCTAssertEqual(Set(zk).count, zk.count)
+
+        // allBindings spans zone tile + focus + launchers + actions; every binding has a label.
+        let binds = cfg.allBindings()
+        XCTAssertGreaterThan(binds.count, zk.count)   // at least tile+focus per zone key
+        XCTAssertTrue(binds.allSatisfy { !$0.label.isEmpty })
+        XCTAssertTrue(binds.contains { $0.label.hasPrefix("Tile zone ") })
+        XCTAssertTrue(binds.contains { $0.label.hasPrefix("Focus zone ") })
+
+        // Audio + keyboard-layout accessors.
+        XCTAssertFalse(cfg.audioHotkeyModifier.isEmpty)
+        XCTAssertEqual(cfg.keyboardLayout, "auto")   // default when [ui] keyboard_layout unset
+    }
 }
