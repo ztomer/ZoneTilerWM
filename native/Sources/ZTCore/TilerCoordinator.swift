@@ -188,6 +188,55 @@ public final class TilerCoordinator {
         return moves
     }
 
+    // MARK: - Multi-monitor navigation (ports tiler.lua focus_*_screen + move_window_to_monitor)
+
+    /// Focus the frontmost window of the *currently focused app* on the next/previous screen
+    /// (matches the Lua, which iterates the focused app's windows). Returns the focused id, or
+    /// nil (single screen / no same-app window there). Live-validatable only with 2+ displays.
+    @discardableResult
+    public func focusScreen(_ direction: ScreenNav.Direction) -> Int? {
+        guard let focused = windowSystem.focusedWindow(), let uuid = focused.screenUUID else { return nil }
+        let ordered = ScreenNav.ordered(screenProvider.allScreens()).map { $0.uuid }
+        guard let ti = ScreenNav.targetIndex(orderedUUIDs: ordered, current: uuid, direction: direction) else { return nil }
+        let targetUUID = ordered[ti]
+        guard let next = windowSystem.windows(onScreen: targetUUID).first(where: { $0.appName == focused.appName }) else { return nil }
+        windowSystem.focus(windowId: next.id)
+        return next.id
+    }
+
+    /// Move the focused window to the next/previous monitor, placing it via the remembered
+    /// position → default-zone → untiled cascade. Returns the move (applied) or nil.
+    @discardableResult
+    public func moveFocusedToMonitor(_ direction: ScreenNav.Direction) -> MoveOutcome? {
+        guard let focused = windowSystem.focusedWindow(), let uuid = focused.screenUUID else { return nil }
+        let orderedScreens = ScreenNav.ordered(screenProvider.allScreens())
+        let ordered = orderedScreens.map { $0.uuid }
+        guard let ti = ScreenNav.targetIndex(orderedUUIDs: ordered, current: uuid, direction: direction),
+              let target = screenProvider.screen(uuid: ordered[ti]) else { return nil }
+
+        let info = ZoneCalculator.ScreenInfo(name: target.name, frame: target.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig,
+                                                offsets: offsets(forScreen: target.uuid)).zones
+        // Remembered app position on the target monitor (top-ranked preference), if any.
+        var remembered: (zone: String, tile: Int)?
+        if let key = monitorKey(target.uuid),
+           let top = memory?.rankedPreferences(app: focused.appName, monitor: key).first,
+           case let .int(tileIdx) = top.tile {
+            remembered = (top.zoneKey, tileIdx)
+        }
+        guard let pick = ScreenNav.monitorPlacement(targetZones: zones, remembered: remembered),
+              let tiles = zones[pick.zone], pick.tile >= 1, pick.tile <= tiles.count else {
+            // Untiled fallback: move the window to the target screen's top-left work area.
+            let dst = ZTRect(x: target.frame.x, y: target.frame.y, w: focused.frame.w, h: focused.frame.h)
+            let ok = windowSystem.move(windowId: focused.id, to: dst)
+            return MoveOutcome(windowId: focused.id, zoneKey: "", tileIndex: 0, target: dst, applied: ok)
+        }
+        let rect = tiles[pick.tile - 1]
+        let ok = windowSystem.move(windowId: focused.id, to: rect)
+        if ok { learn(window: focused, screen: target, zoneKey: pick.zone, tileIndex: pick.tile) }
+        return MoveOutcome(windowId: focused.id, zoneKey: pick.zone, tileIndex: pick.tile, target: rect, applied: ok)
+    }
+
     /// Stamp the currently-focused window's focus time (drive from a periodic poll / focus
     /// event in the agent). Mirrors window_cache.lua's windowFocused subscription.
     public func noteFocusedWindow(now: Int) {

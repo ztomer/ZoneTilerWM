@@ -163,6 +163,16 @@ validation as deferred-until-second-display in the arch doc.
 **Done when:** unit tests over synthetic multi-screen snapshots green; hotkeys bound and
 no-op-safe on a single monitor; `make verify` green. Live validation deferred.
 
+**DONE (unit-test only).** `ScreenNav` (ZTCore, pure): deterministic screen order (by x then
+y), next/previous wrap index math, and the move-to-monitor placement cascade (remembered app
+position → default zone "0"/"j" tile 1 → untiled; strategy 2 "maintain live tiler state"
+omitted — native tracks no per-window tiler state). `TilerCoordinator.focusScreen(_:)` (focus
+the frontmost same-app window on the target screen, matching the Lua) +
+`moveFocusedToMonitor(_:)`. Agent binds placement_mode→move-next, zone_info→move-previous,
+focus_next/prev_screen. Tests: ScreenNavTests + coordinator tests over synthetic 2-screen
+snapshots. Smoke-tested: all four hotkeys bind and no-op safely on the single attached
+monitor (no crash). **Live multi-display validation still owed when a 2nd display is attached.**
+
 ---
 
 ## Slice 5 — Smaller remaining parity (batch later)

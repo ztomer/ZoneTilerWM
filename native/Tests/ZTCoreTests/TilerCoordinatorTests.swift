@@ -7,13 +7,15 @@ import XCTest
 private final class FakeWindowSystem: WindowSystem {
     var focused: LiveWindow?
     var onScreen: [LiveWindow] = []
+    var byScreen: [String: [LiveWindow]] = [:]   // per-uuid windows (for multi-monitor tests)
     private(set) var movedTo: ZTRect?
     func focusedWindow() -> LiveWindow? { focused }
-    func windows(onScreen uuid: String) -> [LiveWindow] { onScreen }
+    func windows(onScreen uuid: String) -> [LiveWindow] { byScreen[uuid] ?? onScreen }
     private(set) var moved: [(id: Int, rect: ZTRect)] = []
+    private(set) var focusedIds: [Int] = []
     @discardableResult func moveFocusedWindow(to rect: ZTRect) -> Bool { movedTo = rect; return true }
     @discardableResult func move(windowId: Int, to rect: ZTRect) -> Bool { moved.append((windowId, rect)); return true }
-    @discardableResult func focus(windowId: Int) -> Bool { true }
+    @discardableResult func focus(windowId: Int) -> Bool { focusedIds.append(windowId); return true }
     private(set) var minimized: [Int: Bool] = [:]
     @discardableResult func setMinimized(_ m: Bool, windowId: Int) -> Bool { minimized[windowId] = m; return true }
 }
@@ -155,6 +157,49 @@ final class TilerCoordinatorTests: XCTestCase {
         guard case .success(let outcome) = coord.moveFocusedToZone("y") else { return XCTFail("expected success") }
         XCTAssertEqual(outcome.target, ZTRect(x: 0, y: 0, w: 600, h: 500),
                        "the +10% x-offset should widen the top-left zone from 500 to 600")
+    }
+
+    // MARK: - Multi-monitor (unit-test only; no live multi-display here)
+
+    private func twoScreens() -> [ScreenSnapshot] {
+        [ScreenSnapshot(uuid: "M1", name: "Left", frame: ZTRect(x: 0, y: 0, w: 1000, h: 1000),
+                        fullFrame: ZTRect(x: 0, y: 0, w: 1000, h: 1000)),
+         ScreenSnapshot(uuid: "M2", name: "Right", frame: ZTRect(x: 1000, y: 0, w: 1000, h: 1000),
+                        fullFrame: ZTRect(x: 1000, y: 0, w: 1000, h: 1000))]
+    }
+
+    func testFocusScreenFocusesSameAppOnTarget() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")
+        ws.byScreen["M2"] = [
+            LiveWindow(id: 8, appName: "Mail", frame: ZTRect(x: 1000, y: 0, w: 400, h: 300), screenUUID: "M2"),
+            LiveWindow(id: 9, appName: "Zen", frame: ZTRect(x: 1400, y: 0, w: 400, h: 300), screenUUID: "M2"),
+        ]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider(twoScreens()),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        XCTAssertEqual(coord.focusScreen(.next), 9, "should focus the same-app window on the next screen")
+        XCTAssertEqual(ws.focusedIds, [9])
+    }
+
+    func testMoveFocusedToMonitorPlacesAtDefaultZone() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 100, y: 100, w: 400, h: 300), screenUUID: "M1")
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider(twoScreens()),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        let outcome = coord.moveFocusedToMonitor(.next)
+        // No "0" zone; default falls to "j" (= a1:b2, full screen) tile 1 on M2 (x:1000,w:1000).
+        XCTAssertEqual(outcome?.zoneKey, "j")
+        XCTAssertEqual(outcome?.target, ZTRect(x: 1000, y: 0, w: 1000, h: 1000))
+        XCTAssertEqual(ws.moved.last?.id, 1)
+    }
+
+    func testMoveToMonitorNoOpOnSingleScreen() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        XCTAssertNil(coord.moveFocusedToMonitor(.next))   // only one screen → nothing happens
+        XCTAssertNil(coord.focusScreen(.next))
     }
 
     func testZenMinimizesOthersAndRestores() {

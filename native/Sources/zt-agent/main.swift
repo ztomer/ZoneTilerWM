@@ -344,6 +344,20 @@ final class AgentController: NSObject {
         bindAction(config.resolvedHotkey("resize_mode", in: config.tilerHotkeys), label: "resize_mode") { [weak self] in
             self?.toggleResizeMode()
         }
+        // Multi-monitor: move focused window to next/previous monitor (placement_mode/zone_info),
+        // and focus next/previous screen. No-ops on a single display.
+        bindAction(config.resolvedHotkey("placement_mode", in: config.tilerHotkeys), label: "move_to_next_monitor") { [weak self] in
+            _ = self?.coordinator.moveFocusedToMonitor(.next)
+        }
+        bindAction(config.resolvedHotkey("zone_info", in: config.tilerHotkeys), label: "move_to_prev_monitor") { [weak self] in
+            _ = self?.coordinator.moveFocusedToMonitor(.previous)
+        }
+        bindAction(config.resolvedHotkey("focus_next_screen", in: config.tilerHotkeys), label: "focus_next_screen") { [weak self] in
+            self?.coordinator.focusScreen(.next)
+        }
+        bindAction(config.resolvedHotkey("focus_prev_screen", in: config.tilerHotkeys), label: "focus_prev_screen") { [weak self] in
+            self?.coordinator.focusScreen(.previous)
+        }
     }
 
     // MARK: - Resize mode (coherent port: arrows nudge the zone grid lines)
