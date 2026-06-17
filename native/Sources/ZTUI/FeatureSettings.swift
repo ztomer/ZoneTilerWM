@@ -57,7 +57,7 @@ struct AudioSettings: View {
         Section("Audio switcher") {
             ForEach(devices.indices, id: \.self) { i in
                 HStack {
-                    TextField("output device name", text: $devices[i]).textFieldStyle(.roundedBorder)
+                    TextField("output device name", text: $devices[i]).textFieldStyle(.roundedBorder).labelsHidden()
                     Button { devices.remove(at: i) } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
                 }
             }
@@ -111,7 +111,7 @@ struct WindowMemorySection: View {
             Text("Excluded apps (never auto-tiled or learned):").font(.caption).foregroundColor(.secondary)
             ForEach(excluded.indices, id: \.self) { i in
                 HStack {
-                    TextField("app name", text: $excluded[i]).textFieldStyle(.roundedBorder)
+                    TextField("app name", text: $excluded[i]).textFieldStyle(.roundedBorder).labelsHidden()
                     Button { excluded.remove(at: i) } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
                 }
             }
