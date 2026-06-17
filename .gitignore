@@ -1,0 +1,3 @@
+
+# native port fuzz artifacts
+tools/fuzz_failures/

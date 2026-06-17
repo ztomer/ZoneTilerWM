@@ -1,0 +1,1 @@
+{"name":"Shape Matching vs Memory","screen":{"h":1000,"w":1000,"x":0,"y":0},"tiles":[{"idx":1,"rect":{"h":200,"w":500,"x":0,"y":0},"zone":"WideZone"},{"idx":1,"rect":{"h":500,"w":100,"x":0,"y":0},"zone":"TallZone"}],"windows":[{"h":500,"id":"WebBrowser","memory":[{"count":10,"tile_index":1,"zone_key":"WideZone"}],"w":100}]}

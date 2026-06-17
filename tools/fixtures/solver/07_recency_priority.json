@@ -1,0 +1,1 @@
+{"name":"Recency Priority","screen":{"h":1000,"w":1000,"x":0,"y":0},"tiles":[{"idx":1,"rect":{"h":500,"w":500,"x":0,"y":0},"zone":"BigZone"},{"idx":1,"rect":{"h":200,"w":200,"x":600,"y":0},"zone":"SmallZone"}],"windows":[{"h":200,"id":"Win1_Recent","w":200},{"h":200,"id":"Win2_Old","w":200}]}

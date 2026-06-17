@@ -1,0 +1,1 @@
+{"name":"Maximize Coverage","screen":{"h":1000,"w":1000,"x":0,"y":0},"tiles":[{"idx":1,"rect":{"h":250,"w":250,"x":0,"y":0},"zone":"SmallZone"},{"idx":1,"rect":{"h":500,"w":500,"x":0,"y":0},"zone":"BigZone"}],"windows":[{"h":250,"id":"SmallApp","w":250}]}

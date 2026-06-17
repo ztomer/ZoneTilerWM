@@ -1,0 +1,1 @@
+{"name":"Basic: 1 Wide, 1 Tall","screen":{"h":1000,"w":1000,"x":0,"y":0},"tiles":[{"idx":1,"rect":{"h":100,"w":200,"x":0,"y":0},"zone":"WideZone"},{"idx":1,"rect":{"h":200,"w":100,"x":0,"y":200},"zone":"TallZone"}],"windows":[{"h":100,"id":"WideApp","w":200},{"h":200,"id":"TallApp","w":100}]}
