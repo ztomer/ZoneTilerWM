@@ -43,6 +43,11 @@ final class AgentController: NSObject {
     private var resizeRows = 1
     private var resizeVIndex: Int?
     private var resizeHIndex: Int?
+    // Window hints: label badges + a transient key-capture modal.
+    private let hintOverlay = HintOverlay()
+    private var hintsActive = false
+    private var hintModalIDs: [UInt32] = []
+    private var hintTargets: [String: Int] = [:]
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -357,6 +362,68 @@ final class AgentController: NSObject {
         }
         bindAction(config.resolvedHotkey("focus_prev_screen", in: config.tilerHotkeys), label: "focus_prev_screen") { [weak self] in
             self?.coordinator.focusScreen(.previous)
+        }
+        // System: window hints (label each window, type to focus) + config reload hotkey.
+        bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
+            self?.toggleWindowHints()
+        }
+        bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
+            self?.reloadFromDisk()
+        }
+    }
+
+    // MARK: - Window hints (port of hs.hints.windowHints)
+
+    private func toggleWindowHints() { hintsActive ? exitWindowHints() : enterWindowHints() }
+
+    private func enterWindowHints() {
+        // All visible standard windows across screens, front-to-back, deduped by id.
+        var seen = Set<Int>()
+        var wins: [LiveWindow] = []
+        for s in screens.allScreens() {
+            for w in windowSystem.windows(onScreen: s.uuid) where !seen.contains(w.id) {
+                seen.insert(w.id); wins.append(w)
+            }
+        }
+        guard !wins.isEmpty else { return }
+        let labels = WindowHints.labels(count: wins.count)
+        if wins.count > labels.count {
+            log("zt-agent: window hints — \(wins.count) windows, only \(labels.count) labeled")
+        }
+        hintTargets = [:]
+        var badges: [(label: String, center: ZTRect)] = []
+        for (label, w) in zip(labels, wins) {
+            hintTargets[label] = w.id
+            let center = ZTRect(x: w.frame.x + w.frame.w / 2, y: w.frame.y + w.frame.h / 2, w: 0, h: 0)
+            badges.append((label, center))
+        }
+        hintsActive = true
+        hintOverlay.show(badges)
+        bindHintModal(labels: labels)
+        log("zt-agent: window hints ON (\(hintTargets.count) windows) — type a label, ESC cancels")
+    }
+
+    private func exitWindowHints() {
+        guard hintsActive else { return }
+        hintsActive = false
+        for id in hintModalIDs { binder.unbind(id) }
+        hintModalIDs = []
+        hintTargets = [:]
+        hintOverlay.hide()
+    }
+
+    private func bindHintModal(labels: [String]) {
+        for label in labels {
+            guard let code = KeyMap.keyCode(for: label) else { continue }
+            if let id = binder.register(keyCode: code, modifiers: 0, action: { [weak self] in
+                guard let self, let wid = self.hintTargets[label] else { return }
+                self.windowSystem.focus(windowId: wid)
+                self.exitWindowHints()
+            }) { hintModalIDs.append(id) }
+        }
+        if let esc = KeyMap.keyCode(for: "escape"),
+           let id = binder.register(keyCode: esc, modifiers: 0, action: { [weak self] in self?.exitWindowHints() }) {
+            hintModalIDs.append(id)
         }
     }
 

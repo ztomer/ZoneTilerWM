@@ -177,11 +177,20 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
 
 ## Slice 5 — Smaller remaining parity (batch later)
 
-- **Window hints** — quick-jump overlay labels per window (overlay + key capture).
-- **Placement-mode / zone-info overlays** — transient informational overlays.
-- **ZTUI v2 editors** — keybind capture editor + visual direct-manipulation layout editor
-  (currently Layouts is a read-only list; General/Memory done). Lower priority; the original
-  plan marks these as the genuinely-rich views to do last.
+- **Window hints** — DONE. Port of `hs.hints.windowHints`: `WindowHints` (ZTCore, pure
+  home-row label assignment, capped at the alphabet) + `HintOverlay` (ZTSystem, yellow badge
+  per window) + an agent key-capture modal (type a label → focus that window, ESC cancels).
+  Bound from `system_hotkeys.window_hints`. Live-validated (badges render centered per window;
+  typing a label focuses + dismisses).
+- **Config reload hotkey** — DONE. `system_hotkeys.reload` now bound to the in-process
+  reloadFromDisk() (completes parity with the Lua's reload hotkey; complements Slice 2's
+  watcher + menu item).
+- **Placement-mode / zone-info overlays** — N/A: in the Lua these hotkeys ARE move-to-monitor
+  (next/previous), already done in Slice 4. Not separate overlays.
+- **ZTUI v2 editors** — STILL TODO (the remaining substantial piece): keybind capture editor +
+  visual direct-manipulation layout editor (Layouts tab is currently a read-only list;
+  General/Memory done). Best suited to a hands-on UI round. The genuinely-rich views, marked
+  last in the original plan.
 
 ---
 

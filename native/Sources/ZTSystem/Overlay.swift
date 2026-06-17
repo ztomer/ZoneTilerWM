@@ -79,6 +79,54 @@ public final class GridOverlay {
     }
 }
 
+/// Window-hints overlay: a small label badge centered on each window (port of the visual
+/// half of hs.hints.windowHints). The key capture lives in the agent's hints modal.
+public final class HintOverlay {
+    private var windows: [NSWindow] = []
+    public init() {}
+
+    /// Show a label badge at each top-left CG center point. Replaces any existing badges.
+    public func show(_ hints: [(label: String, center: ZTRect)]) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.clear()
+            for h in hints {
+                let size = NSSize(width: 44, height: 36)
+                let centerNS = CoordConvert.nsFrame(fromCG: ZTRect(x: h.center.x - size.width / 2,
+                                                                   y: h.center.y - size.height / 2,
+                                                                   w: size.width, h: size.height))
+                let w = NSWindow(contentRect: centerNS, styleMask: .borderless, backing: .buffered, defer: false)
+                w.isOpaque = false
+                w.backgroundColor = .clear
+                w.ignoresMouseEvents = true
+                w.level = .statusBar
+                w.hasShadow = false
+                w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+                let label = NSTextField(labelWithString: h.label.uppercased())
+                label.frame = NSRect(origin: .zero, size: size)
+                label.alignment = .center
+                label.font = .monospacedSystemFont(ofSize: 22, weight: .bold)
+                label.textColor = .black
+                label.wantsLayer = true
+                label.layer?.backgroundColor = NSColor(red: 1, green: 0.9, blue: 0.2, alpha: 0.95).cgColor
+                label.layer?.cornerRadius = 6
+                label.layer?.borderWidth = 2
+                label.layer?.borderColor = NSColor.black.cgColor
+                w.contentView = label
+                w.orderFront(nil)
+                self.windows.append(w)
+            }
+        }
+    }
+
+    public func hide() { DispatchQueue.main.async { [weak self] in self?.clear() } }
+
+    private func clear() {
+        for w in windows { w.orderOut(nil) }
+        windows.removeAll()
+    }
+}
+
 /// A brief translucent highlight over a window's frame (focus/tile feedback).
 public final class FlashOverlay {
     private var window: NSWindow?
