@@ -192,11 +192,27 @@ differential harnesses.
 External dep: **TOMLKit** (toml++-backed) for config parsing — chosen over a hand-rolled
 parser. `Package.resolved` is committed.
 
-### Remaining — all UI-dependent, deferred
+### Phase 0 AX spike — DONE (validated on real Zen/Firefox)
 
-The rest of ZTSystem needs live macOS APIs and is validated per the visual-validation rule,
-deferred until the other project stops exercising the UI: AX window moves (+ the
-Firefox/EnhancedUI quirk), Carbon hotkeys, NSScreen/CGDisplay + stable UUIDs, CGWindowList
-z-order, overlays (grid/alert/Pomodoro bar), CoreAudio, NSStatusItem menubar, NSWorkspace
-app launching, config file-watch; plus the `ZTUI` SwiftUI settings GUI. The Phase 0 AX
-spike is the natural first step there. `swift test` currently: 33 tests green.
+`ZTSystem/AXWindowSystem` + the `zt-axspike` CLI prove the riskiest live pieces:
+- Window enumeration + z-order via `CGWindowListCopyWindowInfo` (no permission needed).
+- AX `setFrame` (position-then-size) moves another app's window; validated moving Zen
+  (Firefox-based) to left/right half — frames land exactly.
+- The **AXEnhancedUserInterface toggle** path works; Zen reports it **enabled**, confirming
+  it's the app class the toggle targets. (A single move also succeeded without the toggle,
+  but the toggle is retained as the default for known-enhanced apps — reliability/speed,
+  per the Hammerspoon precedent.)
+- AppleScript/System-Events fallback implemented.
+- Accessibility (TCC) trust check via `AXIsProcessTrustedWithOptions`.
+
+**Window-move test methodology:** the deterministic assertion for a tiling move is the
+post-move **AX frame readback** (`kAXPosition`/`kAXSize`) equal to the target within
+tolerance — exactly what `zt-axspike` reports. Screenshots are the human-eye pass.
+
+### Remaining — UI-dependent, validated per the visual-validation rule
+
+Carbon global hotkeys (+ resize-mode modal), NSScreen/CGDisplay stable UUIDs, robust
+CGWindowID↔AXUIElement matching (`_AXUIElementGetWindow`), the full `WindowSystem` protocol
+impl, overlays (grid/alert/Pomodoro bar), CoreAudio, NSStatusItem menubar, NSWorkspace app
+launching, NSWorkspace window create/destroy/focus notifications, config file-watch; plus
+the `ZTUI` SwiftUI settings GUI. `swift test` currently: 33 tests green.
