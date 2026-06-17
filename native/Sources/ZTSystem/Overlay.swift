@@ -85,38 +85,71 @@ public final class HintOverlay {
     private var windows: [NSWindow] = []
     public init() {}
 
-    /// Show a label badge at each top-left CG center point. Replaces any existing badges.
-    public func show(_ hints: [(label: String, center: ZTRect)]) {
+    /// Show a hint badge centered on each window: app icon (recognition) + the key (the action)
+    /// + the app name (a small confirm). `center` is the window's top-left CG center point.
+    public func show(_ hints: [(label: String, app: String, icon: NSImage?, center: ZTRect)]) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.clear()
             for h in hints {
-                let size = NSSize(width: 44, height: 36)
-                let centerNS = CoordConvert.nsFrame(fromCG: ZTRect(x: h.center.x - size.width / 2,
-                                                                   y: h.center.y - size.height / 2,
-                                                                   w: size.width, h: size.height))
-                let w = NSWindow(contentRect: centerNS, styleMask: .borderless, backing: .buffered, defer: false)
+                let (badge, size) = HintOverlay.makeBadge(label: h.label, app: h.app, icon: h.icon)
+                let origin = ZTRect(x: h.center.x - size.width / 2, y: h.center.y - size.height / 2,
+                                    w: size.width, h: size.height)
+                let w = NSWindow(contentRect: CoordConvert.nsFrame(fromCG: origin),
+                                 styleMask: .borderless, backing: .buffered, defer: false)
                 w.isOpaque = false
                 w.backgroundColor = .clear
                 w.ignoresMouseEvents = true
                 w.level = .statusBar
-                w.hasShadow = false
+                w.hasShadow = true
                 w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-                let label = NSTextField(labelWithString: h.label.uppercased())
-                label.frame = NSRect(origin: .zero, size: size)
-                label.alignment = .center
-                label.font = .monospacedSystemFont(ofSize: 22, weight: .bold)
-                label.textColor = .black
-                label.wantsLayer = true
-                label.layer?.backgroundColor = NSColor(red: 1, green: 0.9, blue: 0.2, alpha: 0.95).cgColor
-                label.layer?.cornerRadius = 6
-                label.layer?.borderWidth = 2
-                label.layer?.borderColor = NSColor.black.cgColor
-                w.contentView = label
+                w.contentView = badge
                 w.orderFront(nil)
                 self.windows.append(w)
             }
         }
+    }
+
+    /// A badge: [icon] [KEY] [name], black on the amber hint color, sized to its content.
+    private static func makeBadge(label: String, app: String, icon: NSImage?) -> (NSView, NSSize) {
+        let h: CGFloat = 38, pad: CGFloat = 9, gap: CGFloat = 7, iconSize: CGFloat = 22
+        let key = NSTextField(labelWithString: label.uppercased())
+        key.font = .monospacedSystemFont(ofSize: 18, weight: .bold)
+        key.textColor = .black
+        key.sizeToFit()
+        let name = NSTextField(labelWithString: app)
+        name.font = .systemFont(ofSize: 12, weight: .medium)
+        name.textColor = NSColor.black.withAlphaComponent(0.75)
+        name.lineBreakMode = .byTruncatingTail
+        name.sizeToFit()
+        let nameW = min(name.frame.width, 170)
+
+        var x = pad
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor(red: 1, green: 0.85, blue: 0.2, alpha: 0.97).cgColor
+        container.layer?.cornerRadius = 8
+        container.layer?.borderWidth = 1.5
+        container.layer?.borderColor = NSColor.black.withAlphaComponent(0.85).cgColor
+
+        if let icon {
+            let iv = NSImageView(frame: NSRect(x: x, y: (h - iconSize) / 2, width: iconSize, height: iconSize))
+            iv.image = icon
+            iv.imageScaling = .scaleProportionallyUpOrDown
+            container.addSubview(iv)
+            x += iconSize + gap
+        }
+        key.frame = NSRect(x: x, y: (h - key.frame.height) / 2, width: key.frame.width, height: key.frame.height)
+        container.addSubview(key)
+        x += key.frame.width + gap
+        if !app.isEmpty {
+            name.frame = NSRect(x: x, y: (h - name.frame.height) / 2, width: nameW, height: name.frame.height)
+            container.addSubview(name)
+            x += nameW
+        }
+        let total = NSSize(width: x + pad, height: h)
+        container.frame = NSRect(origin: .zero, size: total)
+        return (container, total)
     }
 
     public func hide() { DispatchQueue.main.async { [weak self] in self?.clear() } }

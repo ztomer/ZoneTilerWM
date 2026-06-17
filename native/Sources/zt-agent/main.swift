@@ -462,16 +462,21 @@ final class AgentController: NSObject {
             log("zt-agent: window hints — \(wins.count) windows, only \(labels.count) labeled")
         }
         hintTargets = [:]
-        var badges: [(label: String, center: ZTRect)] = []
+        var badges: [(label: String, app: String, icon: NSImage?, center: ZTRect)] = []
         for (label, w) in zip(labels, wins) {
             hintTargets[label] = w.id
             let center = ZTRect(x: w.frame.x + w.frame.w / 2, y: w.frame.y + w.frame.h / 2, w: 0, h: 0)
-            badges.append((label, center))
+            badges.append((label, w.appName, Self.appIcon(for: w.appName), center))
         }
         hintsActive = true
         hintOverlay.show(badges)
         bindHintModal(labels: labels)
         log("zt-agent: window hints ON (\(hintTargets.count) windows) — type a label, ESC cancels")
+    }
+
+    /// The running app's icon by display name (for the hint badge); nil if not resolvable.
+    private static func appIcon(for name: String) -> NSImage? {
+        NSWorkspace.shared.runningApplications.first { $0.localizedName == name }?.icon
     }
 
     private func exitWindowHints() {
