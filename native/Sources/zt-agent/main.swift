@@ -207,7 +207,7 @@ final class AgentController: NSObject {
             let moves = self.coordinator.autoTileScreen(autoTilerConfig: self.autoTilerConfig, memory: [:], now: now)
             log("zt-agent: auto-tile -> \(moves.count) moves")
         }
-        log("zt-agent: auto-tile hotkey \(modifier)+\(key) -> \(ok ? "ok" : "FAILED")")
+        if !ok { log("zt-agent: auto-tile hotkey \(modifier)+\(key) -> FAILED") }
     }
 
     func bindZoneHotkeys(modifier: [String], zoneKeys: [String]) {
@@ -258,7 +258,7 @@ final class AgentController: NSObject {
                 if let shortcut, !shortcut.isEmpty { AudioDevices.runShortcut(shortcut) }
             }
         }
-        log("zt-agent: audio hotkey \(modifier)+\(key) -> \(ok ? "ok" : "FAILED")")
+        if !ok { log("zt-agent: audio hotkey \(modifier)+\(key) -> FAILED") }
     }
 
     /// Generic hotkey binder for resolved (modifier, key) pairs.
@@ -267,7 +267,9 @@ final class AgentController: NSObject {
         let mask = KeyMap.modifierMask(for: h.modifier)
         guard mask != 0 else { return }
         let ok = binder.bind(keyCode: code, modifiers: mask, action: action)
-        log("zt-agent: \(label) hotkey \(h.modifier)+\(h.key) -> \(ok ? "ok" : "FAILED")")
+        // Quiet on success (the startup log was noisy); only surface binds that failed to
+        // register — usually a combo already taken by another app or a config conflict.
+        if !ok { log("zt-agent: \(label) hotkey \(h.modifier)+\(h.key) -> FAILED (taken by another app or a conflict?)") }
     }
 
     /// Passive focus-time tracking (port of window_cache.lua's windowFocused subscription):
