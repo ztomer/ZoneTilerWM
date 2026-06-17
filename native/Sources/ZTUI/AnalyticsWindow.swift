@@ -8,65 +8,137 @@ import ZTCore
 public struct AnalyticsView: View {
     @ObservedObject var model: SettingsModel
     @State private var monitor = "all"
+    @State private var app = "all"
+    @State private var mode = "screen"          // "screen" (spatial cells) | "keyboard" (zone keys)
+    @State private var grid = ""
     public init(model: SettingsModel) { self.model = model }
 
     private var monitorFilter: String? { monitor == "all" ? nil : monitor }
-    private var usage: [String: Int] { model.zoneUsage(monitor: monitorFilter) }
-    private var maxCount: Int { max(usage.values.max() ?? 1, 1) }
+    private var appFilter: String? { app == "all" ? nil : app }
+    private var gridNames: [String] { model.config.zoneConfig.grids.keys.sorted() }
     private func displayKey(_ k: String) -> String { k.count == 1 ? k.uppercased() : k }
+
+    private var filtered: [SettingsModel.Pref] {
+        model.preferences.filter { (appFilter == nil || $0.app == appFilter) && (monitorFilter == nil || $0.monitor == monitorFilter) }
+    }
+    private func intensityColor(_ count: Int, _ maxCount: Int) -> Color {
+        count > 0 ? Color.accentColor.opacity(0.12 + 0.78 * (Double(count) / Double(max(maxCount, 1))))
+                  : Color(NSColor.controlBackgroundColor)
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Zone usage heatmap").font(.headline)
+                Text("Placement analytics").font(.headline)
                 Spacer()
+                Picker("", selection: $app) {
+                    Text("All apps").tag("all")
+                    ForEach(model.appsInData, id: \.self) { Text($0).tag($0) }
+                }.labelsHidden().frame(width: 170)
                 if !model.monitorsInData.isEmpty {
                     Picker("", selection: $monitor) {
                         Text("All monitors").tag("all")
-                        ForEach(model.monitorsInData, id: \.self) { Text("Monitor \($0)").tag($0) }
-                    }.labelsHidden().frame(width: 160)
+                        ForEach(model.monitorsInData, id: \.self) { Text("Mon \($0)").tag($0) }
+                    }.labelsHidden().frame(width: 110)
                 }
             }
-            Text("How often windows have landed in each zone (learned over time). Hotter = more used.")
-                .font(.caption).foregroundColor(.secondary)
-            heatmap
+            summary
+            HStack {
+                Picker("", selection: $mode) {
+                    Text("Screen").tag("screen")
+                    Text("Keyboard").tag("keyboard")
+                }.pickerStyle(.segmented).frame(width: 180).labelsHidden()
+                if mode == "screen" {
+                    Text("Grid").foregroundColor(.secondary)
+                    Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
+                        .labelsHidden().frame(width: 90)
+                }
+                Spacer()
+                Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
+                                      : "Which zone keys windows land in.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            if mode == "screen" { spatialHeatmap } else { keyboardHeatmap }
             Divider()
-            Text("Detail — \(model.preferences.count) learned placements").font(.headline)
-            Table(model.preferences) {
+            Text("Detail — \(filtered.count) learned placements\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
+            Table(filtered) {
                 TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
                 TableColumn("Monitor") { Text($0.monitor) }.width(min: 56, ideal: 64, max: 80)
                 TableColumn("Zone") { Text($0.zone) }.width(min: 44, ideal: 52, max: 70)
                 TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 64)
                 TableColumn("Count") { Text("\($0.count)") }.width(min: 56, ideal: 70, max: 90)
             }
-            .frame(minHeight: 220)
+            .frame(minHeight: 200)
         }
         .padding()
-        .frame(minWidth: 580, minHeight: 560)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(minWidth: 600, minHeight: 640)
+        .onAppear { if grid.isEmpty { grid = gridNames.last ?? "" } }   // default to the richest grid
     }
 
-    private var heatmap: some View {
-        VStack(spacing: 4) {
-            ForEach(model.keyboardRows.indices, id: \.self) { r in
-                HStack(spacing: 4) {
-                    ForEach(model.keyboardRows[r], id: \.self) { key in cell(key) }
+    private var summary: some View {
+        let total = filtered.reduce(0) { $0 + $1.count }
+        let topZone = Dictionary(grouping: filtered, by: { $0.zone })
+            .mapValues { $0.reduce(0) { $0 + $1.count } }.max { $0.value < $1.value }?.key
+        let topApp = Dictionary(grouping: filtered.filter { !$0.app.isEmpty }, by: { $0.app })
+            .mapValues { $0.reduce(0) { $0 + $1.count } }.max { $0.value < $1.value }?.key
+        return HStack(spacing: 16) {
+            stat("placements", "\(total)")
+            if let topZone { stat("top zone", topZone) }
+            if appFilter == nil, let topApp { stat("top app", topApp) }
+            Spacer()
+        }
+    }
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(value).font(.system(.title3, design: .rounded)).bold()
+            Text(label).font(.caption2).foregroundColor(.secondary)
+        }
+    }
+
+    // Spatial: the monitor's grid cells colored by occupancy.
+    private var spatialHeatmap: some View {
+        let u = model.cellUsage(grid: grid, app: appFilter, monitor: monitorFilter)
+        return VStack(spacing: 3) {
+            if u.cols == 0 { Text("No grid").foregroundColor(.secondary) }
+            ForEach(0..<max(u.rows, 1), id: \.self) { r in
+                HStack(spacing: 3) {
+                    ForEach(0..<max(u.cols, 1), id: \.self) { c in
+                        let count = (c < u.cells.count && r < u.cells[c].count) ? u.cells[c][r] : 0
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6).fill(intensityColor(count, u.max))
+                            RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.25))
+                            if count > 0 { Text("\(count)").font(.system(.caption, design: .rounded)).foregroundColor(.primary) }
+                        }
+                        .frame(maxWidth: .infinity).frame(height: min(84, 260 / CGFloat(max(u.rows, 1))))
+                    }
                 }
             }
         }
+        .frame(maxWidth: 520)
     }
 
-    private func cell(_ key: String) -> some View {
-        let count = usage[key] ?? 0
-        let intensity = count > 0 ? Double(count) / Double(maxCount) : 0
-        return VStack(spacing: 1) {
-            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundColor(count > 0 ? .primary : .secondary.opacity(0.5))
-            Text(count > 0 ? "\(count)" : "").font(.system(size: 8)).foregroundColor(.secondary)
+    // Keyboard: zone keys colored by usage.
+    private var keyboardHeatmap: some View {
+        let usage = model.zoneUsage(app: appFilter, monitor: monitorFilter)
+        let maxCount = max(usage.values.max() ?? 1, 1)
+        return VStack(spacing: 4) {
+            ForEach(model.keyboardRows.indices, id: \.self) { r in
+                HStack(spacing: 4) {
+                    ForEach(model.keyboardRows[r], id: \.self) { key in
+                        let count = usage[key] ?? 0
+                        VStack(spacing: 1) {
+                            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundColor(count > 0 ? .primary : .secondary.opacity(0.5))
+                            Text(count > 0 ? "\(count)" : "").font(.system(size: 8)).foregroundColor(.secondary)
+                        }
+                        .frame(width: 52, height: 38)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(intensityColor(count, maxCount)))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.secondary.opacity(0.2)))
+                    }
+                }
+            }
         }
-        .frame(width: 52, height: 38)
-        .background(RoundedRectangle(cornerRadius: 5)
-            .fill(count > 0 ? Color.accentColor.opacity(0.12 + 0.78 * intensity) : Color(NSColor.controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.secondary.opacity(0.2)))
     }
 }
 
@@ -83,7 +155,7 @@ public final class AnalyticsWindowController {
         let w = NSWindow(contentViewController: hosting)
         w.title = "ZoneTilerWM Analytics"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        w.setContentSize(NSSize(width: 620, height: 620))
+        w.setContentSize(NSSize(width: 660, height: 720))
         w.isReleasedWhenClosed = false
         w.center()
         window = w

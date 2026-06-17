@@ -221,15 +221,36 @@ public final class SettingsModel: ObservableObject {
             .sorted { $0.count > $1.count }
     }
 
-    /// Total learned count per zone key (optionally for one monitor), for the usage heatmap.
-    public func zoneUsage(monitor: String?) -> [String: Int] {
+    /// Total learned count per zone key, optionally filtered by app/monitor — for the key heatmap.
+    public func zoneUsage(app: String? = nil, monitor: String? = nil) -> [String: Int] {
         var out: [String: Int] = [:]
-        for p in preferences where monitor == nil || p.monitor == monitor {
+        for p in preferences where (app == nil || p.app == app) && (monitor == nil || p.monitor == monitor) {
             out[p.zone, default: 0] += p.count
         }
         return out
     }
+
+    /// Spatial occupancy per grid cell ([col][row-1]) for a given grid, filtered by app/monitor:
+    /// each learned (zone, tile) is resolved to its cell span in that grid and its count added to
+    /// every covered cell. Returns the grid (cols,rows), the counts, and the max for normalizing.
+    public func cellUsage(grid: String, app: String? = nil, monitor: String? = nil)
+        -> (cols: Int, rows: Int, cells: [[Int]], max: Int) {
+        guard let g = config.zoneConfig.grids[grid], let layout = config.zoneConfig.layouts[grid] else {
+            return (0, 0, [], 0)
+        }
+        var cells = Array(repeating: Array(repeating: 0, count: g.rows), count: g.cols)
+        for p in preferences where (app == nil || p.app == app) && (monitor == nil || p.monitor == monitor) {
+            guard let tiles = layout[p.zone], let idx = Int(p.tile), idx >= 1, idx <= tiles.count,
+                  let span = GridCells.parse(tiles[idx - 1]) else { continue }
+            for c in span.c0...span.c1 where c < g.cols {
+                for r in span.r0...span.r1 where r >= 1 && r - 1 < g.rows { cells[c][r - 1] += p.count }
+            }
+        }
+        return (g.cols, g.rows, cells, cells.flatMap { $0 }.max() ?? 0)
+    }
+
     public var monitorsInData: [String] { Array(Set(preferences.map { $0.monitor })).sorted() }
+    public var appsInData: [String] { Array(Set(preferences.map { $0.app }.filter { !$0.isEmpty })).sorted() }
 }
 
 public struct SettingsView: View {
