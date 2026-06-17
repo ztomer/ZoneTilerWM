@@ -27,7 +27,10 @@ final class AgentController: NSObject {
     private let coordinator: TilerCoordinator
     private let autoTilerConfig: AutoTiler.Config
     private let appSwitcher: AppSwitcher.Config
+    private let pomodoro: Pomodoro
     private var statusItem: NSStatusItem?
+    private var pomodoroItem: NSStatusItem?
+    private var pomodoroTimer: Timer?
 
     init(config: ConfigLoader.LoadedConfig) {
         let screens = NSScreenProvider()
@@ -52,6 +55,9 @@ final class AgentController: NSObject {
                                        memory: memory, monitorManager: monitorManager, storage: storage)
         autoTilerConfig = config.autoTilerConfig()
         appSwitcher = config.appSwitcher
+        pomodoro = Pomodoro(config: .init(workPeriodSec: config.pomodoroWorkSec,
+                                          restPeriodSec: config.pomodoroRestSec,
+                                          enableColorBar: config.pomodoroEnableColorBar))
         super.init()
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
     }
@@ -128,6 +134,39 @@ final class AgentController: NSObject {
         log("zt-agent: audio hotkey \(modifier)+\(key) -> \(ok ? "ok" : "FAILED")")
     }
 
+    /// Generic hotkey binder for resolved (modifier, key) pairs.
+    func bindAction(_ resolved: (modifier: [String], key: String)?, label: String, action: @escaping () -> Void) {
+        guard let h = resolved, let code = KeyMap.keyCode(for: h.key) else { return }
+        let mask = KeyMap.modifierMask(for: h.modifier)
+        guard mask != 0 else { return }
+        let ok = binder.bind(keyCode: code, modifiers: mask, action: action)
+        log("zt-agent: \(label) hotkey \(h.modifier)+\(h.key) -> \(ok ? "ok" : "FAILED")")
+    }
+
+    func setupPomodoro(_ config: ConfigLoader.LoadedConfig) {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.button?.title = ""   // shown only while active
+        pomodoroItem = item
+        bindAction(config.resolvedHotkey("enable", in: config.pomodoroHotkeys), label: "pomodoro.enable") { [weak self] in
+            self?.pomodoro.enable(); self?.refreshPomodoro()
+        }
+        bindAction(config.resolvedHotkey("disable", in: config.pomodoroHotkeys), label: "pomodoro.disable") { [weak self] in
+            _ = self?.pomodoro.disable(); self?.refreshPomodoro()
+        }
+        bindAction(config.resolvedHotkey("reset", in: config.pomodoroHotkeys), label: "pomodoro.reset") { [weak self] in
+            self?.pomodoro.resetWork(); self?.refreshPomodoro()
+        }
+        pomodoroTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            _ = self.pomodoro.tick()
+            self.refreshPomodoro()
+        }
+    }
+
+    private func refreshPomodoro() {
+        pomodoroItem?.button?.title = pomodoro.isActive ? pomodoro.displayString : ""
+    }
+
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "⊞"
@@ -151,6 +190,7 @@ app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 
 let controller = AgentController(config: config)
 controller.setupStatusItem()
+controller.setupPomodoro(config)
 controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
 controller.bindFocusHotkeys(modifier: config.focusModifier, zoneKeys: zoneKeys.sorted())
 if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }

@@ -43,6 +43,18 @@ public enum ConfigLoader {
         public var audioHotkeyModifier: [String]
         public var audioHotkeyKey: String?
         public var audioShortcutCallback: String?
+        public var pomodoroWorkSec: Int
+        public var pomodoroRestSec: Int
+        public var pomodoroEnableColorBar: Bool
+        public var pomodoroHotkeys: [String: [String]]   // action -> [modifierAlias, key]
+        public var tilerHotkeys: [String: [String]]      // action -> [modifierAlias, key]
+
+        /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
+        public func resolvedHotkey(_ action: String, in group: [String: [String]]) -> (modifier: [String], key: String)? {
+            guard let pair = group[action], pair.count >= 2 else { return nil }
+            let modifier = aliases[pair[0]] ?? [pair[0]]
+            return (modifier, pair[1])
+        }
     }
 
     // MARK: - TOML decode model (only the sections the ported core needs)
@@ -79,6 +91,7 @@ public enum ConfigLoader {
         var placement_strategy: String?
         var modifier: String?
         var focus_modifier: String?
+        var hotkeys: [String: [String]]?
     }
 
     private struct RawWindowMemory: Decodable {
@@ -127,9 +140,17 @@ public enum ConfigLoader {
         var shortcut_callback: String?
     }
 
+    private struct RawPomodoro: Decodable {
+        var work_period_sec: Int?
+        var rest_period_sec: Int?
+        var enable_color_bar: Bool?
+        var hotkeys: [String: [String]]?
+    }
+
     private struct RawConfig: Decodable {
         var version: String?
         var tiler: RawTiler
+        var pomodoro: RawPomodoro?
         var window_memory: RawWindowMemory?
         var aliases: [String: [String]]?
         var app_switcher: RawAppSwitcher?
@@ -218,7 +239,12 @@ public enum ConfigLoader {
             audioDevices: raw.audio_switcher?.devices ?? [],
             audioHotkeyModifier: resolveMod((raw.audio_switcher?.hotkey ?? []).first),
             audioHotkeyKey: (raw.audio_switcher?.hotkey ?? []).count >= 2 ? raw.audio_switcher?.hotkey?[1] : nil,
-            audioShortcutCallback: raw.audio_switcher?.shortcut_callback)
+            audioShortcutCallback: raw.audio_switcher?.shortcut_callback,
+            pomodoroWorkSec: raw.pomodoro?.work_period_sec ?? 3120,
+            pomodoroRestSec: raw.pomodoro?.rest_period_sec ?? 1020,
+            pomodoroEnableColorBar: raw.pomodoro?.enable_color_bar ?? true,
+            pomodoroHotkeys: raw.pomodoro?.hotkeys ?? [:],
+            tilerHotkeys: t.hotkeys ?? [:])
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {
