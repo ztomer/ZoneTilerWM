@@ -245,7 +245,7 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 | Window hints | window_hints hotkey | live (label badges + type-to-focus); unit (label assignment) |
 | Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
 | Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
-| Settings GUI | menubar → Settings… | live (General / Keybinds editor / visual Layout editor / Memory) |
+| Settings GUI | menubar → Settings… | live (General / Keybinds / Layouts / Analytics) |
 
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
 `AudioDevices`, `Overlay` (flash/bar/grid/hints), `ConfigWatcher` (file-watch reload),

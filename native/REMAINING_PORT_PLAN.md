@@ -187,14 +187,23 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
   watcher + menu item).
 - **Placement-mode / zone-info overlays** — N/A: in the Lua these hotkeys ARE move-to-monitor
   (next/previous), already done in Slice 4. Not separate overlays.
-- **ZTUI v2 editors** — DONE. Keybind editor (modifier-alias pickers + per-action chord
-  display in ⇧⌃⌥⌘ glyphs + Record via an NSEvent chord recorder) and a visual layout editor
-  (pick grid + zone; click two cells to span a rectangle; Add/Remove/Save the zone's tile
-  cycle on a rendered grid). Both write through the surgical `TOMLEditor`; saving triggers
-  Slice 2's live reload. Pure logic in ZTCore (`GridCells` parse/format, `Keybinding` alias
-  match) is unit-tested; views validated by screenshots; end-to-end edit→write→reload verified
-  live. Caveat: while recording a chord, the agent's global hotkeys are still active, so a
-  captured combo also fires its current action once (cosmetic; new binding applies on save).
+- **ZTUI settings** — DONE and then redesigned per feedback. IA: **General / Keybinds /
+  Layouts / Analytics**.
+  - General: fully actionable — Config Reveal/Open, working-set stepper, margins toggle + size
+    stepper, grouped form.
+  - Keybinds: each action = name | modifier-alias picker | key recorder | ⌃⌘K preview (modifier
+    and key decoupled); Tile/Focus modifier pickers; **app-shortcuts editor** (appCuts +
+    hyperAppCuts: per-group modifier + editable key→app fields).
+  - Layouts: **monitor → grid → zones** hierarchy — monitors list with auto-detected grid +
+    override picker (persists to custom_screens) + Edit-zones; **visual zone previews**
+    (mini-grid per zone, first tile highlighted); click-two-cells tile editor for the selected
+    zone.
+  - Analytics: the learned-placements table (read-only) moved out of the editable tabs.
+  - Writes go through the surgical `TOMLEditor` (now with `setOrAppend` + `removeSection`,
+    tested); saves trigger Slice 2's live reload. Pure logic (`GridCells`, `Keybinding`)
+    unit-tested; all four tabs validated by screenshots. Caveat: while recording a key the
+    agent's global hotkeys stay active, so a captured combo fires its current action once
+    (cosmetic; new binding applies on save).
 
 ---
 
