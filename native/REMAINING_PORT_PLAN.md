@@ -175,6 +175,26 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
 
 ---
 
+## Config-feature gaps (from a settings audit)
+
+The settings panel now exposes every config feature the v2 agent actually consumes
+(General gained Pomodoro / Audio / Window-memory / Advanced solver-weights sections +
+working-set staleness, center-zones, margins screen-edge — commit 8553d40).
+
+**Decoded but NOT yet wired in the agent** (so deliberately not exposed — wire the behavior
+first, then add UI): `window_memory.app_zones` (per-app default zone — never applied),
+`window_memory.default_zone`, `window_memory.auto_tile_fallback`, `window_memory.settle_delay_sec`
+(agent passes settleEnabled:true, ignores the value), `window_memory.save_interval_sec` (saves
+on-learn, no interval timer).
+
+**Lua config the v2 agent doesn't model at all** (port the feature before any UI):
+`reposition_on_screen_change`, `center_modals` / `window_handling.modal_dialog_behavior`,
+`auto_tile_deduction_excludes`, `tiler.flash_on_focus` (always on), `overlap_threshold`
+(hardcoded 0.5), `focus_cycle_all_tiles`, `[tiler.advanced]` (applescript movement / window
+cache / enterprise_mode / debug_logging), `[tiler.delays]`, `[tiler.cache_size]`,
+`[window_memory.hotkeys]` capture/restore, `[layout_manager]`, `[tiler.screen_detection]` rule
+editing (per-monitor override covers the common case).
+
 ## Slice 5 — Smaller remaining parity (batch later)
 
 - **Window hints** — DONE. Port of `hs.hints.windowHints`: `WindowHints` (ZTCore, pure
