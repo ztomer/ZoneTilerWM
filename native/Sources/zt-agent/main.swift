@@ -336,6 +336,17 @@ final class AgentController: NSObject {
         }
         bindMiscHotkeys(config)
         bindPomodoroHotkeys()
+        logHotkeyConflicts()
+    }
+
+    /// Non-blocking: warn (stderr) about any combo bound to more than one action. The binds still
+    /// happen — last-registered wins in Carbon — but the user is told which shortcuts collide so
+    /// they can resolve it in Settings. Runs on startup and after every live reload.
+    func logHotkeyConflicts() {
+        let conflicts = config.hotkeyConflicts()
+        guard !conflicts.isEmpty else { return }
+        log("zt-agent: WARNING — \(conflicts.count) hotkey conflict(s):")
+        for c in conflicts { log("  \(c.description)") }
     }
 
     // MARK: - Live config reload

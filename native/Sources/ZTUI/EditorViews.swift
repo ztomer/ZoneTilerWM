@@ -89,6 +89,29 @@ struct ModifierLegend: View {
     }
 }
 
+/// Non-blocking warning shown atop the Keys tab when one combo drives more than one action
+/// (e.g. ⇧⌃⌘0 bound to both Pomodoro reset and Focus-zone-0). Hidden entirely when clean.
+struct ConflictBanner: View {
+    let conflicts: [HotkeyConflicts.Conflict]
+    var body: some View {
+        if !conflicts.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("\(conflicts.count) shortcut conflict\(conflicts.count == 1 ? "" : "s")",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.orange)
+                ForEach(conflicts, id: \.combo) { c in
+                    Text(c.description).font(.caption).foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color.orange.opacity(0.12))
+            .cornerRadius(8)
+        }
+    }
+}
+
 /// One reusable hotkey row: label | modifier-alias picker | key recorder. Self-contained
 /// (its own recorder) so a feature can host its own keys (e.g. the Pomodoro tab) without the
 /// generic Keybinds tab. Names are shown bare; a ModifierLegend explains the glyphs.
@@ -152,6 +175,7 @@ struct KeybindEditorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                ConflictBanner(conflicts: model.config.hotkeyConflicts())
                 ModifierLegend(aliases: model.config.aliases)
                 groupBox("Modifiers") {
                     modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
