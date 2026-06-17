@@ -12,3 +12,4 @@ native/.build/
 ZoneTilerWM.xcodeproj/
 build/
 *.iconset
+dist/
