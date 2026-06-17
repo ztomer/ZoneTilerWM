@@ -160,6 +160,37 @@ case "place":
     }
     FileHandle.standardOutput.write(try encoder.encode(out))
 
+case "strategy":
+    struct OccIn: Decodable { var id: Int; var frame: ZTRect }
+    struct StateIn: Decodable { var zone_key: String?; var tile_index: Int? }
+    struct CurrentIn: Decodable { var frame: ZTRect; var state: StateIn? }
+    struct Scenario: Decodable {
+        var strategy: String
+        var tiles: [ZTRect]
+        var zone_key: String
+        var current: CurrentIn
+        var occupied: [OccIn]?
+        var self_id: Int?
+    }
+    struct Out: Encodable { let found: Bool; let tile: ZTRect? }
+
+    guard let scenario = try? JSONDecoder().decode(Scenario.self, from: input) else {
+        fail("bad strategy scenario JSON")
+    }
+    let occupied = (scenario.occupied ?? []).map {
+        PlacementStrategy.OccupiedWindow(id: $0.id, frame: $0.frame)
+    }
+    let tile = PlacementStrategy.findBestTile(
+        strategy: PlacementStrategy.Strategy(config: scenario.strategy),
+        tiles: scenario.tiles,
+        zoneKey: scenario.zone_key,
+        currentFrame: scenario.current.frame,
+        stateZoneKey: scenario.current.state?.zone_key,
+        stateTileIndex: scenario.current.state?.tile_index,
+        occupied: occupied,
+        selfId: scenario.self_id ?? 999)
+    FileHandle.standardOutput.write(try encoder.encode(Out(found: tile != nil, tile: tile)))
+
 default:
-    fail("unknown mode '\(mode)' (expected 'solve', 'zones', 'memory', or 'place')")
+    fail("unknown mode '\(mode)' (expected 'solve', 'zones', 'memory', 'place', or 'strategy')")
 }

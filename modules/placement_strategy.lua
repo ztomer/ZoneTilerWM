@@ -90,7 +90,7 @@ function placement_strategy.find_largest_free_tile(window, all_tiles_in_zone, al
 
     -- Calculate available space for each tile (tile area minus overlap with other windows)
     local tile_options = {}
-    for _, candidate_tile in ipairs(all_tiles_in_zone) do
+    for i, candidate_tile in ipairs(all_tiles_in_zone) do
         local tile_area = candidate_tile.w * candidate_tile.h
         local overlap = 0
 
@@ -105,13 +105,16 @@ function placement_strategy.find_largest_free_tile(window, all_tiles_in_zone, al
         table.insert(tile_options, {
             tile = candidate_tile,
             area = tile_area,
-            available = available_space
+            available = available_space,
+            orig = i -- preserved original index for deterministic tie-break
         })
     end
 
-    -- Sort by available space (largest first)
+    -- Sort by available space (largest first); total order (orig index asc on ties) so
+    -- the result is deterministic (table.sort is unstable).
     table.sort(tile_options, function(a, b)
-        return a.available > b.available
+        if a.available ~= b.available then return a.available > b.available end
+        return a.orig < b.orig
     end)
 
     -- Helper to compare tiles
