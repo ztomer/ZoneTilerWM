@@ -358,6 +358,37 @@ final class AgentController: NSObject {
         configWatcher?.start()
     }
 
+    // MARK: - Display arrangement
+
+    /// Register every connected screen in enumeration order so logical monitor ids match the
+    /// on-disk window_positions.json numbering (main display == 1), like Lua's
+    /// monitor_manager.init(). Must run before any tile/move op: lazy registration would let
+    /// whichever monitor the first op touches steal id 1 and read the wrong monitor's learned
+    /// preferences. Idempotent (reregister preserves existing ids), so it doubles as the
+    /// screen-change handler.
+    func seedMonitors() {
+        let uuids = screens.allScreens().map { $0.uuid }
+        monitorManager.reregister(uuids: uuids)
+        let arrangement = screens.allScreens()
+            .map { "\(monitorManager.id(forUUID: $0.uuid))=\($0.name) \(Int($0.fullFrame.w))x\(Int($0.fullFrame.h))" }
+            .joined(separator: ", ")
+        log("zt-agent: \(uuids.count) display(s): \(arrangement)")
+    }
+
+    /// React to connect / disconnect / rearrange / resolution change. Re-register the current
+    /// screens (new displays get a stable id immediately, in enumeration order; existing ids are
+    /// preserved across a reconnect). Zones are recomputed live on every op, so nothing else is
+    /// cached to invalidate — this just keeps the id↔display mapping correct, which is what makes
+    /// zone memory and resize offsets resolve to the right monitor after a hot-plug.
+    func setupScreenWatch() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            log("zt-agent: display arrangement changed — re-registering monitors")
+            self?.seedMonitors()
+        }
+    }
+
     private func reloadFromDisk() {
         guard let newConfig = try? ConfigLoader.load(contentsOf: configURL) else {
             log("zt-agent: config reload skipped — could not parse \(configURL.lastPathComponent)")
@@ -691,6 +722,8 @@ app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 let controller = AgentController(config: config, configURL: configURL)
 controller.setupStatusItem()
 controller.setupPomodoro()
+controller.seedMonitors()          // before any tile/move op, so logical ids match on-disk data
+controller.setupScreenWatch()
 controller.setupFocusTracking()
 controller.bindAllHotkeys()
 controller.setupConfigWatch()

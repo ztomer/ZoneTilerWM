@@ -168,6 +168,42 @@ final class TilerCoordinatorTests: XCTestCase {
                         fullFrame: ZTRect(x: 1000, y: 0, w: 1000, h: 1000))]
     }
 
+    // Regression: logical monitor ids must follow screen-enumeration order, not the order
+    // the first window-op happens to touch. The MonitorManager registry is in-memory and
+    // re-derived each launch (like Lua's monitor_manager.init), so on-disk monitor_id "1"
+    // means the main display. If we tile on the SECONDARY display first and assign lazily,
+    // the secondary steals id 1 and reads the main display's learned preferences — i.e. zone
+    // memory "doesn't refresh properly" after a (re)connect. Seeding the registry from
+    // allScreens() up front fixes it.
+    func testLazyRegistrationMiskeysSecondaryMonitor() {
+        let ws = FakeWindowSystem()
+        // Focused window lives on M2 (the secondary), and we act on it before ever touching M1.
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 1000, y: 0, w: 400, h: 300), screenUUID: "M2")
+        let mm = MonitorManager()
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider(twoScreens()),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     monitorManager: mm)
+        _ = coord.moveFocusedToZone("y")
+        // Bug: M2 grabbed logical id 1 (what the on-disk data calls the main display).
+        XCTAssertEqual(mm.id(forUUID: "M2"), 1)
+        XCTAssertEqual(mm.id(forUUID: "M1"), 2)
+    }
+
+    func testSeedingRegistryFromScreenOrderKeysCorrectly() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 1000, y: 0, w: 400, h: 300), screenUUID: "M2")
+        let provider = FakeScreenProvider(twoScreens())
+        let mm = MonitorManager()
+        mm.reregister(uuids: provider.allScreens().map { $0.uuid })   // the startup-seed step
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: provider,
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     monitorManager: mm)
+        _ = coord.moveFocusedToZone("y")
+        // Seeded in enumeration order: main M1 == 1, secondary M2 == 2, regardless of op order.
+        XCTAssertEqual(mm.id(forUUID: "M1"), 1)
+        XCTAssertEqual(mm.id(forUUID: "M2"), 2)
+    }
+
     func testFocusScreenFocusesSameAppOnTarget() {
         let ws = FakeWindowSystem()
         ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")

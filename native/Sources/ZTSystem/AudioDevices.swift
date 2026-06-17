@@ -28,9 +28,12 @@ public enum AudioDevices {
         guard AudioObjectGetPropertyData(system, &address, 0, nil, &dataSize, &ids) == noErr else { return [] }
 
         return ids.compactMap { id in
+            // Some outputs (e.g. a monitor's DisplayPort audio) report a non-nil but EMPTY name
+            // or uid. The switcher references devices by name from config, so a nameless device
+            // is unusable — drop it rather than surface an unselectable entry.
             guard isOutput(id),
-                  let name = stringProperty(id, kAudioObjectPropertyName),
-                  let uid = stringProperty(id, kAudioDevicePropertyDeviceUID) else { return nil }
+                  let name = stringProperty(id, kAudioObjectPropertyName), !name.isEmpty,
+                  let uid = stringProperty(id, kAudioDevicePropertyDeviceUID), !uid.isEmpty else { return nil }
             return Device(name: name, uid: uid, id: id)
         }
     }
