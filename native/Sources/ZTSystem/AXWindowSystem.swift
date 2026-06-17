@@ -39,6 +39,33 @@ public final class AXWindowSystem: WindowSystem {
     private let screenProvider: ScreenProvider
     public init(screenProvider: ScreenProvider) { self.screenProvider = screenProvider }
 
+    /// Per-pid memo of "does this app have AXEnhancedUserInterface on?". SentinelOne hooks and
+    /// analyzes every AX call, so the read below is itself a real cost; the flag is set by the
+    /// app at launch and stable for its process lifetime, so we read it at most once per app and
+    /// reuse it on every subsequent move. Native-AX apps (cached false) then make ZERO extra AX
+    /// calls around a move; Firefox/Zen-class apps (cached true) keep the exact toggle. Keyed by
+    /// pid, so a relaunched app gets a fresh read.
+    private var enhancedUICache: [pid_t: Bool] = [:]
+
+    private func appUsesEnhancedUI(_ appElem: AXUIElement, pid: pid_t) -> Bool {
+        if let cached = enhancedUICache[pid] { return cached }
+        var v: CFTypeRef?
+        let on = AXUIElementCopyAttributeValue(appElem, Self.kAXEnhancedUserInterface, &v) == .success
+            && (v as? Bool == true)
+        enhancedUICache[pid] = on
+        return on
+    }
+
+    /// Set a window's frame with the AXEnhancedUserInterface dance (Firefox/Zen quirk): toggle it
+    /// off around the set, restore after — but only when the app actually has it on, and reading
+    /// that state at most once per app (see `enhancedUICache`).
+    private func setFrameWithEnhancedToggle(_ window: AXUIElement, app: AXUIElement, pid: pid_t, rect: CGRect) {
+        let wasEnhanced = appUsesEnhancedUI(app, pid: pid)
+        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanFalse) }
+        Self.setFrame(window, rect)
+        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanTrue) }
+    }
+
     // MARK: - WindowSystem (live AX)
 
     public func focusedWindow() -> LiveWindow? {
@@ -69,22 +96,16 @@ public final class AXWindowSystem: WindowSystem {
         guard let app = NSWorkspace.shared.frontmostApplication,
               let axWin = focusedAXWindow(pid: app.processIdentifier) else { return false }
         let appElem = AXUIElementCreateApplication(app.processIdentifier)
-
-        // Always toggle AXEnhancedUserInterface for the move (Firefox/Zen-class apps need it).
-        var wasEnhanced = false
-        var v: CFTypeRef?
-        if AXUIElementCopyAttributeValue(appElem, Self.kAXEnhancedUserInterface, &v) == .success,
-           let b = v as? Bool { wasEnhanced = b }
-        if wasEnhanced { AXUIElementSetAttributeValue(appElem, Self.kAXEnhancedUserInterface, kCFBooleanFalse) }
-        Self.setFrame(axWin, CGRect(x: rect.x, y: rect.y, width: rect.w, height: rect.h))
-        if wasEnhanced { AXUIElementSetAttributeValue(appElem, Self.kAXEnhancedUserInterface, kCFBooleanTrue) }
+        setFrameWithEnhancedToggle(axWin, app: appElem, pid: app.processIdentifier,
+                                   rect: CGRect(x: rect.x, y: rect.y, width: rect.w, height: rect.h))
         return true
     }
 
     @discardableResult
     public func move(windowId: Int, to rect: ZTRect) -> Bool {
         guard let r = resolveWindow(windowId: windowId) else { return false }
-        applyFrame(r.window, app: r.app, rect: CGRect(x: rect.x, y: rect.y, width: rect.w, height: rect.h))
+        setFrameWithEnhancedToggle(r.window, app: r.app, pid: r.pid,
+                                   rect: CGRect(x: rect.x, y: rect.y, width: rect.w, height: rect.h))
         return true
     }
 
@@ -102,18 +123,6 @@ public final class AXWindowSystem: WindowSystem {
         guard let r = resolveWindow(windowId: windowId) else { return false }
         let value: CFBoolean = minimized ? kCFBooleanTrue : kCFBooleanFalse
         return AXUIElementSetAttributeValue(r.window, kAXMinimizedAttribute as CFString, value) == .success
-    }
-
-    /// Apply a frame with the AXEnhancedUserInterface toggle (Firefox/Zen quirk), pos-then-size.
-    private func applyFrame(_ window: AXUIElement, app: AXUIElement, rect: CGRect) {
-        var wasEnhanced = false
-        var v: CFTypeRef?
-        if AXUIElementCopyAttributeValue(app, Self.kAXEnhancedUserInterface, &v) == .success, let b = v as? Bool {
-            wasEnhanced = b
-        }
-        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanFalse) }
-        Self.setFrame(window, rect)
-        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanTrue) }
     }
 
     /// Resolve a CGWindowID to its AX window + owning app element via _AXUIElementGetWindow.
