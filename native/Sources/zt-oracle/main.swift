@@ -265,6 +265,53 @@ case "autotiler":
     }
     FileHandle.standardOutput.write(try encoder.encode(Out(moves: out)))
 
+case "movezone":
+    final class FakeWS: WindowSystem {
+        let focused: LiveWindow?
+        let onScreen: [LiveWindow]
+        init(focused: LiveWindow?, onScreen: [LiveWindow]) { self.focused = focused; self.onScreen = onScreen }
+        func focusedWindow() -> LiveWindow? { focused }
+        func windows(onScreen uuid: String) -> [LiveWindow] { onScreen }
+        @discardableResult func moveFocusedWindow(to rect: ZTRect) -> Bool { true }
+    }
+    final class FakeSP: ScreenProvider {
+        let screens: [ScreenSnapshot]
+        init(_ s: [ScreenSnapshot]) { screens = s }
+        func allScreens() -> [ScreenSnapshot] { screens }
+        func mainScreen() -> ScreenSnapshot? { screens.first }
+        func screen(uuid: String) -> ScreenSnapshot? { screens.first { $0.uuid == uuid } }
+    }
+    struct OccIn: Decodable { var id: Int; var frame: ZTRect }
+    struct WinIn: Decodable { var frame: ZTRect }
+    struct ScreenIn: Decodable { var name: String; var frame: ZTRect }
+    struct Scenario: Decodable {
+        var screen: ScreenIn
+        var config: ZoneConfig
+        var zone_key: String
+        var strategy: String
+        var window: WinIn
+        var occupied: [OccIn]?
+        var self_id: Int?
+    }
+    struct Out: Encodable { let found: Bool; let zone_key: String?; let tile_index: Int?; let rect: ZTRect? }
+
+    guard let s = try? JSONDecoder().decode(Scenario.self, from: input) else { fail("bad movezone JSON") }
+    let selfId = s.self_id ?? 999
+    let screen = ScreenSnapshot(uuid: "M1", name: s.screen.name, frame: s.screen.frame, fullFrame: s.screen.frame)
+    let focused = LiveWindow(id: selfId, appName: "Focused", frame: s.window.frame, screenUUID: "M1")
+    let onScreen = [focused] + (s.occupied ?? []).map {
+        LiveWindow(id: $0.id, appName: "Other", frame: $0.frame, screenUUID: "M1")
+    }
+    let coord = TilerCoordinator(windowSystem: FakeWS(focused: focused, onScreen: onScreen),
+                                 screenProvider: FakeSP([screen]),
+                                 zoneConfig: s.config, placementStrategy: s.strategy)
+    let out: Out
+    switch coord.moveFocusedToZone(s.zone_key) {
+    case .success(let o): out = Out(found: true, zone_key: o.zoneKey, tile_index: o.tileIndex, rect: o.target)
+    case .failure: out = Out(found: false, zone_key: nil, tile_index: nil, rect: nil)
+    }
+    FileHandle.standardOutput.write(try encoder.encode(out))
+
 default:
-    fail("unknown mode '\(mode)' (expected solve/zones/memory/place/strategy/autotiler)")
+    fail("unknown mode '\(mode)' (expected solve/zones/memory/place/strategy/autotiler/movezone)")
 }

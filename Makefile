@@ -21,7 +21,7 @@ test-lua:
 	@lua tests/test_runner.lua
 
 diff:
-	@for m in solver zones memory place strategy autotiler; do tools/diff_$$m.sh 100; done
+	@for m in solver zones memory place strategy autotiler movezone; do tools/diff_$$m.sh 100; done
 
 build:
 	@cd native && swift build

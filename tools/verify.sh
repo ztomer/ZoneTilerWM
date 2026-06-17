@@ -17,7 +17,7 @@ echo "== swift test =="
 [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "  swift test FAILED"; fail=1; }
 
 echo "== differential harnesses ($N fuzz seeds each) =="
-for m in solver zones memory place strategy autotiler; do
+for m in solver zones memory place strategy autotiler movezone; do
   out="$(tools/diff_$m.sh "$N" 2>&1)"; status=$?
   printf "  %-10s %s\n" "$m:" "$(printf '%s' "$out" | tail -1)"
   [ "$status" -eq 0 ] || fail=1
