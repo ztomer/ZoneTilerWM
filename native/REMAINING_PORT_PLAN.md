@@ -182,10 +182,11 @@ The settings panel now exposes every config feature the v2 agent actually consum
 working-set staleness, center-zones, margins screen-edge — commit 8553d40).
 
 **Decoded but NOT yet wired in the agent** (so deliberately not exposed — wire the behavior
-first, then add UI): `window_memory.app_zones` (per-app default zone — never applied),
-`window_memory.default_zone`, `window_memory.auto_tile_fallback`, `window_memory.settle_delay_sec`
-(agent passes settleEnabled:true, ignores the value), `window_memory.save_interval_sec` (saves
-on-learn, no interval timer).
+first, then add UI): `window_memory.default_zone`, `window_memory.auto_tile_fallback`,
+`window_memory.settle_delay_sec` (agent passes settleEnabled:true, ignores the value),
+`window_memory.save_interval_sec` (saves on-learn, no interval timer).
+(`window_memory.app_zones` — DONE, bda08b8: wired as the auto-tile default-zone fallback +
+editor. NB: this is new behavior; the Lua never applied app_zones either.)
 
 **Lua config the v2 agent doesn't model at all** (port the feature before any UI):
 `reposition_on_screen_change`, `center_modals` / `window_handling.modal_dialog_behavior`,
