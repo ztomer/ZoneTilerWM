@@ -22,6 +22,51 @@ guard let config = try? ConfigLoader.load(contentsOf: configURL) else {
     exit(2)
 }
 
+/// A frosted-glass capsule for the Pomodoro time in the menubar: a behind-window
+/// NSVisualEffectView (real vibrancy) clipped to a rounded capsule, with the time on top.
+final class PomodoroPillView: NSView {
+    private let effect = NSVisualEffectView()
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+        effect.translatesAutoresizingMaskIntoConstraints = false
+        effect.material = .menu
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = 8
+        effect.layer?.masksToBounds = true
+        effect.layer?.borderWidth = 0.5
+        effect.layer?.borderColor = NSColor.separatorColor.cgColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        label.alignment = .center
+        label.textColor = .labelColor
+        label.backgroundColor = .clear
+        addSubview(effect)
+        addSubview(label)   // on top of the effect
+        NSLayoutConstraint.activate([
+            effect.leadingAnchor.constraint(equalTo: leadingAnchor),
+            effect.trailingAnchor.constraint(equalTo: trailingAnchor),
+            effect.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            effect.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Set the text; returns the total width to use for the status-item length.
+    @discardableResult func update(_ text: String) -> CGFloat {
+        label.stringValue = text
+        let w = (text as NSString).size(withAttributes: [.font: label.font as Any]).width
+        return ceil(w) + 18
+    }
+}
+
 final class AgentController: NSObject {
     private let binder = CarbonHotkeyBinder()
     private let screens: NSScreenProvider
@@ -55,6 +100,7 @@ final class AgentController: NSObject {
     private let pomodoro: Pomodoro
     private var statusItem: NSStatusItem?
     private var pomodoroItem: NSStatusItem?
+    private var pomodoroPill: PomodoroPillView?
     private var pomodoroTimer: Timer?
     private var focusTimer: Timer?
     private let flash = FlashOverlay()
@@ -237,8 +283,20 @@ final class AgentController: NSObject {
     /// One-time: the menubar item + the 1s countdown timer. Pomodoro hotkeys are (re)bound in
     /// bindAllHotkeys so they pick up config-reload changes.
     func setupPomodoro() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = ""   // shown only while active
+        let item = NSStatusBar.system.statusItem(withLength: 0)   // hidden until active
+        item.button?.title = ""
+        let pill = PomodoroPillView(frame: .zero)
+        pill.isHidden = true
+        if let b = item.button {
+            b.addSubview(pill)
+            NSLayoutConstraint.activate([
+                pill.leadingAnchor.constraint(equalTo: b.leadingAnchor),
+                pill.trailingAnchor.constraint(equalTo: b.trailingAnchor),
+                pill.topAnchor.constraint(equalTo: b.topAnchor),
+                pill.bottomAnchor.constraint(equalTo: b.bottomAnchor),
+            ])
+        }
+        pomodoroPill = pill
         pomodoroItem = item
         pomodoroTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -325,7 +383,18 @@ final class AgentController: NSObject {
     }
 
     private func refreshPomodoro() {
-        pomodoroItem?.button?.title = pomodoro.isActive ? pomodoro.displayString : ""
+        if pomodoro.isActive {
+            let m = pomodoro.timeLeft / 60, s = pomodoro.timeLeft % 60
+            let phase = pomodoro.phase == .work ? "Work" : "Rest"
+            let count = pomodoro.workCount > 0 ? "  ·\(pomodoro.workCount)" : ""
+            let text = String(format: "%@  %02d:%02d%@", phase, m, s, count)
+            let w = pomodoroPill?.update(text) ?? 0
+            pomodoroPill?.isHidden = false
+            pomodoroItem?.length = w
+        } else {
+            pomodoroPill?.isHidden = true
+            pomodoroItem?.length = 0
+        }
         if pomodoro.isActive && enableColorBar {
             pomodoroBar.update(timeLeft: pomodoro.timeLeft, maxTime: pomodoro.maxTimeSec,
                                heightRatio: pomodoroIndicatorHeight, alpha: pomodoroIndicatorAlpha,
@@ -492,23 +561,27 @@ final class AgentController: NSObject {
         gridOverlay.show(screenCGFrame: resizeScreenFrame, verticalX: lines.vertical, horizontalY: lines.horizontal)
     }
 
-    /// The menubar mark: a 2x2 zone grid with the top-left zone filled (matches the app icon).
-    /// Drawn as a template image so macOS tints it for light/dark menubars.
-    private static func menubarGlyph() -> NSImage {
+    /// The menubar mark: a 2x2 zone grid with the top-left zone in an amber accent (matches the
+    /// app icon). Colored (not a template), so the grid lines flip for light/dark menubars while
+    /// the accent stays — call updateMenubarGlyph() on appearance change.
+    private static func menubarGlyph(dark: Bool) -> NSImage {
         let s: CGFloat = 18
+        let lineColor = dark ? NSColor.white.withAlphaComponent(0.92) : NSColor.black.withAlphaComponent(0.82)
+        let amber = NSColor(red: 0.98, green: 0.70, blue: 0.20, alpha: 1)
         let img = NSImage(size: NSSize(width: s, height: s), flipped: false) { _ in
             let inset: CGFloat = 2.5
             let rect = NSRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
             let cx = rect.midX, cy = rect.midY
             let lw: CGFloat = 1.4
-            NSColor.black.set()
             let outline = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
-            // Fill the top-left quadrant, clipped to the rounded outline.
+            // Amber top-left quadrant, clipped to the rounded outline.
             NSGraphicsContext.saveGraphicsState()
             outline.addClip()
+            amber.set()
             NSBezierPath(rect: NSRect(x: rect.minX, y: cy, width: cx - rect.minX, height: rect.maxY - cy)).fill()
             NSGraphicsContext.restoreGraphicsState()
-            // Outline + cross lines.
+            // Outline + cross lines in the appearance-appropriate ink.
+            lineColor.set()
             outline.lineWidth = lw; outline.stroke()
             let cross = NSBezierPath()
             cross.move(to: NSPoint(x: cx, y: rect.minY)); cross.line(to: NSPoint(x: cx, y: rect.maxY))
@@ -516,14 +589,28 @@ final class AgentController: NSObject {
             cross.lineWidth = lw; cross.stroke()
             return true
         }
-        img.isTemplate = true
+        img.isTemplate = false   // keep the amber accent; we manage light/dark ourselves
         return img
+    }
+
+    private func isDarkMenubar() -> Bool {
+        let appearance = statusItem?.button?.effectiveAppearance ?? NSApp.effectiveAppearance
+        return appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
+    @objc func updateMenubarGlyph() {
+        statusItem?.button?.image = AgentController.menubarGlyph(dark: isDarkMenubar())
     }
 
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = AgentController.menubarGlyph()
+        statusItem = item
+        item.button?.image = AgentController.menubarGlyph(dark: isDarkMenubar())
         item.button?.title = ""
+        // Re-render the colored glyph when the system appearance flips.
+        DistributedNotificationCenter.default.addObserver(
+            self, selector: #selector(updateMenubarGlyph),
+            name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "ZoneTilerWM — v2 agent", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
@@ -536,7 +623,6 @@ final class AgentController: NSObject {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
-        statusItem = item
     }
 
     @objc func reloadConfig() { reloadFromDisk() }
