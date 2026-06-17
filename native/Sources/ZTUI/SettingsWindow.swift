@@ -18,8 +18,8 @@ public final class SettingsWindowController {
         let hosting = NSHostingController(rootView: SettingsView(model: model))
         let w = NSWindow(contentViewController: hosting)
         w.title = "ZoneTilerWM Settings"
-        w.styleMask = [.titled, .closable, .miniaturizable]
-        w.setContentSize(NSSize(width: 560, height: 460))
+        w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        w.setContentSize(NSSize(width: 760, height: 620))   // matches SettingsView ideal size
         w.isReleasedWhenClosed = false
         w.center()
         window = w

@@ -131,6 +131,14 @@ struct DefaultZonesSection: View {
     @State private var zoneEdits: [String: String] = [:]
     @State private var newApp = ""
     @State private var newZone = ""
+    @FocusState private var focusedApp: String?
+    @State private var lastFocusedApp: String?
+
+    /// Persist a row's edit (on Return or when it loses focus), so clicking away never drops it.
+    private func commit(_ app: String) {
+        guard let edit = zoneEdits[app] else { return }
+        model.setAppZone(app: app, zone: edit.trimmingCharacters(in: .whitespaces))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -145,9 +153,14 @@ struct DefaultZonesSection: View {
                         get: { zoneEdits[app] ?? model.config.windowMemory.appZones[app] ?? "" },
                         set: { zoneEdits[app] = $0 }))
                         .textFieldStyle(.roundedBorder).frame(width: 60).multilineTextAlignment(.center)
-                        .onSubmit { model.setAppZone(app: app, zone: (zoneEdits[app] ?? "").trimmingCharacters(in: .whitespaces)) }
+                        .focused($focusedApp, equals: app)
+                        .onSubmit { commit(app) }
                     Button { model.removeAppZone(app: app) } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
                 }
+            }
+            .onChange(of: focusedApp) { newValue in
+                if let previous = lastFocusedApp { commit(previous) }   // commit the row that lost focus
+                lastFocusedApp = newValue
             }
             HStack {
                 TextField("app name", text: $newApp).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
@@ -215,6 +228,14 @@ struct AdvancedSettings: View {
         ]
     }
 
+    @FocusState private var focusedWeight: String?
+    @State private var lastFocusedWeight: String?
+
+    /// Persist a weight on Return or when it loses focus, so clicking away never drops it.
+    private func commit(_ id: String) {
+        if let v = Int((edits[id] ?? "").trimmingCharacters(in: .whitespaces)) { model.setSolverWeight(id, v) }
+    }
+
     var body: some View {
         Section("Advanced — auto-tiler weights") {
             Text("Negative = reward, positive = penalty. Higher magnitude = stronger.")
@@ -225,8 +246,17 @@ struct AdvancedSettings: View {
                         get: { edits[w.id] ?? "\(w.value)" },
                         set: { edits[w.id] = $0 }))
                         .textFieldStyle(.roundedBorder).frame(width: 90).multilineTextAlignment(.trailing)
-                        .onSubmit { if let v = Int(edits[w.id] ?? "") { model.setSolverWeight(w.id, v) } }
+                        .focused($focusedWeight, equals: w.id)
+                        .onSubmit { commit(w.id) }
                 }
+            }
+            .onChange(of: focusedWeight) { newValue in
+                if let previous = lastFocusedWeight { commit(previous) }
+                lastFocusedWeight = newValue
+            }
+            HStack {
+                Spacer()
+                Button("Reset to defaults") { edits.removeAll(); model.resetSolverWeights() }
             }
         }
     }

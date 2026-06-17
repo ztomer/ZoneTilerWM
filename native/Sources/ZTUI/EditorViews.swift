@@ -112,6 +112,13 @@ struct ConflictBanner: View {
     }
 }
 
+/// Shared column widths so every hotkey/modifier row on a tab lines up vertically (the
+/// label column right-aligns to the same x, and the alias pickers share one width).
+enum KeyRowMetrics {
+    static let label: CGFloat = 170
+    static let picker: CGFloat = 150
+}
+
 /// One reusable hotkey row: label | modifier-alias picker | key recorder. Self-contained
 /// (its own recorder) so a feature can host its own keys (e.g. the Pomodoro tab) without the
 /// generic Keybinds tab. Names are shown bare; a ModifierLegend explains the glyphs.
@@ -120,7 +127,7 @@ struct HotkeyRowView: View {
     let label: String
     let section: String
     let key: String
-    var labelWidth: CGFloat = 190
+    var labelWidth: CGFloat = KeyRowMetrics.label
     @StateObject private var recorder = ChordRecorder()
 
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
@@ -136,7 +143,7 @@ struct HotkeyRowView: View {
                 get: { alias },
                 set: { model.setHotkey(section: section, key: key, alias: $0, keyName: keyName) })) {
                 ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
-            }.labelsHidden().frame(width: 130)
+            }.labelsHidden().frame(width: KeyRowMetrics.picker)
             Text("+").foregroundColor(.secondary)
             Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
                 recorder.start(id: key)
@@ -198,13 +205,13 @@ struct KeybindEditorView: View {
     }
 
     private func modifierRow(_ label: String, key: String, current: [String]) -> some View {
-        HStack {
-            Text(label).frame(width: 150, alignment: .trailing)
+        HStack(spacing: 8) {
+            Text(label).frame(width: KeyRowMetrics.label, alignment: .trailing)
             Picker("", selection: Binding(
                 get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias() },
                 set: { model.setModifierAlias(key: key, alias: $0) })) {
                 ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
-            }.labelsHidden().frame(width: 180)
+            }.labelsHidden().frame(width: KeyRowMetrics.picker)
             Spacer()
         }
     }
@@ -246,10 +253,14 @@ struct AppShortcutsView: View {
             ModifierLegend(aliases: model.config.aliases)
             Text("Each key shows the app it launches with the selected modifier. Click a key to edit.")
                 .font(.caption).foregroundColor(.secondary)
-            VStack(spacing: 4) {
-                ForEach(keyRows.indices, id: \.self) { r in
-                    HStack(spacing: 4) {
-                        ForEach(keyRows[r], id: \.self) { key in keycap(key, app: apps[key] ?? "") }
+            // Wide keyboard rows (a 10–13 key qwerty row is ~600px+) scroll horizontally
+            // rather than overflow / clip a narrow window.
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 4) {
+                    ForEach(keyRows.indices, id: \.self) { r in
+                        HStack(spacing: 4) {
+                            ForEach(keyRows[r], id: \.self) { key in keycap(key, app: apps[key] ?? "") }
+                        }
                     }
                 }
             }

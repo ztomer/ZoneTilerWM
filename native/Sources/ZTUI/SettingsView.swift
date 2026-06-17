@@ -107,6 +107,17 @@ public final class SettingsModel: ObservableObject {
     // Advanced: auto-tiler solver weights (integers; negative = reward).
     public func setSolverWeight(_ key: String, _ v: Int) { setOrAppend(section: "tiler.solver_weights", key: key, rawValue: "\(v)") }
 
+    /// Restore every solver weight to its CostWeights() default (one write/reload).
+    public func resetSolverWeights() {
+        let d = CostWeights()
+        let defaults: [(String, Double)] = [
+            ("memory_exact", d.memoryExact), ("memory_zone", d.memoryZone), ("coverage", d.coverage),
+            ("aspect_ratio", d.aspectRatio), ("area_ratio", d.areaRatio),
+            ("moved_dist", d.movedDist), ("skip_window", d.skipWindow),
+        ]
+        for (k, v) in defaults { setOrAppend(section: "tiler.solver_weights", key: k, rawValue: "\(Int(v))") }
+    }
+
     private func tomlArray(_ items: [String]) -> String {
         "[" + items.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
     }
@@ -277,7 +288,7 @@ public struct SettingsView: View {
             PomodoroTab(model: model).tabItem { Text("Pomodoro") }
             AdvancedTab(model: model).tabItem { Text("Advanced") }
         }
-        .frame(width: 680, height: 560)
+        .frame(minWidth: 720, idealWidth: 760, minHeight: 600, idealHeight: 620)
         .padding()
     }
 
