@@ -8,6 +8,7 @@
 import SwiftUI
 import AppKit
 import ZTCore
+import ZTSystem
 
 // MARK: - Modifier glyphs
 
@@ -52,8 +53,8 @@ final class ChordRecorder: ObservableObject {
             guard let self else { return ev }
             let key = ev.charactersIgnoringModifiers?.lowercased() ?? ""
             if key == "\u{1b}" { self.stop(); return nil }   // escape cancels
+            guard !key.isEmpty else { return nil }
             let tokens = ModGlyph.tokens(from: ev.modifierFlags)
-            guard !tokens.isEmpty, !key.isEmpty else { return nil }   // need a modifier+key
             self.onCapture?(tokens, key)
             self.stop()
             return nil   // swallow so the chord doesn't leak into the field
@@ -71,7 +72,6 @@ final class ChordRecorder: ObservableObject {
 struct KeybindEditorView: View {
     @ObservedObject var model: SettingsModel
     @StateObject private var recorder = ChordRecorder()
-    @State private var note: String?
 
     private struct Row: Identifiable { let id: String; let label: String; let section: String; let key: String }
 
@@ -89,70 +89,106 @@ struct KeybindEditorView: View {
         .init(id: "reload", label: "Reload config", section: "system_hotkeys", key: "reload"),
     ]
 
+    @State private var appEdits: [String: String] = [:]   // "group/key" -> in-progress app name
+
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+    private func defaultAlias() -> String { aliasNames.first ?? "mash" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            modifierRow("Tile modifier", key: "modifier", current: model.config.tilerModifier)
-            modifierRow("Focus modifier", key: "focus_modifier", current: model.config.focusModifier)
-            Divider()
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(rows) { row in hotkeyRow(row) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                groupBox("Modifiers") {
+                    modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
+                    modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
+                }
+                groupBox("Actions") {
+                    ForEach(rows) { actionRow($0) }
+                }
+                groupBox("App shortcuts") {
+                    appGroup("App launcher", group: "appCuts", current: model.config.appCuts)
+                    appGroup("Hyper apps", group: "hyperAppCuts", current: model.config.hyperAppCuts)
                 }
             }
-            if let note { Text(note).font(.caption).foregroundColor(.secondary) }
-            Spacer(minLength: 0)
+            .padding(.vertical, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
-            recorder.onCapture = { tokens, key in
-                // The recorder's active row id is captured at start(); resolve it here.
-                guard let id = pendingRowID else { return }
-                guard let alias = Keybinding.alias(forModifiers: tokens, aliases: model.config.aliases) else {
-                    note = "\(ModGlyph.string(tokens))\(key.uppercased()) isn't a known modifier set — use one of: \(aliasNames.joined(separator: ", "))"
-                    return
-                }
-                if let row = rows.first(where: { $0.id == id }) {
-                    model.setHotkey(section: row.section, key: row.key, alias: alias, keyName: key)
-                    note = "\(row.label) → \(ModGlyph.string(tokens))\(key.uppercased())"
-                }
-                pendingRowID = nil
+            recorder.onCapture = { _, key in
+                guard let id = recordingId, let row = rows.first(where: { $0.id == id }) else { return }
+                let alias = model.hotkeyValue(section: row.section, key: row.key).first ?? defaultAlias()
+                model.setHotkey(section: row.section, key: row.key, alias: alias, keyName: key)
+                recordingId = nil
             }
         }
-        .padding(.vertical, 4)
     }
 
-    @State private var pendingRowID: String?
+    @State private var recordingId: String?
+
+    @ViewBuilder private func groupBox<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.headline)
+            content()
+        }
+    }
+
+    private func aliasPicker(selection: Binding<String>) -> some View {
+        Picker("", selection: selection) {
+            ForEach(aliasNames, id: \.self) { Text("\($0)  \(ModGlyph.string(model.config.aliases[$0] ?? []))").tag($0) }
+        }.labelsHidden()
+    }
 
     private func modifierRow(_ label: String, key: String, current: [String]) -> some View {
         HStack {
-            Text(label).frame(width: 160, alignment: .trailing)
-            Picker("", selection: Binding(
-                get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash") },
-                set: { model.setModifierAlias(key: key, alias: $0) })) {
-                ForEach(aliasNames, id: \.self) { Text("\($0)  \(ModGlyph.string(model.config.aliases[$0] ?? []))").tag($0) }
-            }.labelsHidden().frame(width: 200)
+            Text(label).frame(width: 150, alignment: .trailing)
+            aliasPicker(selection: Binding(
+                get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias() },
+                set: { model.setModifierAlias(key: key, alias: $0) })).frame(width: 180)
             Spacer()
         }
     }
 
-    private func hotkeyRow(_ row: Row) -> some View {
+    private func actionRow(_ row: Row) -> some View {
         let value = model.hotkeyValue(section: row.section, key: row.key)
-        let isRecording = recorder.recordingKey == row.id
-        return HStack {
-            Text(row.label).frame(width: 220, alignment: .trailing)
-            Text(isRecording ? "press a chord…" : ModGlyph.chord(value, aliases: model.config.aliases))
-                .font(.system(.body, design: .monospaced))
-                .frame(width: 110, alignment: .leading)
-                .foregroundColor(isRecording ? .accentColor : .primary)
-            Button(isRecording ? "Cancel" : "Record") {
-                if isRecording { recorder.stop() }
-                else { pendingRowID = row.id; recorder.start(id: row.id) }
-            }
+        let alias = value.first ?? defaultAlias()
+        let keyName = value.count > 1 ? value[1] : ""
+        let recording = recordingId == row.id
+        return HStack(spacing: 8) {
+            Text(row.label).frame(width: 190, alignment: .trailing)
+            aliasPicker(selection: Binding(
+                get: { alias },
+                set: { model.setHotkey(section: row.section, key: row.key, alias: $0, keyName: keyName) })).frame(width: 130)
+            Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
+                recordingId = row.id; recorder.start(id: row.id)
+            }.frame(width: 84)
+            Text(ModGlyph.chord([alias, keyName], aliases: model.config.aliases))
+                .font(.system(.callout, design: .monospaced)).foregroundColor(.secondary)
             Spacer()
         }
-        .padding(.vertical, 3)
+    }
+
+    private func appGroup(_ title: String, group: String, current: ConfigLoader.AppHotkeyGroup) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title).font(.subheadline).bold()
+                aliasPicker(selection: Binding(
+                    get: { current.modifier.first ?? defaultAlias() },
+                    set: { model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]") })).frame(width: 160)
+                Spacer()
+            }
+            ForEach(current.apps.keys.sorted(), id: \.self) { k in
+                let slot = "\(group)/\(k)"
+                HStack(spacing: 8) {
+                    Text(k.uppercased()).font(.system(.body, design: .monospaced))
+                        .frame(width: 36, alignment: .trailing).foregroundColor(.secondary)
+                    TextField("app name", text: Binding(
+                        get: { appEdits[slot] ?? current.apps[k] ?? "" },
+                        set: { appEdits[slot] = $0 }))
+                        .textFieldStyle(.roundedBorder).frame(width: 240)
+                        .onSubmit { model.setAppShortcut(group: group, key: k, app: appEdits[slot] ?? current.apps[k] ?? "") }
+                    Spacer()
+                }
+            }
+        }
     }
 }
 
@@ -172,27 +208,98 @@ struct LayoutEditorView: View {
     private var rows: Int { model.config.zoneConfig.grids[grid]?.rows ?? 0 }
     private var zoneKeys: [String] { (model.config.zoneConfig.layouts[grid]?.keys.sorted()) ?? [] }
 
+    private let autoTag = "__auto__"
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Picker("Grid", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
-                    .frame(width: 160).onChange(of: grid) { _ in syncZone() }
-                Picker("Zone", selection: $zone) { ForEach(zoneKeys, id: \.self) { Text($0).tag($0) } }
-                    .frame(width: 120).onChange(of: zone) { _ in loadTiles() }
-                Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                monitorsSection
+                Divider()
+                if !grid.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Grid").font(.headline)
+                        Text(grid).font(.system(.headline, design: .monospaced)).foregroundColor(.accentColor)
+                        Spacer()
+                        Picker("Edit grid", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
+                            .frame(width: 150).onChange(of: grid) { _ in syncZone() }
+                    }
+                    Text("Zones — each preview shows the zone's first tile. Click one to edit it.")
+                        .font(.caption).foregroundColor(.secondary)
+                    zonePreviews
+                    Divider()
+                    HStack(alignment: .top, spacing: 20) { gridView; tileList }
+                    Text("Click a cell, then another to span a rectangle. Add appends it to the zone's cycle; Save writes config.toml.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+                if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
             }
-            HStack(alignment: .top, spacing: 20) {
-                gridView
-                tileList
-            }
-            Text("Click a cell, then another to span a rectangle. Add to append it to the zone's cycle.")
-                .font(.caption).foregroundColor(.secondary)
-            if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
-            Spacer(minLength: 0)
+            .padding(.vertical, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { if grid.isEmpty { grid = gridNames.first ?? ""; syncZone() } }
-        .padding(.vertical, 4)
+        .onAppear { if grid.isEmpty { grid = model.monitors.first?.effective ?? gridNames.first ?? ""; syncZone() } }
+    }
+
+    private var monitorsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Monitors").font(.headline)
+            Text("Each monitor uses an auto-detected grid; override it here. Hierarchy: monitor → grid → zones.")
+                .font(.caption).foregroundColor(.secondary)
+            if model.monitors.isEmpty { Text("No displays detected.").font(.caption).foregroundColor(.secondary) }
+            ForEach(model.monitors) { m in
+                HStack(spacing: 10) {
+                    Image(systemName: "display")
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(m.name)
+                        Text("auto-detected: \(m.autoDetected ?? "—")\(m.override != nil ? "  ·  overridden" : "")")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { m.override ?? autoTag },
+                        set: { sel in model.setMonitorOverride(name: m.name, grid: sel == autoTag ? nil : sel) })) {
+                        Text("Auto").tag(autoTag)
+                        ForEach(gridNames, id: \.self) { Text($0).tag($0) }
+                    }.labelsHidden().frame(width: 120)
+                    Button("Edit zones") { grid = m.effective; syncZone() }
+                }
+                .padding(6)
+                .background(grid == m.effective ? Color.accentColor.opacity(0.10) : .clear)
+                .cornerRadius(6)
+            }
+        }
+    }
+
+    private var zonePreviews: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 10)], alignment: .leading, spacing: 10) {
+            ForEach(zoneKeys, id: \.self) { z in zonePreview(z) }
+        }
+    }
+
+    private func zonePreview(_ z: String) -> some View {
+        let span = (model.config.zoneConfig.layouts[grid]?[z]?.first).flatMap(GridCells.parse)
+        return VStack(spacing: 3) {
+            miniGrid(span: span)
+            Text(z).font(.system(.caption, design: .monospaced))
+        }
+        .padding(6)
+        .background(zone == z ? Color.accentColor.opacity(0.18) : Color(NSColor.controlBackgroundColor).opacity(0.6))
+        .cornerRadius(6)
+        .contentShape(Rectangle())
+        .onTapGesture { zone = z; loadTiles() }
+    }
+
+    private func miniGrid(span: GridCells.Span?) -> some View {
+        VStack(spacing: 1) {
+            ForEach(1...max(rows, 1), id: \.self) { r in
+                HStack(spacing: 1) {
+                    ForEach(0..<max(cols, 1), id: \.self) { c in
+                        Rectangle()
+                            .fill((span.map { contains($0, c, r) } ?? false) ? Color.accentColor : Color.secondary.opacity(0.25))
+                            .frame(width: 12, height: 10)
+                    }
+                }
+            }
+        }
     }
 
     private var gridView: some View {

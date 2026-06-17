@@ -64,6 +64,25 @@ final class TOMLEditorTests: XCTestCase {
         XCTAssertEqual(cfg.zoneConfig.layouts["2x2"]?["j"], ["a1:b2"])   // sibling untouched
     }
 
+    func testSetOrAppendNewSectionAtEOF() throws {
+        let original = try realConfig()
+        // A monitor not present in custom_screens → new section appended at EOF.
+        let edited = TOMLEditor.setOrAppend(original, section: "tiler.custom_screens.\"Test Display\"",
+                                            key: "layout", rawValue: "\"3x2\"")
+        XCTAssertTrue(edited.hasPrefix(original), "appended at EOF; original content byte-identical")
+        XCTAssertTrue(edited.contains("[tiler.custom_screens.\"Test Display\"]"))
+        XCTAssertTrue(edited.contains("layout = \"3x2\""))
+        let cfg = try ConfigLoader.load(tomlString: edited, homeDirectory: "/Users/test")
+        XCTAssertEqual(cfg.zoneConfig.custom_screens?["Test Display"]?.layout, "3x2")
+    }
+
+    func testSetOrAppendExistingKeyReplacesInPlace() throws {
+        let original = try realConfig()
+        let edited = TOMLEditor.setOrAppend(original, section: "tiler.margins", key: "size", rawValue: "12")
+        XCTAssertTrue(edited.contains("size = 12"))
+        XCTAssertEqual(changedLineCount(original, edited), 1)   // replaced, not appended
+    }
+
     func testMissingKeyReturnsNil() throws {
         let original = try realConfig()
         XCTAssertNil(TOMLEditor.setValue(original, section: "tiler", key: "no_such_key", rawValue: "1"))

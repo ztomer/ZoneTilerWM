@@ -48,4 +48,61 @@ public enum TOMLEditor {
         }
         return nil
     }
+
+    /// Set `key` in `section` if it exists; otherwise append it (creating the `[section]` header
+    /// if needed) at the end of the file. Used by the settings GUI for monitor overrides and
+    /// other keys the user's config may not have yet. Existing content stays byte-identical.
+    public static func setOrAppend(_ toml: String, section: String, key: String, rawValue: String) -> String {
+        if let edited = setValue(toml, section: section, key: key, rawValue: rawValue) { return edited }
+        var out = toml
+        if !out.hasSuffix("\n") { out += "\n" }
+        // Reuse the header if the section already exists (key was just missing); else add it.
+        let hasSection = toml.components(separatedBy: "\n").contains {
+            if let m = headerRegex.firstMatch(in: $0, range: NSRange(location: 0, length: ($0 as NSString).length)) {
+                return ($0 as NSString).substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespaces) == section
+            }
+            return false
+        }
+        if hasSection {
+            // Append the key right after the existing header.
+            var lines = toml.components(separatedBy: "\n")
+            for (i, line) in lines.enumerated() {
+                let ns = line as NSString
+                if let m = headerRegex.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)),
+                   ns.substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespaces) == section {
+                    lines.insert("\(key) = \(rawValue)", at: i + 1)
+                    return lines.joined(separator: "\n")
+                }
+            }
+        }
+        out += "\n[\(section)]\n\(key) = \(rawValue)\n"
+        return out
+    }
+
+    /// Remove a `[section]` header and its body (lines up to the next header / EOF). Returns nil
+    /// if the section isn't present. Used to clear a GUI-managed override back to default.
+    public static func removeSection(_ toml: String, section: String) -> String? {
+        let lines = toml.components(separatedBy: "\n")
+        var start = -1
+        for (i, line) in lines.enumerated() {
+            let ns = line as NSString
+            if let m = headerRegex.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)),
+               ns.substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespaces) == section {
+                start = i; break
+            }
+        }
+        guard start >= 0 else { return nil }
+        var end = lines.count
+        for i in (start + 1)..<lines.count {
+            let ns = lines[i] as NSString
+            if headerRegex.firstMatch(in: lines[i], range: NSRange(location: 0, length: ns.length)) != nil { end = i; break }
+        }
+        var kept = Array(lines[0..<start]) + Array(lines[end...])
+        // Collapse a doubled blank line left by the removal.
+        if start > 0, start < kept.count, kept[start - 1].trimmingCharacters(in: .whitespaces).isEmpty,
+           kept[start].trimmingCharacters(in: .whitespaces).isEmpty {
+            kept.remove(at: start)
+        }
+        return kept.joined(separator: "\n")
+    }
 }

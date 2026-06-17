@@ -5,6 +5,7 @@
 // Purely visual — validate in a UI round. Built with SwiftUI, hosted by the agent.
 
 import SwiftUI
+import AppKit
 import ZTCore
 import ZTSystem
 
@@ -54,6 +55,79 @@ public final class SettingsModel: ObservableObject {
         setValue(section: "tiler", key: key, rawValue: "\"\(alias)\"")
     }
 
+    // MARK: - General settings
+
+    public func setWorkingSetCapacity(_ n: Int) {
+        setOrAppend(section: "tiler.working_set", key: "max_capacity", rawValue: "\(n)")
+    }
+    public func setMarginsEnabled(_ on: Bool) {
+        setOrAppend(section: "tiler.margins", key: "enabled", rawValue: on ? "true" : "false")
+    }
+    public func setMarginsSize(_ px: Int) {
+        setOrAppend(section: "tiler.margins", key: "size", rawValue: "\(px)")
+    }
+    /// One app shortcut, e.g. [appCuts] "q" = "BambuStudio".
+    public func setAppShortcut(group: String, key: String, app: String) {
+        setOrAppend(section: group, key: "\"\(key)\"", rawValue: "\"\(app)\"")
+    }
+    /// Per-monitor grid override; passing nil clears it back to auto-detect.
+    public func setMonitorOverride(name: String, grid: String?) {
+        let section = "tiler.custom_screens.\"\(name)\""
+        if let grid { setOrAppend(section: section, key: "layout", rawValue: "\"\(grid)\"") }
+        else { removeSection(section) }
+    }
+
+    /// setOrAppend wrapper that writes + reloads (mirrors setValue's reload).
+    private func setOrAppend(section: String, key: String, rawValue: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8) else {
+            lastWriteError = "could not read config"; return
+        }
+        let edited = TOMLEditor.setOrAppend(text, section: section, key: key, rawValue: rawValue)
+        persist(edited)
+    }
+    private func removeSection(_ section: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeSection(text, section: section) else { return }
+        persist(edited)
+    }
+    private func persist(_ edited: String) {
+        do {
+            try edited.data(using: .utf8)?.write(to: configURL, options: .atomic)
+            config = try ConfigLoader.load(tomlString: edited,
+                                           homeDirectory: FileManager.default.homeDirectoryForCurrentUser.path)
+            lastWriteError = nil
+        } catch { lastWriteError = "\(error)" }
+    }
+
+    // MARK: - Monitors (Layouts tab)
+
+    private let screenProvider = NSScreenProvider()
+
+    public struct MonitorInfo: Identifiable {
+        public var id: String { name }
+        public let name: String
+        public let autoDetected: String?   // grid the detector picks ignoring overrides
+        public let override: String?        // explicit per-monitor grid, if any
+        public var effective: String { override ?? autoDetected ?? "2x2" }
+    }
+
+    public var monitors: [MonitorInfo] {
+        screenProvider.allScreens().map { s in
+            let info = ZoneCalculator.ScreenInfo(name: s.name, frame: s.frame)
+            var noOverride = config.zoneConfig; noOverride.custom_screens = nil
+            return MonitorInfo(name: s.name,
+                               autoDetected: ZoneCalculator.layoutKey(for: info, config: noOverride),
+                               override: config.zoneConfig.custom_screens?[s.name]?.layout)
+        }
+    }
+
+    public func revealConfigInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([configURL])
+    }
+    public func openConfigInEditor() {
+        NSWorkspace.shared.open(configURL)
+    }
+
     /// Current raw [alias, key] for a hotkey, by config section.
     public func hotkeyValue(section: String, key: String) -> [String] {
         switch section {
@@ -88,43 +162,61 @@ public struct SettingsView: View {
             general.tabItem { Text("General") }
             KeybindEditorView(model: model).tabItem { Text("Keybinds") }
             LayoutEditorView(model: model).tabItem { Text("Layouts") }
-            memory.tabItem { Text("Memory") }
+            analytics.tabItem { Text("Analytics") }
         }
-        .frame(width: 620, height: 460)
+        .frame(width: 660, height: 520)
         .padding()
     }
 
     private var general: some View {
         Form {
-            LabeledContent("Config", value: model.configURL.lastPathComponent)
-            LabeledContent("Version", value: model.config.version)
-
-            Picker("Placement strategy", selection: Binding(
-                get: { model.config.placementStrategy },
-                set: { model.setValue(section: "tiler", key: "placement_strategy", rawValue: "\"\($0)\"") })) {
-                Text("rotate").tag("rotate")
-                Text("largest_free_space").tag("largest_free_space")
-                Text("hybrid").tag("hybrid")
+            Section("Config") {
+                LabeledContent("File") {
+                    HStack(spacing: 8) {
+                        Text(model.configURL.lastPathComponent).foregroundColor(.secondary)
+                        Button("Reveal") { model.revealConfigInFinder() }
+                        Button("Open") { model.openConfigInEditor() }
+                    }
+                }
+                LabeledContent("Version", value: model.config.version)
             }
-
-            Picker("Auto-tiling mode", selection: Binding(
-                get: { model.config.autoTilingMode },
-                set: { model.setValue(section: "tiler", key: "auto_tiling_mode", rawValue: "\"\($0)\"") })) {
-                Text("usage").tag("usage")
-                Text("session").tag("session")
+            Section("Tiling") {
+                Picker("Placement strategy", selection: Binding(
+                    get: { model.config.placementStrategy },
+                    set: { model.setValue(section: "tiler", key: "placement_strategy", rawValue: "\"\($0)\"") })) {
+                    Text("rotate").tag("rotate")
+                    Text("largest free space").tag("largest_free_space")
+                    Text("hybrid").tag("hybrid")
+                }
+                Picker("Auto-tiling mode", selection: Binding(
+                    get: { model.config.autoTilingMode },
+                    set: { model.setValue(section: "tiler", key: "auto_tiling_mode", rawValue: "\"\($0)\"") })) {
+                    Text("usage").tag("usage")
+                    Text("session").tag("session")
+                }
+                Stepper("Working-set capacity: \(model.config.workingSetMaxCapacity)",
+                        value: Binding(get: { model.config.workingSetMaxCapacity },
+                                       set: { model.setWorkingSetCapacity($0) }), in: 1...12)
             }
-
-            LabeledContent("Working-set capacity", value: "\(model.config.workingSetMaxCapacity)")
-            LabeledContent("Margins", value: (model.config.zoneConfig.margins?.enabled ?? false)
-                           ? "on (\(Int(model.config.zoneConfig.margins?.size ?? 0))px)" : "off")
+            Section("Margins") {
+                Toggle("Enable margins", isOn: Binding(
+                    get: { model.config.zoneConfig.margins?.enabled ?? false },
+                    set: { model.setMarginsEnabled($0) }))
+                Stepper("Size: \(Int(model.config.zoneConfig.margins?.size ?? 0)) px",
+                        value: Binding(get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
+                                       set: { model.setMarginsSize($0) }), in: 0...40)
+                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
+            }
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
+        .formStyle(.grouped)
     }
 
-    private var memory: some View {
-        VStack(alignment: .leading) {
-            Text("Learned placements (by frequency)").font(.headline)
-            // Explicit widths so the numeric columns (esp. Count) never clip; App flexes.
+    private var analytics: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Learned placements").font(.headline)
+            Text("Where the auto-tiler has learned to put each app (read-only). Higher count = stronger preference.")
+                .font(.caption).foregroundColor(.secondary)
             Table(model.preferences) {
                 TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 150)
                 TableColumn("Monitor") { Text($0.monitor) }.width(min: 56, ideal: 64, max: 80)
@@ -133,6 +225,7 @@ public struct SettingsView: View {
                 TableColumn("Count") { Text("\($0.count)") }.width(min: 56, ideal: 70, max: 90)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
 }
