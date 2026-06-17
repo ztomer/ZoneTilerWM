@@ -27,6 +27,58 @@ private func makeOverlayWindow(_ frame: NSRect, color: NSColor) -> NSWindow {
     return w
 }
 
+/// Resize-mode grid overlay: cyan "Tron" grid lines (port of grid_overlay.lua) covering a
+/// screen, drawn from ZTCore's GridLines geometry so offsets shift the lines live.
+final class GridOverlayView: NSView {
+    var vertical: [CGFloat] = []     // x positions, relative to view left (top-left origin)
+    var horizontal: [CGFloat] = []   // y positions, relative to view top
+    override var isFlipped: Bool { true }   // top-left origin to match CG coords
+
+    override func draw(_ dirtyRect: NSRect) {
+        let line = NSColor(red: 0, green: 0.8, blue: 1, alpha: 0.8)
+        NSColor(red: 0, green: 0.2, blue: 0.3, alpha: 0.1).setFill()
+        bounds.fill()
+        line.setStroke()
+        let path = NSBezierPath(); path.lineWidth = 4
+        for x in vertical { path.move(to: NSPoint(x: x, y: 0)); path.line(to: NSPoint(x: x, y: bounds.height)) }
+        for y in horizontal { path.move(to: NSPoint(x: 0, y: y)); path.line(to: NSPoint(x: bounds.width, y: y)) }
+        path.stroke()
+        let border = NSBezierPath(rect: bounds.insetBy(dx: 5, dy: 5)); border.lineWidth = 10
+        NSColor(red: 0, green: 0.8, blue: 1, alpha: 0.3).setStroke(); border.stroke()
+    }
+}
+
+public final class GridOverlay {
+    private var window: NSWindow?
+    private var view: GridOverlayView?
+    public init() {}
+
+    /// Show/update lines on the screen whose top-left CG full-frame is `screenCGFrame`.
+    /// `verticalX`/`horizontalY` are absolute top-left CG coordinates (from GridLines.positions).
+    public func show(screenCGFrame: ZTRect, verticalX: [Double], horizontalY: [Double]) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let nsFrame = CoordConvert.nsFrame(fromCG: screenCGFrame)
+            let v = self.window ?? makeOverlayWindow(nsFrame, color: .clear)
+            v.setFrame(nsFrame, display: false)
+            let view = self.view ?? GridOverlayView(frame: NSRect(origin: .zero, size: nsFrame.size))
+            view.frame = NSRect(origin: .zero, size: nsFrame.size)
+            view.vertical = verticalX.map { CGFloat($0 - screenCGFrame.x) }       // → view-relative
+            view.horizontal = horizontalY.map { CGFloat($0 - screenCGFrame.y) }
+            view.needsDisplay = true
+            v.contentView = view
+            v.orderFront(nil)
+            self.window = v; self.view = view
+        }
+    }
+
+    public func hide() {
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.orderOut(nil); self?.window = nil; self?.view = nil
+        }
+    }
+}
+
 /// A brief translucent highlight over a window's frame (focus/tile feedback).
 public final class FlashOverlay {
     private var window: NSWindow?

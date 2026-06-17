@@ -19,16 +19,30 @@ public final class CarbonHotkeyBinder {
     /// is already taken by another app, e.g. a running Hammerspoon).
     @discardableResult
     public func bind(keyCode: UInt32, modifiers: UInt32, action: @escaping () -> Void) -> Bool {
+        register(keyCode: keyCode, modifiers: modifiers, action: action) != nil
+    }
+
+    /// Like bind, but returns the hotkey id so an individual binding can be removed later (used
+    /// by transient modal sets, e.g. resize mode). Returns nil if registration failed.
+    @discardableResult
+    public func register(keyCode: UInt32, modifiers: UInt32, action: @escaping () -> Void) -> UInt32? {
         let id = nextID
         nextID += 1
         let hotKeyID = EventHotKeyID(signature: signature, id: id)
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
                                          GetApplicationEventTarget(), 0, &ref)
-        guard status == noErr, let ref else { return false }
+        guard status == noErr, let ref else { return nil }
         actions[id] = action
         hotKeyRefs[id] = ref
-        return true
+        return id
+    }
+
+    /// Remove a single binding by the id returned from register().
+    public func unbind(_ id: UInt32) {
+        if let ref = hotKeyRefs[id] { UnregisterEventHotKey(ref) }
+        hotKeyRefs[id] = nil
+        actions[id] = nil
     }
 
     public func unbindAll() {

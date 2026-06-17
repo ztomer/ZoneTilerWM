@@ -143,6 +143,20 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(stale[1], fresh[1], "the current window's placement is unaffected by window 2's age")
     }
 
+    func testResizeOffsetShiftsZoneBoundary() {
+        // Resize mode adjusts grid-line offsets; those must flow into placement. A +10% offset
+        // on vertical line index 1 widens the top-left "y" zone (a1) from 500 to 600 on a
+        // 1000-wide screen. No MonitorManager → offsets are keyed by the screen uuid.
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 100, y: 100, w: 400, h: 300), screenUUID: "M1")
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     offsetProvider: { _, axis, index in (axis == "x" && index == 1) ? 0.1 : 0 })
+        guard case .success(let outcome) = coord.moveFocusedToZone("y") else { return XCTFail("expected success") }
+        XCTAssertEqual(outcome.target, ZTRect(x: 0, y: 0, w: 600, h: 500),
+                       "the +10% x-offset should widen the top-left zone from 500 to 600")
+    }
+
     func testZenMinimizesOthersAndRestores() {
         let ws = FakeWindowSystem()
         ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")

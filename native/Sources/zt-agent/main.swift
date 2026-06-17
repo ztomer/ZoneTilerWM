@@ -31,6 +31,18 @@ final class AgentController: NSObject {
     // on restart; in-session learning is persisted as it happens).
     private let learnedMemory: WindowMemory?
     private let storage: Storage?
+    // Resize mode: grid-line offsets (persisted independently of window memory).
+    private let resizeManager = ResizeManager()
+    private let resizeStorage: Storage
+    private let gridOverlay = GridOverlay()
+    private var resizeActive = false
+    private var resizeModalIDs: [UInt32] = []
+    private var resizeMonitorKey = ""
+    private var resizeScreenFrame = ZTRect(x: 0, y: 0, w: 0, h: 0)
+    private var resizeCols = 1
+    private var resizeRows = 1
+    private var resizeVIndex: Int?
+    private var resizeHIndex: Int?
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -73,9 +85,17 @@ final class AgentController: NSObject {
         self.learnedMemory = memory
         self.storage = store
 
+        // Resize-mode offsets persist to grid_offsets.json under the same cache dir, whether or
+        // not window memory is enabled.
+        let rstore = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
+        resizeStorage = rstore
+        resizeManager.load(from: rstore)
+        let resize = resizeManager
+
         coordinator = AgentController.makeCoordinator(config: config, windowSystem: windowSystem,
                                                       screens: screens, memory: memory,
-                                                      monitorManager: monitorManager, storage: store)
+                                                      monitorManager: monitorManager, storage: store,
+                                                      resizeManager: resize)
         autoTilerConfig = config.autoTilerConfig()
         appSwitcher = config.appSwitcher
         pomodoro = Pomodoro(config: .init(workPeriodSec: config.pomodoroWorkSec,
@@ -92,9 +112,13 @@ final class AgentController: NSObject {
 
     private static func makeCoordinator(config: ConfigLoader.LoadedConfig, windowSystem: WindowSystem,
                                         screens: ScreenProvider, memory: WindowMemory?,
-                                        monitorManager: MonitorManager, storage: Storage?) -> TilerCoordinator {
+                                        monitorManager: MonitorManager, storage: Storage?,
+                                        resizeManager: ResizeManager) -> TilerCoordinator {
         TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
                          zoneConfig: config.zoneConfig, placementStrategy: config.placementStrategy,
+                         offsetProvider: { [weak resizeManager] m, a, i in
+                             resizeManager?.getOffset(monitor: m, axis: a, index: i) ?? 0
+                         },
                          memory: memory, monitorManager: monitorManager, storage: storage)
     }
 
@@ -278,7 +302,8 @@ final class AgentController: NSObject {
         config = newConfig
         coordinator = AgentController.makeCoordinator(config: newConfig, windowSystem: windowSystem,
                                                       screens: screens, memory: learnedMemory,
-                                                      monitorManager: monitorManager, storage: storage)
+                                                      monitorManager: monitorManager, storage: storage,
+                                                      resizeManager: resizeManager)
         autoTilerConfig = newConfig.autoTilerConfig()
         appSwitcher = newConfig.appSwitcher
         pomodoro.updateConfig(.init(workPeriodSec: newConfig.pomodoroWorkSec,
@@ -315,6 +340,75 @@ final class AgentController: NSObject {
         bindAction(config.resolvedHotkey("activity_monitor", in: config.systemHotkeys), label: "activity_monitor") {
             AppController.toggle(app: "Activity Monitor", config: cfg)
         }
+        // Resize mode: toggle the grid-line adjustment modal.
+        bindAction(config.resolvedHotkey("resize_mode", in: config.tilerHotkeys), label: "resize_mode") { [weak self] in
+            self?.toggleResizeMode()
+        }
+    }
+
+    // MARK: - Resize mode (coherent port: arrows nudge the zone grid lines)
+
+    private func toggleResizeMode() { resizeActive ? exitResizeMode() : enterResizeMode() }
+
+    /// Enter: pick the interior grid lines nearest the focused window, show the overlay, and
+    /// bind bare arrows + escape. Arrows nudge those lines' offsets; the overlay redraws live.
+    private func enterResizeMode() {
+        guard let focused = windowSystem.focusedWindow(), let uuid = focused.screenUUID,
+              let screen = screens.screen(uuid: uuid) else { return }
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        guard let key = ZoneCalculator.layoutKey(for: info, config: config.zoneConfig),
+              let grid = config.zoneConfig.grids[key] else {
+            log("zt-agent: resize mode — no grid for the focused screen"); return
+        }
+        resizeMonitorKey = String(monitorManager.id(forUUID: uuid))
+        resizeScreenFrame = screen.frame
+        resizeCols = grid.cols; resizeRows = grid.rows
+        let cx = focused.frame.x + focused.frame.w / 2, cy = focused.frame.y + focused.frame.h / 2
+        resizeVIndex = GridLines.nearestInteriorIndex(to: cx, start: screen.frame.x, total: screen.frame.w, count: grid.cols)
+        resizeHIndex = GridLines.nearestInteriorIndex(to: cy, start: screen.frame.y, total: screen.frame.h, count: grid.rows)
+
+        resizeActive = true
+        redrawGridOverlay()
+        bindResizeModal()
+        log("zt-agent: resize mode ON (grid \(grid.cols)x\(grid.rows), monitor \(resizeMonitorKey)) — arrows nudge lines, ESC exits")
+    }
+
+    private func exitResizeMode() {
+        guard resizeActive else { return }
+        resizeActive = false
+        for id in resizeModalIDs { binder.unbind(id) }
+        resizeModalIDs = []
+        gridOverlay.hide()
+        resizeManager.save(to: resizeStorage)
+        log("zt-agent: resize mode OFF (offsets saved)")
+    }
+
+    private func bindResizeModal() {
+        func reg(_ keyName: String, _ action: @escaping () -> Void) {
+            if let code = KeyMap.keyCode(for: keyName), let id = binder.register(keyCode: code, modifiers: 0, action: action) {
+                resizeModalIDs.append(id)
+            }
+        }
+        reg("left")  { [weak self] in self?.adjustResize(axis: "x", delta: -1) }
+        reg("right") { [weak self] in self?.adjustResize(axis: "x", delta: +1) }
+        reg("up")    { [weak self] in self?.adjustResize(axis: "y", delta: -1) }
+        reg("down")  { [weak self] in self?.adjustResize(axis: "y", delta: +1) }
+        reg("escape") { [weak self] in self?.exitResizeMode() }
+    }
+
+    private func adjustResize(axis: String, delta: Double) {
+        guard resizeActive else { return }
+        let index = axis == "x" ? resizeVIndex : resizeHIndex
+        guard let index else { return }   // no interior line on this axis (1xN / Nx1)
+        resizeManager.adjust(monitor: resizeMonitorKey, axis: axis, index: index, delta: delta)
+        redrawGridOverlay()
+    }
+
+    private func redrawGridOverlay() {
+        let lines = GridLines.positions(frame: resizeScreenFrame, cols: resizeCols, rows: resizeRows) { [resizeManager, resizeMonitorKey] axis, idx in
+            resizeManager.getOffset(monitor: resizeMonitorKey, axis: axis, index: idx)
+        }
+        gridOverlay.show(screenCGFrame: resizeScreenFrame, verticalX: lines.vertical, horizontalY: lines.horizontal)
     }
 
     func setupStatusItem() {

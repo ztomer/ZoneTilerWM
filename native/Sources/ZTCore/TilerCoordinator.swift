@@ -25,7 +25,9 @@ public final class TilerCoordinator {
     private let screenProvider: ScreenProvider
     private let zoneConfig: ZoneConfig
     private let strategy: PlacementStrategy.Strategy
-    private let offsets: ZoneCalculator.OffsetProvider
+    // Monitor-aware grid-line offset lookup (resize mode). Keyed by the logical monitor id
+    // string (same key window memory uses). Default: no offsets.
+    private let offsetProvider: (_ monitor: String, _ axis: String, _ index: Int) -> Double
     private let overlapThreshold: Double
     private let focusCycler = FocusManager.Cycler()
     private let focusTracker = WindowFocusTracker()
@@ -42,7 +44,7 @@ public final class TilerCoordinator {
                 zoneConfig: ZoneConfig,
                 placementStrategy: String,
                 overlapThreshold: Double = 0.5,
-                offsets: @escaping ZoneCalculator.OffsetProvider = ZoneCalculator.zeroOffsets,
+                offsetProvider: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double = { _, _, _ in 0 },
                 memory: WindowMemory? = nil,
                 monitorManager: MonitorManager? = nil,
                 storage: Storage? = nil) {
@@ -51,7 +53,7 @@ public final class TilerCoordinator {
         self.zoneConfig = zoneConfig
         self.strategy = PlacementStrategy.Strategy(config: placementStrategy)
         self.overlapThreshold = overlapThreshold
-        self.offsets = offsets
+        self.offsetProvider = offsetProvider
         self.memory = memory
         self.monitorManager = monitorManager
         self.storage = storage
@@ -74,6 +76,13 @@ public final class TilerCoordinator {
             }
             zenActive = true
         }
+    }
+
+    /// Per-screen offset provider for ZoneCalculator, keyed by the screen's logical monitor id
+    /// (falls back to the uuid when no MonitorManager is present).
+    private func offsets(forScreen uuid: String) -> ZoneCalculator.OffsetProvider {
+        let key = monitorKey(uuid) ?? uuid
+        return { [offsetProvider] axis, index in offsetProvider(key, axis, index) }
     }
 
     /// Logical monitor id (string) for memory keys, via MonitorManager. nil if no manager.
@@ -99,7 +108,7 @@ public final class TilerCoordinator {
         guard let focused = windowSystem.focusedWindow(),
               let uuid = focused.screenUUID, let screen = screenProvider.screen(uuid: uuid) else { return nil }
         let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
-        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets).zones
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets(forScreen: uuid)).zones
         guard let tiles = zones[zoneKey], !tiles.isEmpty else { return nil }
 
         let live = windowSystem.windows(onScreen: uuid)
@@ -124,7 +133,7 @@ public final class TilerCoordinator {
         }
 
         let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
-        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets).zones
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets(forScreen: uuid)).zones
         guard let tiles = zones[zoneKey], !tiles.isEmpty else { return .failure(.noZone(zoneKey)) }
 
         // Occupancy = other standard windows on this screen.

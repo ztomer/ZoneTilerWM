@@ -124,6 +124,21 @@ Deterministic test: grid-overlay rect math (a pure layout function like `Pomodor
 **Done when:** overlay renders correctly (screenshot), arrows resize on grid (AX readback),
 escape exits and restores normal hotkeys; `make verify` green.
 
+**DONE (coherent design, per user choice).** The Lua resize mode was internally inconsistent
+(modal arrows called `hs.grid.pushWindow*` on hs.grid's default grid, while the overlay +
+`resize_manager` were about zone grid-line offsets; `resize_manager.adjust` was unwired). Built
+the coherent version: resize mode adjusts the **zone** grid-line offsets via the ported
+`ResizeManager`. Arrows nudge the interior line nearest the focused window (±2%, clamped ±40%),
+the cyan overlay redraws live, ESC exits and persists `grid_offsets.json`. Required wiring the
+offsets into placement: `TilerCoordinator` now takes a monitor-aware `offsetProvider` (keyed by
+logical monitor id) instead of a fixed zero provider, so tiles reflect the offsets. Pieces:
+`GridLines` (ZTCore, pure: line positions + nearest-interior-index, tested), `GridOverlay`
+(ZTSystem, flipped NSView), `CarbonHotkeyBinder.register/unbind` (modal add/remove without
+clobbering the main set). Validated live (screenshots: overlay + line shift) + deterministic
+tests (GridLinesTests; coordinator offset→boundary). NOTE: adjusting offsets does not auto-
+re-tile open windows (matches the Lua resize_manager — offsets apply on the next tile); live
+re-tile-on-adjust deferred as a nicety.
+
 ---
 
 ## Slice 4 — Multi-monitor navigation (THEORETICAL on single-monitor)
