@@ -13,9 +13,28 @@ import ZTUI
 func log(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
 
 let home = FileManager.default.homeDirectoryForCurrentUser
-let configURL = CommandLine.arguments.count > 1
-    ? URL(fileURLWithPath: CommandLine.arguments[1])
-    : home.appendingPathComponent(".hammerspoon/config.toml")
+
+/// Resolve the config path. An explicit arg (CLI / `run.sh`) wins. Otherwise — the bundled
+/// `.app` case, launched with no args by Finder/Dock/login — use the standard user location
+/// `~/.config/ZoneTilerWM/config.toml`, seeding it from the bundled default on first run so a
+/// freshly-installed app starts with a working config instead of failing to launch.
+func resolveConfigURL() -> URL {
+    if CommandLine.arguments.count > 1 { return URL(fileURLWithPath: CommandLine.arguments[1]) }
+    let dir = home.appendingPathComponent(".config/ZoneTilerWM", isDirectory: true)
+    let url = dir.appendingPathComponent("config.toml")
+    let fm = FileManager.default
+    if !fm.fileExists(atPath: url.path) {
+        // First run: copy the default config shipped in the app bundle's Resources.
+        if let bundled = Bundle.main.url(forResource: "config", withExtension: "toml") {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? fm.copyItem(at: bundled, to: url)
+            log("zt-agent: seeded default config at \(url.path)")
+        }
+    }
+    return url
+}
+
+let configURL = resolveConfigURL()
 
 guard let config = try? ConfigLoader.load(contentsOf: configURL) else {
     log("zt-agent: cannot load config at \(configURL.path)")

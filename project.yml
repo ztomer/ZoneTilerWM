@@ -1,0 +1,62 @@
+# XcodeGen spec for the ZoneTilerWM.app bundle. The Swift logic lives in the SwiftPM package
+# under native/; this app target links ZTUI/ZTSystem (+ ZTCore transitively) and compiles the
+# zt-agent sources as its entry point (zt-agent/main.swift is top-level executable code).
+#
+# Regenerate the project with:  xcodegen generate
+# Build the .app with:          xcodebuild -scheme ZoneTilerWM -configuration Release build
+# The generated ZoneTilerWM.xcodeproj is gitignored — project.yml is the source of truth.
+
+name: ZoneTilerWM
+options:
+  bundleIdPrefix: com.zaidenstein
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+packages:
+  ZoneTilerWM:
+    path: native
+
+targets:
+  ZoneTilerWM:
+    type: application
+    platform: macOS
+    # Compile the agent's own sources; link the package libraries.
+    sources:
+      - path: native/Sources/zt-agent
+      - path: native/Assets/AppIcon.icns
+        buildPhase: resources
+      # Shipped default config, copied to ~/.config/ZoneTilerWM/config.toml on first run.
+      - path: config.toml
+        buildPhase: resources
+    dependencies:
+      - package: ZoneTilerWM
+        product: ZTUI
+      - package: ZoneTilerWM
+        product: ZTSystem
+    info:
+      path: build/ZoneTilerWM-Info.plist
+      properties:
+        # Menubar agent: no Dock icon, no main window — a proper LSUIElement from launch
+        # (replaces the runtime setActivationPolicy(.accessory)).
+        LSUIElement: true
+        CFBundleIconFile: AppIcon
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "13.0"
+        NSHumanReadableCopyright: "Copyright © 2026 Tomer Zaidenstein. All rights reserved."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zaidenstein.ZoneTilerWM
+        PRODUCT_NAME: ZoneTilerWM
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Ad-hoc signing for now (no Apple Developer account yet). A STABLE bundle id + this
+        # ad-hoc identity keeps the Accessibility (TCC) grant from resetting every rebuild.
+        # Switch to Developer ID + hardened runtime + notarization when distribution is on.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: "NO"
+        ENABLE_HARDENED_RUNTIME: "NO"
+        DEVELOPMENT_TEAM: ""
+        SWIFT_VERSION: "5.9"

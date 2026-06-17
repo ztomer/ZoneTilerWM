@@ -7,3 +7,8 @@ native/.build/
 .build/
 *.xcuserstate
 .DS_Store
+
+# Xcode app bundle (project is generated from project.yml via xcodegen)
+ZoneTilerWM.xcodeproj/
+build/
+*.iconset
