@@ -102,6 +102,17 @@ public final class Pomodoro {
 
     public func resetWork() { workCount = 0 }
 
+    /// Apply a new config on a live reload. An active countdown keeps its remaining time; an
+    /// idle timer re-baselines to the new work period so the next start reflects the change.
+    public func updateConfig(_ newConfig: Config) {
+        config = newConfig
+        if !isActive {
+            phase = .work
+            timeLeft = newConfig.workPeriodSec
+            maxTimeSec = newConfig.workPeriodSec
+        }
+    }
+
     /// Menubar title, e.g. "[work|52:00|#03]".
     public var displayString: String {
         let minutes = timeLeft / 60

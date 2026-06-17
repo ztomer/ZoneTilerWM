@@ -24,10 +24,17 @@ guard let config = try? ConfigLoader.load(contentsOf: configURL) else {
 
 final class AgentController: NSObject {
     private let binder = CarbonHotkeyBinder()
+    private let screens: NSScreenProvider
     private let windowSystem: AXWindowSystem
-    private let coordinator: TilerCoordinator
-    private let autoTilerConfig: AutoTiler.Config
-    private let appSwitcher: AppSwitcher.Config
+    private let monitorManager: MonitorManager
+    // System objects that survive a config reload (memory/storage are reloaded from disk only
+    // on restart; in-session learning is persisted as it happens).
+    private let learnedMemory: WindowMemory?
+    private let storage: Storage?
+    // Config-derived state — rebuilt in place by applyConfig() on a live reload.
+    private var coordinator: TilerCoordinator
+    private var autoTilerConfig: AutoTiler.Config
+    private var appSwitcher: AppSwitcher.Config
     private let pomodoro: Pomodoro
     private var statusItem: NSStatusItem?
     private var pomodoroItem: NSStatusItem?
@@ -35,39 +42,40 @@ final class AgentController: NSObject {
     private var focusTimer: Timer?
     private let flash = FlashOverlay()
     private let pomodoroBar = PomodoroBar()
-    private let enableColorBar: Bool
-    private let pomodoroIndicatorHeight: Double
-    private let pomodoroIndicatorAlpha: Double
-    private let pomodoroColorRemaining: NSColor
-    private let pomodoroColorUsed: NSColor
-    private let config: ConfigLoader.LoadedConfig
+    private var enableColorBar: Bool
+    private var pomodoroIndicatorHeight: Double
+    private var pomodoroIndicatorAlpha: Double
+    private var pomodoroColorRemaining: NSColor
+    private var pomodoroColorUsed: NSColor
+    private var config: ConfigLoader.LoadedConfig
     private let configURL: URL
-    private let learnedMemory: WindowMemory?
+    private var configWatcher: ConfigWatcher?
     private var settings: SettingsWindowController?
 
     init(config: ConfigLoader.LoadedConfig, configURL: URL) {
         let screens = NSScreenProvider()
+        self.screens = screens
         windowSystem = AXWindowSystem(screenProvider: screens)
+        monitorManager = MonitorManager()
 
         // Adaptive memory: load persisted preferences; learn + persist on manual tiles.
         var memory: WindowMemory?
-        var storage: Storage?
-        let monitorManager = MonitorManager()
+        var store: Storage?
         if config.windowMemory.enabled {
-            let store = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
+            let s = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
             let mem = WindowMemory(excludedApps: config.windowMemory.excludedApps, settleEnabled: true)
-            if let saved = store.load("window_positions", as: WindowMemory.SaveData.self) { mem.load(saved) }
+            if let saved = s.load("window_positions", as: WindowMemory.SaveData.self) { mem.load(saved) }
             memory = mem
-            storage = store
+            store = s
         }
         self.config = config
         self.configURL = configURL
         self.learnedMemory = memory
+        self.storage = store
 
-        coordinator = TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
-                                       zoneConfig: config.zoneConfig,
-                                       placementStrategy: config.placementStrategy,
-                                       memory: memory, monitorManager: monitorManager, storage: storage)
+        coordinator = AgentController.makeCoordinator(config: config, windowSystem: windowSystem,
+                                                      screens: screens, memory: memory,
+                                                      monitorManager: monitorManager, storage: store)
         autoTilerConfig = config.autoTilerConfig()
         appSwitcher = config.appSwitcher
         pomodoro = Pomodoro(config: .init(workPeriodSec: config.pomodoroWorkSec,
@@ -80,6 +88,23 @@ final class AgentController: NSObject {
         pomodoroColorUsed = PomodoroBar.color(named: config.pomodoroColorUsed)
         super.init()
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
+    }
+
+    private static func makeCoordinator(config: ConfigLoader.LoadedConfig, windowSystem: WindowSystem,
+                                        screens: ScreenProvider, memory: WindowMemory?,
+                                        monitorManager: MonitorManager, storage: Storage?) -> TilerCoordinator {
+        TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
+                         zoneConfig: config.zoneConfig, placementStrategy: config.placementStrategy,
+                         memory: memory, monitorManager: monitorManager, storage: storage)
+    }
+
+    /// Zone keys = union of keys across all layouts (excluding the "default" fallback marker).
+    private func zoneKeys() -> [String] {
+        var keys = Set<String>()
+        for (_, zones) in config.zoneConfig.layouts {
+            for key in zones.keys where key != "default" { keys.insert(key) }
+        }
+        return keys.sorted()
     }
 
     func bindAppHotkeys(_ group: ConfigLoader.AppHotkeyGroup, label: String) {
@@ -180,10 +205,20 @@ final class AgentController: NSObject {
         }
     }
 
-    func setupPomodoro(_ config: ConfigLoader.LoadedConfig) {
+    /// One-time: the menubar item + the 1s countdown timer. Pomodoro hotkeys are (re)bound in
+    /// bindAllHotkeys so they pick up config-reload changes.
+    func setupPomodoro() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = ""   // shown only while active
         pomodoroItem = item
+        pomodoroTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            _ = self.pomodoro.tick()
+            self.refreshPomodoro()
+        }
+    }
+
+    private func bindPomodoroHotkeys() {
         bindAction(config.resolvedHotkey("enable", in: config.pomodoroHotkeys), label: "pomodoro.enable") { [weak self] in
             self?.pomodoro.enable(); self?.refreshPomodoro()
         }
@@ -193,11 +228,70 @@ final class AgentController: NSObject {
         bindAction(config.resolvedHotkey("reset", in: config.pomodoroHotkeys), label: "pomodoro.reset") { [weak self] in
             self?.pomodoro.resetWork(); self?.refreshPomodoro()
         }
-        pomodoroTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            _ = self.pomodoro.tick()
-            self.refreshPomodoro()
+    }
+
+    /// (Re)bind every global hotkey from the current config. Safe to call repeatedly: clears
+    /// all existing Carbon registrations first. This is the rebind half of a live reload.
+    func bindAllHotkeys() {
+        binder.unbindAll()
+        let keys = zoneKeys()
+        bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: keys)
+        bindFocusHotkeys(modifier: config.focusModifier, zoneKeys: keys)
+        if let hyper = config.aliases["HYPER"] { bindAutoTile(modifier: hyper, key: "return") }
+        bindAppHotkeys(config.appCuts, label: "appCuts")
+        bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")
+        if let audioKey = config.audioHotkeyKey {
+            bindAudioHotkey(modifier: config.audioHotkeyModifier, key: audioKey,
+                            devices: config.audioDevices, shortcut: config.audioShortcutCallback)
         }
+        bindMiscHotkeys(config)
+        bindPomodoroHotkeys()
+    }
+
+    // MARK: - Live config reload
+
+    /// Watch config.toml; on a debounced change, re-decode + validate + apply in place. An
+    /// invalid edit is logged and ignored (the running config is kept), never half-applied.
+    func setupConfigWatch() {
+        configWatcher = ConfigWatcher(url: configURL) { [weak self] in self?.reloadFromDisk() }
+        configWatcher?.start()
+    }
+
+    private func reloadFromDisk() {
+        guard let newConfig = try? ConfigLoader.load(contentsOf: configURL) else {
+            log("zt-agent: config reload skipped — could not parse \(configURL.lastPathComponent)")
+            return
+        }
+        let problems = ConfigValidator.validate(newConfig)
+        guard problems.isEmpty else {
+            log("zt-agent: config reload skipped — invalid: \(problems.joined(separator: "; "))")
+            return   // keep the running config
+        }
+        applyConfig(newConfig)
+        log("zt-agent: config reloaded from \(configURL.lastPathComponent)")
+    }
+
+    /// Apply a validated config in place: rebuild config-derived state, then rebind hotkeys.
+    /// Stable subsystems (window memory/storage, the running Pomodoro session, the menubar
+    /// item + timer) are preserved.
+    private func applyConfig(_ newConfig: ConfigLoader.LoadedConfig) {
+        config = newConfig
+        coordinator = AgentController.makeCoordinator(config: newConfig, windowSystem: windowSystem,
+                                                      screens: screens, memory: learnedMemory,
+                                                      monitorManager: monitorManager, storage: storage)
+        autoTilerConfig = newConfig.autoTilerConfig()
+        appSwitcher = newConfig.appSwitcher
+        pomodoro.updateConfig(.init(workPeriodSec: newConfig.pomodoroWorkSec,
+                                    restPeriodSec: newConfig.pomodoroRestSec,
+                                    enableColorBar: newConfig.pomodoroEnableColorBar))
+        enableColorBar = newConfig.pomodoroEnableColorBar
+        pomodoroIndicatorHeight = newConfig.pomodoroIndicatorHeight
+        pomodoroIndicatorAlpha = newConfig.pomodoroIndicatorAlpha
+        pomodoroColorRemaining = PomodoroBar.color(named: newConfig.pomodoroColorRemaining)
+        pomodoroColorUsed = PomodoroBar.color(named: newConfig.pomodoroColorUsed)
+        bindAllHotkeys()
+        coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
+        refreshPomodoro()
     }
 
     private func refreshPomodoro() {
@@ -232,11 +326,16 @@ final class AgentController: NSObject {
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        let reloadItem = NSMenuItem(title: "Reload Config", action: #selector(reloadConfig), keyEquivalent: "r")
+        reloadItem.target = self
+        menu.addItem(reloadItem)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
     }
+
+    @objc func reloadConfig() { reloadFromDisk() }
 
     @objc func openSettings() {
         if settings == nil {
@@ -246,28 +345,14 @@ final class AgentController: NSObject {
     }
 }
 
-// Zone keys = union of keys across all layouts (excluding the "default" fallback marker).
-var zoneKeys = Set<String>()
-for (_, zones) in config.zoneConfig.layouts {
-    for key in zones.keys where key != "default" { zoneKeys.insert(key) }
-}
-
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 
 let controller = AgentController(config: config, configURL: configURL)
 controller.setupStatusItem()
-controller.setupPomodoro(config)
+controller.setupPomodoro()
 controller.setupFocusTracking()
-controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
-controller.bindFocusHotkeys(modifier: config.focusModifier, zoneKeys: zoneKeys.sorted())
-if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }
-controller.bindAppHotkeys(config.appCuts, label: "appCuts")
-controller.bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")
-if let audioKey = config.audioHotkeyKey {
-    controller.bindAudioHotkey(modifier: config.audioHotkeyModifier, key: audioKey,
-                               devices: config.audioDevices, shortcut: config.audioShortcutCallback)
-}
-controller.bindMiscHotkeys(config)
-log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. ⌘Q to quit.")
+controller.bindAllHotkeys()
+controller.setupConfigWatch()
+log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")
 app.run()
