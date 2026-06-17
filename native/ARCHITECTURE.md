@@ -3,7 +3,8 @@
 This document is the canonical reference for the **native Swift port** of ZoneTilerWM.
 The original is a Hammerspoon/Lua window manager (see `../docs/ARCHITECTURE.md`); v2
 rebuilds it as a standalone native macOS menubar agent with no Hammerspoon dependency, at
-full feature parity. All v2 work happens on the local `v2` branch and is **not pushed**.
+full feature parity. v2 work lives on the `v2` branch, published to the private repo
+`ZoneTilerWMv2`. It is not pushed to the original `.hammerspoon` origin.
 
 The Lua implementation remains in the tree as the **executable specification**: every
 ported module is checked for behavioral parity against it (see Differential Testing).
@@ -222,10 +223,10 @@ parser. `Package.resolved` is committed.
 post-move **AX frame readback** (`kAXPosition`/`kAXSize`) equal to the target within
 tolerance — exactly what `zt-axspike` reports. Screenshots are the human-eye pass.
 
-### UI phase — implemented (in `zt-agent`; pending the visual UI round)
+### Live agent (`zt-agent`) — feature complete except the ZTUI v2 editors
 
-The keyboard-driven WM is live in the `zt-agent` menubar app; each decision is differentially
-verified vs Hammerspoon and/or live-validated:
+The keyboard-driven WM runs in the `zt-agent` menubar app. Each decision is differentially
+verified vs Hammerspoon and/or live-validated (screenshots):
 
 | Feature | Trigger | Verification |
 |---|---|---|
@@ -234,21 +235,35 @@ verified vs Hammerspoon and/or live-validated:
 | Focus cycling | mash_shift+zone | diff_focus 400/400 |
 | App switcher | appCuts/hyperAppCuts | unit; live (⇧⌃E→Finder) |
 | Adaptive memory | learns on tile, persists | unit; diff_memory |
+| Working-set focus tracking | 1s focus poll + startup seed | unit (cull honors real focus age) |
 | Audio switch | HYPER+' | unit (cycle) |
-| Pomodoro | mash+9/0; menubar + bar | unit (state machine) |
+| Pomodoro | mash+9/0; menubar text + color bar | unit + live (bar geometry, menubar item) |
 | Zen mode | HYPER+\\ | unit |
-| Activity Monitor | HYPER+= | — |
-| Overlays | flash on tile/focus; Pomodoro bar | visual (UI round) |
-| Settings GUI v1 | menubar → Settings… | visual (UI round) |
+| Activity Monitor | HYPER+= | live |
+| Resize mode | resize_mode hotkey; arrows nudge zone lines | live (cyan overlay + line shift + persisted offsets); unit (GridLines, offset→placement) |
+| Multi-monitor nav | placement_mode/zone_info/focus_next/prev_screen | unit only (single display — live owed) |
+| Window hints | window_hints hotkey | live (label badges + type-to-focus); unit (label assignment) |
+| Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
+| Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
+| Settings GUI v1 | menubar → Settings… | live (General/Memory/Layouts render with real data) |
 
-New system adapters: `CarbonHotkeyBinder`, `KeyMap`, `AppController`, `AudioDevices` setter,
-`Overlay` (flash/bar), `ZTUI` (SwiftUI settings). `make verify` → **78 Swift tests + 8
-differential harnesses + Lua runner, all green**.
+System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
+`AudioDevices`, `Overlay` (flash/bar/grid/hints), `ConfigWatcher` (file-watch reload),
+`ZTUI` (SwiftUI settings). `make verify` → **109 Swift tests + 8 differential harnesses +
+Lua runner, all green**.
 
-### Deferred (next session)
+Three Lua-audit findings shaped scope (Lua is ground truth): the Lua does **not** auto-tile
+on new windows (that subscription only warms `window_cache`), has **no** config auto-reload
+(manual `hs.reload`), and its resize mode is internally inconsistent (modal arrows drive
+`hs.grid.pushWindow*` while the overlay/`resize_manager` are about zone grid lines). Handled
+respectively as: dropped (built the real gap — focus-time tracking), added as infra, and
+rebuilt coherently (arrows nudge zone grid lines via `ResizeManager`).
 
-Heavier/niche items not yet built: NSWorkspace **new-window auto-place** (needs AX
-window-created observers — the hardest remaining), **resize mode** (modal hotkey layer +
-grid overlay + ResizeManager), **config file-watch** reload + agent reconfigure,
-focus-next/prev-screen + move-to-monitor, window-hints, placement-mode/zone-info, and the
-`ZTUI` **keybind editor + visual layout editor** (v2). Same differential + visual discipline.
+### Remaining
+
+- **ZTUI v2 editors** — keybind capture editor + visual direct-manipulation layout editor.
+  The Layouts tab is currently a read-only list; General + Memory inspector are done.
+- **Live multi-monitor validation** of the nav features (logic unit-tested; needs a second
+  display attached for the screenshot pass).
+
+See `REMAINING_PORT_PLAN.md` for the per-slice detail.

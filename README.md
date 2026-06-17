@@ -2,6 +2,33 @@
 
 ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement to your keyboard layout. It learns your preferences to automate window arrangement, reducing cognitive load and making window management a matter of muscle memory.
 
+This repository holds two implementations:
+
+- **Lua (Hammerspoon)** — the original, in `modules/`, `init.lua`, `config.toml`. It is the executable specification; the native port is checked for behavioral parity against it.
+- **Native Swift port (v2)** — in `native/` (SwiftPM). A standalone `LSUIElement` menubar agent with no Hammerspoon dependency. See [native/ARCHITECTURE.md](native/ARCHITECTURE.md).
+
+## Native port (v2) status
+
+The native agent is feature-complete except the rich settings editors. It reads the same `config.toml` and `~/.config/ZoneTilerWM/*.json` as the Lua version.
+
+Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory, audio switch, Pomodoro (menubar text + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints, config live-reload, overlays, and a settings GUI v1 (General + Memory inspector + read-only Layouts).
+
+Remaining:
+
+- ZTUI v2 editors — keybind capture editor and visual layout editor.
+- Live multi-monitor validation of the screen-nav features (logic is unit-tested; needs a second display).
+
+Build and test the native port:
+
+```sh
+make verify        # swift tests + all differential harnesses + the Lua spec runner
+make build         # build the SwiftPM package
+make test-swift    # swift unit/golden tests only
+make diff          # Lua<->Swift differential harnesses only
+```
+
+Current baseline: 109 Swift tests, 8 differential harnesses, and the Lua runner all green.
+
 ## Features
 
 * **Zone-Based Tiling**: Arrange windows in a grid-based system mapped to your keyboard.
@@ -227,12 +254,12 @@ You can extend the detection logic in `config.toml` under `[tiler.screen_detecti
 
 For detailed documentation, see the [docs/](docs/) folder:
 
-* **[Architecture Overview](docs/ARCHITECTURE.md)** - System design and data flow
+* **[Native Port Architecture](native/ARCHITECTURE.md)** - The v2 Swift port: design, layering, differential testing, port status
+* **[Remaining Port Plan](native/REMAINING_PORT_PLAN.md)** - Per-slice status of the native port and what is left
+* **[Lua Architecture Overview](docs/ARCHITECTURE.md)** - Original Hammerspoon system design and data flow
 * **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
 * **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
-* **[AI Copilot Guide](docs/GEMINI.md)** - Instructions for AI assistants
-* **[Spaces Research](docs/SPACES_RESEARCH.md)** - macOS Spaces implementation research
-* **[Native Port Plan](docs/NATIVE_PORT_PLAN.md)** - Future Swift migration roadmap
+* **[Spaces Research](docs/SPACES_RESEARCH.md)** - macOS Spaces implementation research (out of scope)
 
 ---
 

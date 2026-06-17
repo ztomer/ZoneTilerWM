@@ -1,3 +1,9 @@
 
 # native port fuzz artifacts
 tools/fuzz_failures/
+
+# SwiftPM build output
+native/.build/
+.build/
+*.xcuserstate
+.DS_Store

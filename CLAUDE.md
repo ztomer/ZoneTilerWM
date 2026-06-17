@@ -12,9 +12,9 @@ file is the quick operational guide.
 
 ## Hard rules
 
-- **All v2 work stays on the local `v2` branch. NEVER push to origin, no PRs.** Commit
-  locally only (and only the files for the slice at hand — leave unrelated working-tree
-  changes alone).
+- **All v2 work stays on the `v2` branch.** It is published to the dedicated private repo
+  `ZoneTilerWMv2` (remote `v2origin`), and **never** to the original `.hammerspoon` `origin`.
+  Commit only the files for the slice at hand — leave unrelated working-tree changes alone.
 - **Verify with `make verify`** before considering anything done (see below).
 - Quality bar: TDD-first; data structures over clever code; dependency-inversion only at
   the OS boundary; perf-aware in the hot solver path. The Lua is the source of truth for
@@ -22,10 +22,10 @@ file is the quick operational guide.
 
 ## Verify / test
 
-- `make verify` — Swift tests + all six differential harnesses + the Lua spec runner. One
+- `make verify` — Swift tests + all eight differential harnesses + the Lua spec runner. One
   green/red answer. Use this.
 - `make test-swift` / `make test-lua` / `make diff` / `make probe` for pieces.
-- Current baseline: `swift test` green (70+), all `diff_*.sh` green, Lua runner 4/4.
+- Current baseline: 109 Swift tests green, all 8 `diff_*.sh` green, Lua runner.
 
 ## Porting a ZTCore module (the differential recipe)
 
@@ -67,7 +67,7 @@ runs the equivalent Lua and compares — fakes verify wiring, the diff verifies 
   deterministic test) before "done" — use the `user-pov-debug` skill. For window moves the
   deterministic assertion is the post-move AX frame readback.
 - **Tooling:** prefer the Read/Grep tools over `sed`/`awk`/`head` (a shell-rewrite hook can
-  mangle them). Don't `git push`.
+  mangle them). Push v2 only to the `v2origin` remote (`ZoneTilerWMv2`), never to `origin`.
 - **Build gotcha:** changing a public `ZTCore` initializer/signature can leave the
   executables linking the old symbol ("Undefined symbols … TilerCoordinator.__allocating_init").
   SwiftPM incremental misses it — `rm -rf native/.build && swift build` to recover.
