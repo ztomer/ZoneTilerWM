@@ -192,8 +192,10 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
   - General: fully actionable — Config Reveal/Open, working-set stepper, margins toggle + size
     stepper, grouped form.
   - Keybinds: each action = name | modifier-alias picker | key recorder | ⌃⌘K preview (modifier
-    and key decoupled); Tile/Focus modifier pickers; **app-shortcuts editor** (appCuts +
-    hyperAppCuts: per-group modifier + editable key→app fields).
+    and key decoupled); Tile/Focus modifier pickers.
+  - Apps (own tab): a **visual keyboard render** — each keycap shows the app it launches for the
+    selected modifier group (App launcher / Hyper apps), mapped keys tinted; click a key to
+    assign/change (Set) or clear (Remove). Full add/remove via TOMLEditor setOrAppend/removeKey.
   - Layouts: **monitor → grid → zones** hierarchy — monitors list with auto-detected grid +
     override picker (persists to custom_screens) + Edit-zones; **visual zone previews**
     (mini-grid per zone, first tile highlighted); click-two-cells tile editor for the selected
