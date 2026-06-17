@@ -81,11 +81,18 @@ Keep `ZTRect` in **top-left CG coordinates** end-to-end (matches Lua, the AX API
 
 ---
 
-## Differential testing (primary correctness engine)
+## Differential testing (historical — the engine that built the port)
 
-The Lua implementation is the spec. For each pure module we run **both implementations on
-the same inputs and diff**, including fuzz-generated inputs, so correctness is
-machine-checkable rather than judged by hand. This covers `ZTCore`; the adapter/UI layers
+> **Retired.** The Lua implementation and this differential-oracle harness (`../tools/`,
+> `oracle_*.lua`, `diff_*.sh`) were removed once the port reached parity. This section is kept
+> as the record of *how* the port was validated; the per-module "diff_X N/N" results in the
+> Port-status table below are the frozen parity evidence. Today `make verify` runs the Swift
+> tests only, and the solver/zones Swift tests assert against the frozen golden corpus now in
+> `native/Tests/Fixtures/`. The Lua remains in git history + the `.hammerspoon` `origin` remote.
+
+The Lua implementation was the spec. For each pure module we ran **both implementations on
+the same inputs and diffed**, including fuzz-generated inputs, so correctness was
+machine-checkable rather than judged by hand. This covered `ZTCore`; the adapter/UI layers
 are covered by visual validation (below).
 
 **Harness layout (`../tools/`):**
@@ -262,10 +269,11 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
 `AudioDevices`, `Overlay` (flash/bar/grid/hints), `ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
-Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **142 Swift tests
-+ 8 differential harnesses + Lua runner, all green**. Line coverage is ~92% for the pure-logic
-`ZTCore` layer; the OS adapters / UI are validated by the differential oracles + live screenshot
-QA rather than unit tests. See `REVIEW.md` for the full coverage breakdown and the
+Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **142 Swift tests,
+all green** (the Lua + differential harness were retired post-parity — see the banner at the
+top of "Differential oracle testing" below). Line coverage is ~92% for the pure-logic `ZTCore`
+layer; the OS adapters / UI are validated by live screenshot QA + the post-move AX frame
+readback rather than unit tests. See `REVIEW.md` for the full coverage breakdown and the
 engineering/performance/UX review.
 
 **Identity / assets** (`native/Assets/`): app icon in light + dark variants

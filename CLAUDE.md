@@ -1,78 +1,72 @@
 # ZoneTilerWM — project guide
 
-A macOS window manager. Two implementations coexist in this repo:
+A macOS tiling window manager: a standalone native Swift menubar agent in `native/`
+(SwiftPM), no Hammerspoon dependency. It reads the existing `config.toml` and
+`~/.config/ZoneTilerWM/*.json`.
 
-- **Lua (Hammerspoon)** — the original, in `modules/` + `init.lua` + `config.toml`. This is
-  the **executable spec**: the v2 port is checked for behavioral parity against it.
-- **Swift native port (v2)** — in `native/` (SwiftPM). A standalone menubar agent, no
-  Hammerspoon. `tools/` holds the Lua↔Swift differential oracles.
+> History: this began as a Hammerspoon/Lua config and was ported to Swift against the Lua
+> as an executable spec, validated with a Lua↔Swift differential-oracle harness. Once the
+> port reached parity, the Lua and the harness were removed (commit "Remove the
+> Lua/Hammerspoon implementation"). They remain recoverable in git history and on the
+> original `.hammerspoon` `origin` remote. The Swift unit + golden tests are now the spec.
 
-**Read `native/ARCHITECTURE.md`** for the full design, port status, and methodology. This
-file is the quick operational guide.
+**Read `native/ARCHITECTURE.md`** for the full design and conventions. This file is the
+quick operational guide.
 
 ## Hard rules
 
-- **All v2 work stays on the `v2` branch.** It is published to the dedicated private repo
+- **All work stays on the `v2` branch**, published to the dedicated private repo
   `ZoneTilerWMv2` (remote `v2origin`), and **never** to the original `.hammerspoon` `origin`.
-  Commit only the files for the slice at hand — leave unrelated working-tree changes alone.
-- **Verify with `make verify`** before considering anything done (see below).
+  Commit only the files for the change at hand — leave unrelated working-tree changes alone
+  (notably the user's local `config.toml` edits: do not stage/commit `config.toml` unless
+  asked; never `git add -A` it in).
+- **Verify with `make verify`** (= `swift test`) before considering anything done.
 - Quality bar: TDD-first; data structures over clever code; dependency-inversion only at
-  the OS boundary; perf-aware in the hot solver path. The Lua is the source of truth for
-  behavior.
+  the OS boundary; AX-call-count-aware in the hot path (see below).
 
 ## Verify / test
 
-- `make verify` — Swift tests + all eight differential harnesses + the Lua spec runner. One
-  green/red answer. Use this.
-- `make test-swift` / `make test-lua` / `make diff` / `make probe` for pieces.
-- Current baseline: 109 Swift tests green, all 8 `diff_*.sh` green, Lua runner.
-
-## Porting a ZTCore module (the differential recipe)
-
-1. If the Lua module has nondeterminism (order-significant `pairs()`, unstable `table.sort`,
-   wall-clock reads), fix it first — total-order sorts, inject the clock. The Lua must be
-   deterministic or the diff has no fixed target.
-2. `tools/oracle_<m>.lua` — headless (no Hammerspoon; stub system deps), JSON in/out.
-3. `zt-oracle` gets a mode; the Swift type goes in `ZTCore` (operate on value snapshots).
-4. `tools/gen_fuzz_<m>.lua` + `tools/cmp_<m>.lua` + `tools/diff_<m>.sh`; iterate to green
-   over a few hundred fuzz seeds. Add a Swift behavioral test in `ZTCoreTests`.
-
-Pure logic with low float risk (focus/app/pomodoro/audio/etc.) can be TDD'd with Swift unit
-tests mirroring the Lua instead of a full oracle.
-
-**The Lua/Hammerspoon version is ground truth — always.** This includes orchestration /
-coordinator *decisions*, not just leaf algorithms: e.g. the live move-to-zone decision is
-diffed against the real `zone_calculator` + `placement_strategy` (`diff_movezone.sh`), not
-only fake-unit-tested. When you build a new decision path, add a differential oracle that
-runs the equivalent Lua and compares — fakes verify wiring, the diff verifies behavior.
+- `make verify` — the Swift unit + golden tests (`native/`). One green/red answer.
+- `make build` / `make probe` for the rest.
+- Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic `ZTCore`
+  layer. The OS adapters / UI are validated by live screenshot QA + the post-move AX frame
+  readback rather than unit tests (see `native/REVIEW.md`).
+- The solver/zones Swift tests assert against a frozen golden corpus in
+  `native/Tests/Fixtures/` (originally dumped from the Lua; now a static regression set).
 
 ## Conventions / gotchas
 
 - **Layering:** `ZTCore` = pure logic, must NOT import AppKit/ApplicationServices; operates
   on value snapshots. `ZTSystem` = adapters (AX, NSScreen, CoreAudio, JSON, TOMLKit). `ZTUI`
-  = SwiftUI settings (later).
+  = SwiftUI settings + analytics.
+- **Performance — minimize AX calls (the primary gate).** SentinelOne hooks/logs/analyzes
+  every Accessibility call, so cost is AX-round-trip *count*, not CPU. Reads/occupancy/
+  z-order go through `CGWindowListCopyWindowInfo` (zero AX); AX is touched only to mutate +
+  read the focused element; the EnhancedUI flag is memoized per app. Don't add per-window AX
+  reads for enumeration. See `docs/SENTINELONE_INVESTIGATION.md`, `native/REVIEW.md` §1.
 - **Coordinates:** top-left CG space everywhere (`ZTRect`), matching AX/CGWindowList. Convert
   only inside `NSScreenProvider` if reading `NSScreen.frame`.
 - **Two window value types (don't merge):** `WindowSnapshot` (solver input, opaque String
   label id) vs `AutoTiler.Window` / live enumeration (Int CGWindowID). See Models.swift.
 - **Config:** read the existing `config.toml` (TOMLKit); edits via `TOMLEditor` (surgical,
-  comment-preserving — toml++ can't round-trip comments). Existing
-  `~/.config/ZoneTilerWM/*.json` must stay loadable (legacy numeric monitor_id, etc.).
-- **Lua headless logging goes to stderr** (logger + config banner), so oracle stdout stays
-  clean JSON. Keep it that way.
-- **Native window moves** must replicate the Hammerspoon AX quirks: `AXEnhancedUserInterface`
-  toggle for Firefox/Zen-class apps, position-then-size, AppleScript fallback (see
-  `AXWindowSystem` + `native/ARCHITECTURE.md`).
-- **Visual features** get user-POV validation (run the app, screenshot/video, then a
-  deterministic test) before "done" — use the `user-pov-debug` skill. For window moves the
-  deterministic assertion is the post-move AX frame readback.
+  comment-preserving). Existing `~/.config/ZoneTilerWM/*.json` must stay loadable (legacy
+  numeric monitor_id, bare-count prefs, etc.).
+- **Native window moves** replicate the AX quirks: the `AXEnhancedUserInterface` toggle for
+  Firefox/Zen/Electron-class apps (memoized per app), position-then-size, AppleScript
+  fallback (see `AXWindowSystem`).
+- **Multi-monitor:** logical monitor ids are seeded from the display arrangement at startup
+  and re-registered on `didChangeScreenParametersNotification`, so memory/offsets resolve to
+  the right display after a hot-plug.
+- **Visual features** get user-POV validation (run the app, screenshot, then a deterministic
+  test) before "done" — use the `user-pov-debug` skill. For window moves the deterministic
+  assertion is the post-move AX frame readback.
 - **Tooling:** prefer the Read/Grep tools over `sed`/`awk`/`head` (a shell-rewrite hook can
-  mangle them). Push v2 only to the `v2origin` remote (`ZoneTilerWMv2`), never to `origin`.
+  mangle them). Push only to the `v2origin` remote (`ZoneTilerWMv2`), never to `origin`.
 - **Build gotcha:** changing a public `ZTCore` initializer/signature can leave the
   executables linking the old symbol ("Undefined symbols … TilerCoordinator.__allocating_init").
   SwiftPM incremental misses it — `rm -rf native/.build && swift build` to recover.
 
-## Dev: accessibility (UI phase)
+## Dev: accessibility
 
 Moving other apps' windows needs Accessibility (TCC) permission for the running process;
 it's granted on this machine. Re-signing/rebuilding can reset the grant — re-add the binary
