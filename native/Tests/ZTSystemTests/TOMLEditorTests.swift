@@ -49,6 +49,21 @@ final class TOMLEditorTests: XCTestCase {
         XCTAssertEqual(changedLineCount(original, edited), 1)
     }
 
+    func testLayoutEditorWritePreservesCommentAndReparses() throws {
+        // Mirrors SettingsModel.setLayoutZone: replace a layout zone's inline array in a quoted
+        // subsection, keeping the trailing comment, and re-parse with the new tiles.
+        let original = try realConfig()
+        let edited = try XCTUnwrap(
+            TOMLEditor.setValue(original, section: "tiler.layouts.\"2x2\"", key: "h",
+                                rawValue: "[\"a1\", \"a2\"]"))
+        XCTAssertTrue(edited.contains("\"h\" = [\"a1\", \"a2\"] # Left tile"),
+                      "the zone array changes but the inline comment survives")
+        XCTAssertEqual(changedLineCount(original, edited), 1)
+        let cfg = try ConfigLoader.load(tomlString: edited, homeDirectory: "/Users/test")
+        XCTAssertEqual(cfg.zoneConfig.layouts["2x2"]?["h"], ["a1", "a2"])
+        XCTAssertEqual(cfg.zoneConfig.layouts["2x2"]?["j"], ["a1:b2"])   // sibling untouched
+    }
+
     func testMissingKeyReturnsNil() throws {
         let original = try realConfig()
         XCTAssertNil(TOMLEditor.setValue(original, section: "tiler", key: "no_such_key", rawValue: "1"))

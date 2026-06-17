@@ -187,10 +187,14 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
   watcher + menu item).
 - **Placement-mode / zone-info overlays** — N/A: in the Lua these hotkeys ARE move-to-monitor
   (next/previous), already done in Slice 4. Not separate overlays.
-- **ZTUI v2 editors** — STILL TODO (the remaining substantial piece): keybind capture editor +
-  visual direct-manipulation layout editor (Layouts tab is currently a read-only list;
-  General/Memory done). Best suited to a hands-on UI round. The genuinely-rich views, marked
-  last in the original plan.
+- **ZTUI v2 editors** — DONE. Keybind editor (modifier-alias pickers + per-action chord
+  display in ⇧⌃⌥⌘ glyphs + Record via an NSEvent chord recorder) and a visual layout editor
+  (pick grid + zone; click two cells to span a rectangle; Add/Remove/Save the zone's tile
+  cycle on a rendered grid). Both write through the surgical `TOMLEditor`; saving triggers
+  Slice 2's live reload. Pure logic in ZTCore (`GridCells` parse/format, `Keybinding` alias
+  match) is unit-tested; views validated by screenshots; end-to-end edit→write→reload verified
+  live. Caveat: while recording a chord, the agent's global hotkeys are still active, so a
+  captured combo also fires its current action once (cosmetic; new binding applies on save).
 
 ---
 

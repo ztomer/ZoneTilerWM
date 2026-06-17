@@ -11,23 +11,23 @@ This repository holds two implementations:
 
 The native agent is feature-complete except the rich settings editors. It reads the same `config.toml` and `~/.config/ZoneTilerWM/*.json` as the Lua version.
 
-Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory, audio switch, Pomodoro (menubar text + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints, config live-reload, overlays, and a settings GUI v1 (General + Memory inspector + read-only Layouts).
+Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory, audio switch, Pomodoro (menubar text + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints, config live-reload, overlays, and the settings GUI (General, a keybind editor, a visual layout editor, and the memory inspector).
 
 Remaining:
 
-- ZTUI v2 editors — keybind capture editor and visual layout editor.
 - Live multi-monitor validation of the screen-nav features (logic is unit-tested; needs a second display).
+- Productization: a real `.app` bundle, code signing/notarization, launch-at-login, and first-run accessibility onboarding. It currently runs as the SwiftPM `zt-agent` binary.
 
-Build and test the native port:
+Build, run, and test the native port:
 
 ```sh
+./build.sh         # build the native package (pass-through flags, e.g. ./build.sh -c release)
+./run.sh           # build and launch the zt-agent menubar app (Ctrl-C to quit)
 make verify        # swift tests + all differential harnesses + the Lua spec runner
-make build         # build the SwiftPM package
-make test-swift    # swift unit/golden tests only
 make diff          # Lua<->Swift differential harnesses only
 ```
 
-Current baseline: 109 Swift tests, 8 differential harnesses, and the Lua runner all green.
+Current baseline: 116 Swift tests, 8 differential harnesses, and the Lua runner all green.
 
 ## Features
 

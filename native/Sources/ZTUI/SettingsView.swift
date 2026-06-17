@@ -36,6 +36,34 @@ public final class SettingsModel: ObservableObject {
         }
     }
 
+    // MARK: - v2 editor writes (layouts + keybinds), all via the surgical TOML writer.
+
+    /// Replace a layout zone's tile cycle list, e.g. [tiler.layouts."4x3"] "j" = ["b1:c3", ...].
+    public func setLayoutZone(grid: String, zone: String, tiles: [String]) {
+        let raw = "[" + tiles.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
+        setValue(section: "tiler.layouts.\"\(grid)\"", key: zone, rawValue: raw)
+    }
+
+    /// Replace a hotkey binding, e.g. [tiler.hotkeys] resize_mode = ["HYPER", "r"].
+    public func setHotkey(section: String, key: String, alias: String, keyName: String) {
+        setValue(section: section, key: key, rawValue: "[\"\(alias)\", \"\(keyName)\"]")
+    }
+
+    /// Replace a scalar modifier alias, e.g. [tiler] modifier = "mash".
+    public func setModifierAlias(key: String, alias: String) {
+        setValue(section: "tiler", key: key, rawValue: "\"\(alias)\"")
+    }
+
+    /// Current raw [alias, key] for a hotkey, by config section.
+    public func hotkeyValue(section: String, key: String) -> [String] {
+        switch section {
+        case "tiler.hotkeys": return config.tilerHotkeys[key] ?? []
+        case "pomodoro.hotkeys": return config.pomodoroHotkeys[key] ?? []
+        case "system_hotkeys": return config.systemHotkeys[key] ?? []
+        default: return []
+        }
+    }
+
     public struct Pref: Identifiable {
         public let id = UUID()
         public let app: String, monitor: String, zone: String, tile: String
@@ -58,10 +86,11 @@ public struct SettingsView: View {
     public var body: some View {
         TabView {
             general.tabItem { Text("General") }
+            KeybindEditorView(model: model).tabItem { Text("Keybinds") }
+            LayoutEditorView(model: model).tabItem { Text("Layouts") }
             memory.tabItem { Text("Memory") }
-            layouts.tabItem { Text("Layouts") }
         }
-        .frame(width: 560, height: 420)
+        .frame(width: 620, height: 460)
         .padding()
     }
 
@@ -106,12 +135,4 @@ public struct SettingsView: View {
         }
     }
 
-    private var layouts: some View {
-        List {
-            ForEach(model.config.zoneConfig.layouts.keys.sorted(), id: \.self) { key in
-                let zones = model.config.zoneConfig.layouts[key]?.keys.sorted().joined(separator: " ") ?? ""
-                LabeledContent(key, value: zones)
-            }
-        }
-    }
 }

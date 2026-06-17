@@ -245,12 +245,13 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 | Window hints | window_hints hotkey | live (label badges + type-to-focus); unit (label assignment) |
 | Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
 | Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
-| Settings GUI v1 | menubar → Settings… | live (General/Memory/Layouts render with real data) |
+| Settings GUI | menubar → Settings… | live (General / Keybinds editor / visual Layout editor / Memory) |
 
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
 `AudioDevices`, `Overlay` (flash/bar/grid/hints), `ConfigWatcher` (file-watch reload),
-`ZTUI` (SwiftUI settings). `make verify` → **109 Swift tests + 8 differential harnesses +
-Lua runner, all green**.
+`ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
+Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **116 Swift tests
++ 8 differential harnesses + Lua runner, all green**.
 
 Three Lua-audit findings shaped scope (Lua is ground truth): the Lua does **not** auto-tile
 on new windows (that subscription only warms `window_cache`), has **no** config auto-reload
@@ -261,9 +262,10 @@ rebuilt coherently (arrows nudge zone grid lines via `ResizeManager`).
 
 ### Remaining
 
-- **ZTUI v2 editors** — keybind capture editor + visual direct-manipulation layout editor.
-  The Layouts tab is currently a read-only list; General + Memory inspector are done.
 - **Live multi-monitor validation** of the nav features (logic unit-tested; needs a second
   display attached for the screenshot pass).
+- **Productization** (never in scope yet): a real `.app` bundle (`Info.plist`/`LSUIElement`),
+  code signing / notarization, launch-at-login, and a first-run accessibility-permission
+  onboarding. It currently runs as the SwiftPM `zt-agent` binary via `run.sh`.
 
 See `REMAINING_PORT_PLAN.md` for the per-slice detail.
