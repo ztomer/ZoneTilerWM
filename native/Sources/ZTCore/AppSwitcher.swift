@@ -8,7 +8,7 @@ import Foundation
 
 public enum AppSwitcher {
 
-    public struct Config {
+    public struct Config: Equatable {
         /// launch-name (lowercased) -> display-name (lowercased)
         public let specialMappings: [String: String]
         /// pairs of names that must NOT be treated as substring-matching each other

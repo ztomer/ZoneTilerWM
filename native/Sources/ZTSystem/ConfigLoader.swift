@@ -36,6 +36,9 @@ public enum ConfigLoader {
         public var aliases: [String: [String]]
         public var tilerModifier: [String]   // resolved (e.g. mash -> [ctrl, cmd])
         public var focusModifier: [String]
+        public var appSwitcher: AppSwitcher.Config
+        public var appCuts: AppHotkeyGroup
+        public var hyperAppCuts: AppHotkeyGroup
     }
 
     // MARK: - TOML decode model (only the sections the ported core needs)
@@ -85,11 +88,49 @@ public enum ConfigLoader {
         var app_zones: [String: String]?
     }
 
+    private struct RawAppSwitcher: Decodable {
+        var hide_workaround_apps: [String]?
+        var ambiguous_apps: [[String]]?
+        var special_app_mappings: [String: String]?
+    }
+
+    /// An [appCuts]/[hyperAppCuts] table: a `modifier` array plus key->app entries mixed in.
+    private struct RawAppCuts: Decodable {
+        var modifier: [String]
+        var apps: [String: String]
+        private struct Key: CodingKey {
+            var stringValue: String; init?(stringValue: String) { self.stringValue = stringValue }
+            var intValue: Int? { nil }; init?(intValue: Int) { nil }
+        }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: Key.self)
+            var mods: [String] = []
+            var entries: [String: String] = [:]
+            for key in c.allKeys {
+                if key.stringValue == "modifier" {
+                    mods = (try? c.decode([String].self, forKey: key)) ?? []
+                } else if let app = try? c.decode(String.self, forKey: key) {
+                    entries[key.stringValue] = app
+                }
+            }
+            modifier = mods; apps = entries
+        }
+    }
+
     private struct RawConfig: Decodable {
         var version: String?
         var tiler: RawTiler
         var window_memory: RawWindowMemory?
         var aliases: [String: [String]]?
+        var app_switcher: RawAppSwitcher?
+        var appCuts: RawAppCuts?
+        var hyperAppCuts: RawAppCuts?
+    }
+
+    /// A resolved app-shortcut group: the actual modifier names + key->app entries.
+    public struct AppHotkeyGroup: Equatable {
+        public let modifier: [String]
+        public let apps: [String: String]
     }
 
     // MARK: - API
@@ -132,6 +173,20 @@ public enum ConfigLoader {
             guard let name else { return [] }
             return aliases[name] ?? [name]
         }
+        // A modifier list whose single element may itself be an alias (e.g. ["mash_app"]).
+        func resolveModList(_ mods: [String]) -> [String] {
+            if mods.count == 1, let resolved = aliases[mods[0]] { return resolved }
+            return mods
+        }
+
+        let appSwitcher = AppSwitcher.Config(
+            specialMappings: raw.app_switcher?.special_app_mappings ?? [:],
+            ambiguousApps: raw.app_switcher?.ambiguous_apps ?? [],
+            hideWorkaroundApps: raw.app_switcher?.hide_workaround_apps ?? [])
+        let appCuts = AppHotkeyGroup(modifier: resolveModList(raw.appCuts?.modifier ?? []),
+                                     apps: raw.appCuts?.apps ?? [:])
+        let hyperAppCuts = AppHotkeyGroup(modifier: resolveModList(raw.hyperAppCuts?.modifier ?? []),
+                                          apps: raw.hyperAppCuts?.apps ?? [:])
 
         return LoadedConfig(
             version: raw.version ?? "Unknown",
@@ -145,7 +200,10 @@ public enum ConfigLoader {
             windowMemory: windowMemory,
             aliases: aliases,
             tilerModifier: resolveMod(t.modifier),
-            focusModifier: resolveMod(t.focus_modifier))
+            focusModifier: resolveMod(t.focus_modifier),
+            appSwitcher: appSwitcher,
+            appCuts: appCuts,
+            hyperAppCuts: hyperAppCuts)
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

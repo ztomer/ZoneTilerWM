@@ -61,6 +61,22 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(cfg.aliases["HYPER"], ["shift", "ctrl", "alt", "cmd"])
     }
 
+    func testAppSwitcherAndAppCutsDecode() throws {
+        let cfg = try ConfigLoader.load(tomlString: String(contentsOf: repoConfigURL(), encoding: .utf8),
+                                        homeDirectory: "/Users/test")
+        // app_switcher
+        XCTAssertTrue(cfg.appSwitcher.hideWorkaroundApps.contains("Arc"))
+        XCTAssertTrue(cfg.appSwitcher.ambiguousApps.contains { $0 == ["notion", "notion calendar"] })
+        // appCuts: modifier alias mash_app -> [shift, ctrl]; e -> Finder.
+        XCTAssertEqual(cfg.appCuts.modifier, ["shift", "ctrl"])
+        XCTAssertEqual(cfg.appCuts.apps["e"], "Finder")
+        // hyperAppCuts: HYPER modifier; has entries.
+        XCTAssertEqual(cfg.hyperAppCuts.modifier, ["shift", "ctrl", "alt", "cmd"])
+        XCTAssertFalse(cfg.hyperAppCuts.apps.isEmpty)
+        // tiler/focus modifiers resolved.
+        XCTAssertEqual(cfg.tilerModifier, ["ctrl", "cmd"])
+    }
+
     func testLoadedConfigBuildsAutoTilerConfig() throws {
         let text = try String(contentsOf: repoConfigURL(), encoding: .utf8)
         let cfg = try ConfigLoader.load(tomlString: text, homeDirectory: "/Users/test")

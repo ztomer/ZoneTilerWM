@@ -26,6 +26,7 @@ final class AgentController: NSObject {
     private let windowSystem: AXWindowSystem
     private let coordinator: TilerCoordinator
     private let autoTilerConfig: AutoTiler.Config
+    private let appSwitcher: AppSwitcher.Config
     private var statusItem: NSStatusItem?
 
     init(config: ConfigLoader.LoadedConfig) {
@@ -35,7 +36,22 @@ final class AgentController: NSObject {
                                        zoneConfig: config.zoneConfig,
                                        placementStrategy: config.placementStrategy)
         autoTilerConfig = config.autoTilerConfig()
+        appSwitcher = config.appSwitcher
         super.init()
+    }
+
+    func bindAppHotkeys(_ group: ConfigLoader.AppHotkeyGroup, label: String) {
+        let mask = KeyMap.modifierMask(for: group.modifier)
+        guard mask != 0 else { log("zt-agent: \(label) has no usable modifier \(group.modifier)"); return }
+        var bound = 0
+        for (key, app) in group.apps {
+            guard let code = KeyMap.keyCode(for: key) else { continue }
+            let cfg = appSwitcher
+            if binder.bind(keyCode: code, modifiers: mask, action: { AppController.toggle(app: app, config: cfg) }) {
+                bound += 1
+            }
+        }
+        log("zt-agent: bound \(bound)/\(group.apps.count) \(label) app hotkeys")
     }
 
     func bindAutoTile(modifier: [String], key: String) {
@@ -93,5 +109,7 @@ let controller = AgentController(config: config)
 controller.setupStatusItem()
 controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
 if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }
+controller.bindAppHotkeys(config.appCuts, label: "appCuts")
+controller.bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. ⌘Q to quit.")
 app.run()
