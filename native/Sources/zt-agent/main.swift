@@ -32,12 +32,28 @@ final class AgentController: NSObject {
     init(config: ConfigLoader.LoadedConfig) {
         let screens = NSScreenProvider()
         windowSystem = AXWindowSystem(screenProvider: screens)
+
+        // Adaptive memory: load persisted preferences; learn + persist on manual tiles.
+        var memory: WindowMemory?
+        var storage: Storage?
+        let monitorManager = MonitorManager()
+        if config.windowMemory.enabled {
+            let store = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
+            let mem = WindowMemory(excludedApps: config.windowMemory.excludedApps,
+                                   settleEnabled: config.windowMemory.settleDelaySec > 0 || true)
+            if let saved = store.load("window_positions", as: WindowMemory.SaveData.self) { mem.load(saved) }
+            memory = mem
+            storage = store
+        }
+
         coordinator = TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
                                        zoneConfig: config.zoneConfig,
-                                       placementStrategy: config.placementStrategy)
+                                       placementStrategy: config.placementStrategy,
+                                       memory: memory, monitorManager: monitorManager, storage: storage)
         autoTilerConfig = config.autoTilerConfig()
         appSwitcher = config.appSwitcher
         super.init()
+        log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
     }
 
     func bindAppHotkeys(_ group: ConfigLoader.AppHotkeyGroup, label: String) {

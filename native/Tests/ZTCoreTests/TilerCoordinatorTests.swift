@@ -54,6 +54,30 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(ws.movedTo, ZTRect(x: 0, y: 0, w: 500, h: 500))
     }
 
+    func testManualMoveLearnsAndPersists() {
+        final class MemStore: Storage {
+            var blobs: [String: Data] = [:]
+            func load<T: Decodable>(_ k: String, as t: T.Type) -> T? { blobs[k].flatMap { try? JSONDecoder().decode(t, from: $0) } }
+            @discardableResult func save<T: Encodable>(_ k: String, _ v: T) -> Bool {
+                blobs[k] = try? JSONEncoder().encode(v); return blobs[k] != nil
+            }
+        }
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 7, appName: "Safari", frame: ZTRect(x: 0, y: 0, w: 800, h: 600), screenUUID: "M1")
+        let mem = WindowMemory()
+        let mm = MonitorManager()
+        let store = MemStore()
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     memory: mem, monitorManager: mm, storage: store)
+        _ = coord.moveFocusedToZone("y")
+        let key = String(mm.id(forUUID: "M1"))   // logical id "1"
+        let ranked = mem.rankedPreferences(app: "Safari", monitor: key)
+        XCTAssertEqual(ranked.first?.zoneKey, "y")
+        XCTAssertEqual(ranked.first?.count, 1)
+        XCTAssertNotNil(store.blobs["window_positions"], "should persist on learn")
+    }
+
     func testNoFocusedWindow() {
         let ws = FakeWindowSystem()  // focused = nil
         let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),

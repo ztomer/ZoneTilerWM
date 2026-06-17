@@ -29,18 +29,47 @@ public final class TilerCoordinator {
     private let overlapThreshold: Double
     private let focusCycler = FocusManager.Cycler()
 
+    // Optional adaptive memory: when present, manual zone moves are learned + persisted, and
+    // auto-tile becomes memory-augmented. monitorManager maps screen UUID -> the logical id
+    // the on-disk window_positions.json is keyed by.
+    private let memory: WindowMemory?
+    private let monitorManager: MonitorManager?
+    private let storage: Storage?
+
     public init(windowSystem: WindowSystem,
                 screenProvider: ScreenProvider,
                 zoneConfig: ZoneConfig,
                 placementStrategy: String,
                 overlapThreshold: Double = 0.5,
-                offsets: @escaping ZoneCalculator.OffsetProvider = ZoneCalculator.zeroOffsets) {
+                offsets: @escaping ZoneCalculator.OffsetProvider = ZoneCalculator.zeroOffsets,
+                memory: WindowMemory? = nil,
+                monitorManager: MonitorManager? = nil,
+                storage: Storage? = nil) {
         self.windowSystem = windowSystem
         self.screenProvider = screenProvider
         self.zoneConfig = zoneConfig
         self.strategy = PlacementStrategy.Strategy(config: placementStrategy)
         self.overlapThreshold = overlapThreshold
         self.offsets = offsets
+        self.memory = memory
+        self.monitorManager = monitorManager
+        self.storage = storage
+    }
+
+    /// Logical monitor id (string) for memory keys, via MonitorManager. nil if no manager.
+    private func monitorKey(_ uuid: String) -> String? {
+        monitorManager.map { String($0.id(forUUID: uuid)) }
+    }
+
+    /// Learn + persist a manual placement (no-op if memory isn't configured).
+    private func learn(window: LiveWindow, screen: ScreenSnapshot, zoneKey: String, tileIndex: Int) {
+        guard let memory, let key = monitorKey(screen.uuid) else { return }
+        memory.positionWindow(windowId: window.id, app: window.appName, monitor: key,
+                              zone: zoneKey, tile: .int(tileIndex),
+                              winW: window.frame.w, winH: window.frame.h,
+                              screenW: screen.frame.w, screenH: screen.frame.h)
+        memory.flush(windowId: window.id)
+        storage?.save("window_positions", memory.save())
     }
 
     /// Cycle focus among the windows in `zoneKey` on the focused window's screen. Returns the
@@ -93,6 +122,7 @@ public final class TilerCoordinator {
 
         let tileIndex = (tiles.firstIndex(of: target) ?? 0) + 1
         let applied = windowSystem.moveFocusedWindow(to: target)
+        if applied { learn(window: focused, screen: screen, zoneKey: zoneKey, tileIndex: tileIndex) }
         return .success(MoveOutcome(windowId: focused.id, zoneKey: zoneKey,
                                     tileIndex: tileIndex, target: target, applied: applied))
     }
@@ -101,7 +131,7 @@ public final class TilerCoordinator {
     /// ported AutoTiler, applying each planned move via the WindowSystem. Returns the moves.
     @discardableResult
     public func autoTileScreen(autoTilerConfig: AutoTiler.Config,
-                               memory: [String: [MemoryPref]] = [:],
+                               memory memoryOverride: [String: [MemoryPref]]? = nil,
                                now: Int) -> [AutoTiler.PlannedMove] {
         let uuid = windowSystem.focusedWindow()?.screenUUID ?? screenProvider.mainScreen()?.uuid
         guard let uuid, let screen = screenProvider.screen(uuid: uuid) else { return [] }
@@ -115,9 +145,25 @@ public final class TilerCoordinator {
         let focusedId = windowSystem.focusedWindow()?.id
         let screens = [AutoTiler.Screen(uuid: uuid, name: screen.name, frame: screen.frame)]
 
+        // Memory-augmented: ranked preferences per app for this monitor (logical id key).
+        let memory = memoryOverride ?? rankedMemory(forApps: Set(live.map { $0.appName }), screenUUID: uuid)
+
         let moves = AutoTiler.plan(config: autoTilerConfig, screens: screens, windows: windows,
                                    zOrder: zOrder, focusedId: focusedId, memory: memory, now: now)
         for m in moves { windowSystem.move(windowId: m.windowId, to: m.rect) }
         return moves
+    }
+
+    /// Per-app ranked memory preferences for a monitor, for AutoTiler.plan.
+    private func rankedMemory(forApps apps: Set<String>, screenUUID: String) -> [String: [MemoryPref]] {
+        guard let memory, let key = monitorKey(screenUUID) else { return [:] }
+        var result: [String: [MemoryPref]] = [:]
+        for app in apps {
+            let ranked = memory.rankedPreferences(app: app, monitor: key)
+            if !ranked.isEmpty {
+                result[app] = ranked.map { MemoryPref(zone_key: $0.zoneKey, tile_index: $0.tile, count: $0.count) }
+            }
+        }
+        return result
     }
 }
