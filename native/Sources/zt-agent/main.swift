@@ -457,26 +457,47 @@ final class AgentController: NSObject {
             }
         }
         guard !wins.isEmpty else { return }
-        let labels = WindowHints.labels(count: wins.count)
-        if wins.count > labels.count {
-            log("zt-agent: window hints — \(wins.count) windows, only \(labels.count) labeled")
+
+        // Desktop bounds (union of screens) → normalize each window center to [0,1] so the hint
+        // key's physical keyboard position maps to where the window sits on screen.
+        let frames = screens.allScreens().map { $0.frame }
+        let minX = frames.map { $0.x }.min() ?? 0, maxX = frames.map { $0.x + $0.w }.max() ?? 1
+        let minY = frames.map { $0.y }.min() ?? 0, maxY = frames.map { $0.y + $0.h }.max() ?? 1
+        func norm(_ v: Double, _ lo: Double, _ hi: Double) -> Double { hi > lo ? (v - lo) / (hi - lo) : 0.5 }
+        let centers = wins.map { w in
+            (x: norm(w.frame.x + w.frame.w / 2, minX, maxX), y: norm(w.frame.y + w.frame.h / 2, minY, maxY))
+        }
+        let labels = WindowHints.spatialLabels(centers: centers, keys: hintKeyRows())
+        let labeled = zip(labels, wins).filter { !$0.0.isEmpty }
+        if labeled.count < wins.count {
+            log("zt-agent: window hints — \(wins.count) windows, \(labeled.count) labeled")
         }
         hintTargets = [:]
         var badges: [(label: String, app: String, icon: NSImage?, center: ZTRect)] = []
-        for (label, w) in zip(labels, wins) {
+        for (label, w) in labeled {
             hintTargets[label] = w.id
             let center = ZTRect(x: w.frame.x + w.frame.w / 2, y: w.frame.y + w.frame.h / 2, w: 0, h: 0)
-            badges.append((label, w.appName, Self.appIcon(for: w.appName), center))
+            badges.append((label, w.appName, appIcon(for: w.appName), center))
         }
         hintsActive = true
         hintOverlay.show(badges)
-        bindHintModal(labels: labels)
+        bindHintModal(labels: labeled.map { $0.0 })
         log("zt-agent: window hints ON (\(hintTargets.count) windows) — type a label, ESC cancels")
     }
 
-    /// The running app's icon by display name (for the hint badge); nil if not resolvable.
-    private static func appIcon(for name: String) -> NSImage? {
-        NSWorkspace.shared.runningApplications.first { $0.localizedName == name }?.icon
+    /// The 3 letter rows of the active keyboard layout, used as spatially-assignable hint keys.
+    private func hintKeyRows() -> [[String]] {
+        let name = config.keyboardLayout == "auto" ? KeyboardLayoutDetector.current() : config.keyboardLayout
+        return Array(KeyboardLayout.rows(for: name).suffix(3))
+    }
+
+    private var iconCache: [String: NSImage?] = [:]
+    /// The running app's icon by display name (cached to avoid re-querying every hint pass).
+    private func appIcon(for name: String) -> NSImage? {
+        if let cached = iconCache[name] { return cached }
+        let icon = NSWorkspace.shared.runningApplications.first { $0.localizedName == name }?.icon
+        iconCache[name] = icon
+        return icon
     }
 
     private func exitWindowHints() {
