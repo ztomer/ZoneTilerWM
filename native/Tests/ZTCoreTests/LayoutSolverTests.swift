@@ -27,14 +27,12 @@ final class LayoutSolverTests: XCTestCase {
         let placed: Int
     }
 
-    /// tools/fixtures/solver, located relative to this source file (repo-root/native/Tests/ZTCoreTests/).
+    /// native/Tests/Fixtures/solver — Lua-dumped golden corpus, now a static regression set.
     private func fixturesDir() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // ZTCoreTests
             .deletingLastPathComponent()   // Tests
-            .deletingLastPathComponent()   // native
-            .deletingLastPathComponent()   // repo root
-            .appendingPathComponent("tools/fixtures/solver", isDirectory: true)
+            .appendingPathComponent("Fixtures/solver", isDirectory: true)
     }
 
     func testCorpusParityWithLuaGoldens() throws {

@@ -1,27 +1,17 @@
-# ZoneTilerWM — dev entry points. The v2 native port lives in native/ (Swift) with the Lua
-# source in modules/ as the executable spec; tools/ holds the differential oracles.
+# ZoneTilerWM — dev entry points. This is now a single native Swift product in native/;
+# the original Hammerspoon/Lua implementation and its differential oracle harness were
+# retired once the port reached parity (they live on in git history + the `origin` remote).
 
-.PHONY: verify test-swift test-lua diff probe build help
+.PHONY: verify test-swift build probe help
 
 help:
-	@echo "make verify      - swift tests + all differential harnesses + lua spec runner"
-	@echo "make test-swift  - swift unit/golden tests (native/)"
-	@echo "make test-lua    - lua spec test runner"
-	@echo "make diff        - run all six Lua<->Swift differential harnesses (100 fuzz each)"
+	@echo "make verify      - swift unit + golden tests (native/)"
+	@echo "make test-swift  - alias for verify"
 	@echo "make build       - build the native package"
 	@echo "make probe       - read-only system probe (screens/windows/audio)"
 
-verify:
-	@tools/verify.sh
-
-test-swift:
+verify test-swift:
 	@cd native && swift test
-
-test-lua:
-	@lua tests/test_runner.lua
-
-diff:
-	@for m in solver zones memory place strategy autotiler movezone focus; do tools/diff_$$m.sh 100; done
 
 build:
 	@cd native && swift build

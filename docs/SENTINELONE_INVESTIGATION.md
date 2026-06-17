@@ -80,3 +80,30 @@ Extreme slowness when moving windows in ZoneTilerWM on machines with SentinelOne
 - `/Users/ztomer/Projects/ZoneTilerWM/modules/placement_strategy.lua` - Fixed rotation, smart cycling, uses cache
 - `/Users/ztomer/Projects/ZoneTilerWM/modules/window_actions.lua` - Removed get_windows_in_zone call, fixed args
 - `/Users/ztomer/Projects/ZoneTilerWM/modules/auto_tiler.lua` - Grid-based fill gaps, iterative optimization
+
+## Native port (v2) — how the same root cause is handled
+
+The root cause is unchanged: **SentinelOne hooks, logs, and analyzes every Accessibility (AX)
+call**, so the binding perf constraint is the *number* of AX round-trips an operation makes,
+not CPU. The native Swift port (`native/`) addresses this structurally rather than with a
+cache layer:
+
+- **Reads use `CGWindowListCopyWindowInfo`, not AX.** `AXWindowSystem.onScreenWindows()` reads
+  every window's geometry, owner, layer, and front-to-back z-order from the WindowServer in one
+  call that needs **no Accessibility permission and is not on the hooked path**. All occupancy /
+  z-order / enumeration (`windows(onScreen:)`) is built from it — **zero AX calls, independent
+  of window count.** This eliminates the entire class of cost that forced the Lua's
+  `window_cache` (where `hs.window.allWindows()` was per-window AX).
+- **AX is used only to act.** AX round-trips happen for `move` / `focus` / `setMinimized` and to
+  read the single focused element. So AX-call count scales with *actions*, not *windows*. A tile
+  op is ~1 AX read (focused) + ~4–6 AX writes (resolve + EnhancedUI toggle + position + size);
+  the occupancy scan over all other windows is free.
+- **The one remaining hot knob: the `AXEnhancedUserInterface` toggle.** It runs on every move
+  (1 AX read + up to 2 AX writes) because Firefox/Zen-class non-native-AX apps require it. Under
+  SentinelOne those 2–3 hooked calls/move are the costliest part of a move; gating the toggle to
+  known-quirky apps (by bundle id) would drop native-AX-app moves to just the two `setFrame`
+  writes. Verify Firefox still moves before changing this. Tracked in `native/REVIEW.md` §1.
+- **Escape hatch preserved:** `use_applescript_window_movement` selects an AppleScript /
+  System-Events `WindowSystem` impl, and `enterprise_mode` forces the EnhancedUI workaround —
+  same semantics as the Lua flags. (Note from 2026-04-14: AppleScript does *not* dodge
+  SentinelOne, which hooks broader than AXUI; it is a compatibility fallback, not a speed-up.)

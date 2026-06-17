@@ -12,10 +12,9 @@ any slice is "done". Lua/Hammerspoon is ground truth for ALL behavior incl. coor
 decisions — new decision paths get a Lua-diffed oracle. Visual features get a user-POV
 screenshot pass + a deterministic test. Stage only the slice's files when committing.
 
-**Environment caveat:** only ONE monitor is attached right now. Slice 4 (multi-monitor nav)
-will be implemented to spec against the Lua but can only be **validated theoretically**
-(unit tests with synthetic multi-screen snapshots); live multi-display capture is deferred
-until a second display is available.
+**Environment update:** a second display is now attached, so Slice 4 (multi-monitor nav) and
+monitor identity have been **validated live** — see Slice 4 below. The earlier single-monitor
+caveat is resolved.
 
 ---
 
@@ -141,7 +140,7 @@ re-tile-on-adjust deferred as a nicety.
 
 ---
 
-## Slice 4 — Multi-monitor navigation (THEORETICAL on single-monitor)
+## Slice 4 — Multi-monitor navigation (now live-validated on two displays)
 
 **Goal:** `focus-next-screen` / `focus-prev-screen` and `move-window-to-monitor` hotkeys.
 
@@ -161,7 +160,8 @@ target selection, re-placement rect). Add a differential oracle if the move-to-m
 validation as deferred-until-second-display in the arch doc.
 
 **Done when:** unit tests over synthetic multi-screen snapshots green; hotkeys bound and
-no-op-safe on a single monitor; `make verify` green. Live validation deferred.
+no-op-safe on a single monitor; `make verify` green. (Live validation has since been completed
+on two displays — see below.)
 
 **DONE (unit-test only).** `ScreenNav` (ZTCore, pure): deterministic screen order (by x then
 y), next/previous wrap index math, and the move-to-monitor placement cascade (remembered app
@@ -170,8 +170,26 @@ omitted — native tracks no per-window tiler state). `TilerCoordinator.focusScr
 the frontmost same-app window on the target screen, matching the Lua) +
 `moveFocusedToMonitor(_:)`. Agent binds placement_mode→move-next, zone_info→move-previous,
 focus_next/prev_screen. Tests: ScreenNavTests + coordinator tests over synthetic 2-screen
-snapshots. Smoke-tested: all four hotkeys bind and no-op safely on the single attached
-monitor (no crash). **Live multi-display validation still owed when a 2nd display is attached.**
+snapshots.
+
+**Live validation DONE (two displays attached).** Verified on a DELL U3223QE (main) + a
+portrait Display. Found and fixed a real multi-monitor defect in the process: logical monitor
+ids were assigned **lazily** (on the first tile/move op), so whichever display you acted on
+first stole id 1 — but the registry is in-memory and re-derived each launch (like Lua's
+`monitor_manager.init`), and the on-disk `window_positions.json` numbers the main display as 1.
+The result was zone memory and resize offsets resolving to the *wrong* display after a
+(re)connect. Fix (agent-side; the `MonitorManager` policy was already correct):
+
+- `seedMonitors()` registers every screen in `NSScreen` enumeration order at startup, before
+  any op, so main == 1 deterministically (logged: `2 display(s): 1=DELL U3223QE 3360x1890,
+  2= 1066x1600`).
+- `setupScreenWatch()` re-registers on `NSApplication.didChangeScreenParametersNotification`
+  (connect / disconnect / rearrange / resolution), preserving existing ids and giving a new
+  display a stable id at once. Zones recompute live per op, so nothing else is cached to
+  invalidate.
+
+Two coordinator regression tests pin it (lazy mis-keys a secondary-first tile; seeding keys it
+right regardless of op order).
 
 ---
 
@@ -210,6 +228,14 @@ editing (per-monitor override covers the common case).
 - **Config reload hotkey** — DONE. `system_hotkeys.reload` now bound to the in-process
   reloadFromDisk() (completes parity with the Lua's reload hotkey; complements Slice 2's
   watcher + menu item).
+- **Hotkey-conflict detection** — DONE (beyond Lua; the Lua silently lets the last Carbon
+  bind win). `HotkeyConflicts` (ZTSystem, pure `find([Binding]) -> [Conflict]`) +
+  `LoadedConfig.allBindings()`/`hotkeyConflicts()` group every bind (zone tile/focus, app
+  launchers, tiler/pomodoro/system actions, audio) by normalized modifier-set+key and report
+  combos with >1 action. Surfaced non-blocking: agent logs them on startup + after each
+  reload; the Keys tab shows a `ConflictBanner`. On the real config it flags `mash_shift+0`
+  (Focus-zone-0 vs Pomodoro reset) and a Discord-vs-resize_mode clash. Unit-tested
+  (`HotkeyConflictsTests`, incl. real-config).
 - **Placement-mode / zone-info overlays** — N/A: in the Lua these hotkeys ARE move-to-monitor
   (next/previous), already done in Slice 4. Not separate overlays.
 - **ZTUI settings** — DONE and then redesigned per feedback. IA: **General / Keybinds /

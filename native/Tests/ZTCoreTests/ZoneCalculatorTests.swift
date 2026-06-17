@@ -23,9 +23,7 @@ final class ZoneCalculatorTests: XCTestCase {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // ZTCoreTests
             .deletingLastPathComponent()   // Tests
-            .deletingLastPathComponent()   // native
-            .deletingLastPathComponent()   // repo root
-            .appendingPathComponent("tools/fixtures/zones", isDirectory: true)
+            .appendingPathComponent("Fixtures/zones", isDirectory: true)
     }
 
     func testZoneCorpusParityWithLuaGoldens() throws {
