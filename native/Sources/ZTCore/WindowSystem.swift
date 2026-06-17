@@ -22,4 +22,12 @@ public protocol WindowSystem: AnyObject {
     /// Move the focused window to `rect` (top-left CG). Returns success.
     @discardableResult
     func moveFocusedWindow(to rect: ZTRect) -> Bool
+
+    /// Move a specific window (by CGWindowID) to `rect`. Used by auto-tiling. Returns success.
+    @discardableResult
+    func move(windowId: Int, to rect: ZTRect) -> Bool
+
+    /// Raise + focus a specific window (by CGWindowID). Returns success.
+    @discardableResult
+    func focus(windowId: Int) -> Bool
 }

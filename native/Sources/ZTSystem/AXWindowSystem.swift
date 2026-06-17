@@ -81,6 +81,49 @@ public final class AXWindowSystem: WindowSystem {
         return true
     }
 
+    @discardableResult
+    public func move(windowId: Int, to rect: ZTRect) -> Bool {
+        guard let r = resolveWindow(windowId: windowId) else { return false }
+        applyFrame(r.window, app: r.app, rect: CGRect(x: rect.x, y: rect.y, width: rect.w, height: rect.h))
+        return true
+    }
+
+    @discardableResult
+    public func focus(windowId: Int) -> Bool {
+        guard let r = resolveWindow(windowId: windowId) else { return false }
+        AXUIElementPerformAction(r.window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(r.window, kAXMainAttribute as CFString, kCFBooleanTrue)
+        NSRunningApplication(processIdentifier: r.pid)?.activate()
+        return true
+    }
+
+    /// Apply a frame with the AXEnhancedUserInterface toggle (Firefox/Zen quirk), pos-then-size.
+    private func applyFrame(_ window: AXUIElement, app: AXUIElement, rect: CGRect) {
+        var wasEnhanced = false
+        var v: CFTypeRef?
+        if AXUIElementCopyAttributeValue(app, Self.kAXEnhancedUserInterface, &v) == .success, let b = v as? Bool {
+            wasEnhanced = b
+        }
+        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanFalse) }
+        Self.setFrame(window, rect)
+        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanTrue) }
+    }
+
+    /// Resolve a CGWindowID to its AX window + owning app element via _AXUIElementGetWindow.
+    private func resolveWindow(windowId: Int) -> (window: AXUIElement, app: AXUIElement, pid: pid_t)? {
+        let target = CGWindowID(windowId)
+        guard let pid = Self.onScreenWindows().first(where: { $0.windowID == target })?.pid else { return nil }
+        let appElem = AXUIElementCreateApplication(pid)
+        var winsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute as CFString, &winsRef) == .success,
+              let wins = winsRef as? [AXUIElement] else { return nil }
+        for w in wins {
+            var wid: CGWindowID = 0
+            if _AXUIElementGetWindow(w, &wid) == .success, wid == target { return (w, appElem, pid) }
+        }
+        return nil
+    }
+
     private func focusedAXWindow(pid: pid_t) -> AXUIElement? {
         let appElem = AXUIElementCreateApplication(pid)
         var ref: CFTypeRef?

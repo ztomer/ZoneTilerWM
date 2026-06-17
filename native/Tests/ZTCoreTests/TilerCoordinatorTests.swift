@@ -10,7 +10,10 @@ private final class FakeWindowSystem: WindowSystem {
     private(set) var movedTo: ZTRect?
     func focusedWindow() -> LiveWindow? { focused }
     func windows(onScreen uuid: String) -> [LiveWindow] { onScreen }
+    private(set) var moved: [(id: Int, rect: ZTRect)] = []
     @discardableResult func moveFocusedWindow(to rect: ZTRect) -> Bool { movedTo = rect; return true }
+    @discardableResult func move(windowId: Int, to rect: ZTRect) -> Bool { moved.append((windowId, rect)); return true }
+    @discardableResult func focus(windowId: Int) -> Bool { true }
 }
 
 private final class FakeScreenProvider: ScreenProvider {
@@ -64,6 +67,26 @@ final class TilerCoordinatorTests: XCTestCase {
         let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
                                      zoneConfig: zoneConfig(), placementStrategy: "rotate")
         XCTAssertEqual(coord.moveFocusedToZone("zzz"), .failure(.noZone("zzz")))
+    }
+
+    func testAutoTileScreenPlansAndApplies() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 800, h: 600), screenUUID: "M1")
+        ws.onScreen = [
+            ws.focused!,
+            LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 100, y: 100, w: 400, h: 400), screenUUID: "M1"),
+        ]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        let atConfig = AutoTiler.Config(centerZones: ["j"], workingSetTimeLimit: 1800,
+                                        workingSetMaxCapacity: 6, mode: "usage",
+                                        weights: CostWeights(), zoneConfig: zoneConfig())
+        let moves = coord.autoTileScreen(autoTilerConfig: atConfig, memory: [:], now: 10_000)
+        XCTAssertFalse(moves.isEmpty)
+        // Every planned move was applied via the WindowSystem.
+        XCTAssertEqual(Set(moves.map { $0.windowId }), Set(ws.moved.map { $0.id }))
+        // The focused window anchors to "j".
+        XCTAssertEqual(moves.first { $0.windowId == 1 }?.zoneKey, "j")
     }
 
     func testNoScreenForWindow() {

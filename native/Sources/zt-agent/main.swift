@@ -25,6 +25,7 @@ final class AgentController: NSObject {
     private let binder = CarbonHotkeyBinder()
     private let windowSystem: AXWindowSystem
     private let coordinator: TilerCoordinator
+    private let autoTilerConfig: AutoTiler.Config
     private var statusItem: NSStatusItem?
 
     init(config: ConfigLoader.LoadedConfig) {
@@ -33,7 +34,20 @@ final class AgentController: NSObject {
         coordinator = TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
                                        zoneConfig: config.zoneConfig,
                                        placementStrategy: config.placementStrategy)
+        autoTilerConfig = config.autoTilerConfig()
         super.init()
+    }
+
+    func bindAutoTile(modifier: [String], key: String) {
+        guard let code = KeyMap.keyCode(for: key) else { return }
+        let mask = KeyMap.modifierMask(for: modifier)
+        let ok = binder.bind(keyCode: code, modifiers: mask) { [weak self] in
+            guard let self else { return }
+            let now = Int(Date().timeIntervalSince1970)
+            let moves = self.coordinator.autoTileScreen(autoTilerConfig: self.autoTilerConfig, memory: [:], now: now)
+            log("zt-agent: auto-tile -> \(moves.count) moves")
+        }
+        log("zt-agent: auto-tile hotkey \(modifier)+\(key) -> \(ok ? "ok" : "FAILED")")
     }
 
     func bindZoneHotkeys(modifier: [String], zoneKeys: [String]) {
@@ -78,5 +92,6 @@ app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 let controller = AgentController(config: config)
 controller.setupStatusItem()
 controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
-log("zt-agent: ready — press <modifier>+<zone key> to tile the focused window. ⌘Q (menu) to quit.")
+if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }
+log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. ⌘Q to quit.")
 app.run()

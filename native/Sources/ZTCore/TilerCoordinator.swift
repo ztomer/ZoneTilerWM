@@ -68,4 +68,28 @@ public final class TilerCoordinator {
         return .success(MoveOutcome(windowId: focused.id, zoneKey: zoneKey,
                                     tileIndex: tileIndex, target: target, applied: applied))
     }
+
+    /// Auto-tile every window on the focused window's screen (or the main screen) using the
+    /// ported AutoTiler, applying each planned move via the WindowSystem. Returns the moves.
+    @discardableResult
+    public func autoTileScreen(autoTilerConfig: AutoTiler.Config,
+                               memory: [String: [MemoryPref]] = [:],
+                               now: Int) -> [AutoTiler.PlannedMove] {
+        let uuid = windowSystem.focusedWindow()?.screenUUID ?? screenProvider.mainScreen()?.uuid
+        guard let uuid, let screen = screenProvider.screen(uuid: uuid) else { return [] }
+
+        let live = windowSystem.windows(onScreen: uuid)   // front-to-back
+        let windows = live.map {
+            AutoTiler.Window(id: $0.id, app: $0.appName, monitor: uuid, frame: $0.frame,
+                             lastFocusedTime: now, isStandard: true, isMinimized: false)
+        }
+        let zOrder = live.map { $0.id }
+        let focusedId = windowSystem.focusedWindow()?.id
+        let screens = [AutoTiler.Screen(uuid: uuid, name: screen.name, frame: screen.frame)]
+
+        let moves = AutoTiler.plan(config: autoTilerConfig, screens: screens, windows: windows,
+                                   zOrder: zOrder, focusedId: focusedId, memory: memory, now: now)
+        for m in moves { windowSystem.move(windowId: m.windowId, to: m.rect) }
+        return moves
+    }
 }

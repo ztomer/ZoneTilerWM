@@ -273,6 +273,8 @@ case "movezone":
         func focusedWindow() -> LiveWindow? { focused }
         func windows(onScreen uuid: String) -> [LiveWindow] { onScreen }
         @discardableResult func moveFocusedWindow(to rect: ZTRect) -> Bool { true }
+        @discardableResult func move(windowId: Int, to rect: ZTRect) -> Bool { true }
+        @discardableResult func focus(windowId: Int) -> Bool { true }
     }
     final class FakeSP: ScreenProvider {
         let screens: [ScreenSnapshot]
