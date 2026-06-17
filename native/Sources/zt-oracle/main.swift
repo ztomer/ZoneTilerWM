@@ -132,6 +132,34 @@ case "memory":
     }
     FileHandle.standardOutput.write(try encoder.encode(Out(save: wm.save(), queries: queries)))
 
+case "place":
+    struct ZoneIn: Decodable { var zone_key: String; var tiles: [ZTRect] }
+    struct Scenario: Decodable { var screen: ZTRect; var zones: [ZoneIn]; var occupied: [ZTRect]? }
+    struct Out: Encodable {
+        let found: Bool
+        let zone_key: String?
+        let tile_index: Int?
+        let tile: ZTRect?
+        let overlap_ratio: Double?
+    }
+
+    guard let scenario = try? JSONDecoder().decode(Scenario.self, from: input) else {
+        fail("bad place scenario JSON")
+    }
+    // Sort zones by key (mirrors the Lua sorted-key iteration), excluding "default".
+    let zones = scenario.zones
+        .filter { $0.zone_key != "default" }
+        .sorted { $0.zone_key < $1.zone_key }
+        .map { SmartPlacer.Zone(zoneKey: $0.zone_key, tiles: $0.tiles) }
+    let best = SmartPlacer.findBestTile(screen: scenario.screen, zones: zones, occupied: scenario.occupied ?? [])
+    let out: Out
+    if let b = best {
+        out = Out(found: true, zone_key: b.zoneKey, tile_index: b.tileIndex, tile: b.tile, overlap_ratio: b.overlapRatio)
+    } else {
+        out = Out(found: false, zone_key: nil, tile_index: nil, tile: nil, overlap_ratio: nil)
+    }
+    FileHandle.standardOutput.write(try encoder.encode(out))
+
 default:
-    fail("unknown mode '\(mode)' (expected 'solve', 'zones', or 'memory')")
+    fail("unknown mode '\(mode)' (expected 'solve', 'zones', 'memory', or 'place')")
 }
