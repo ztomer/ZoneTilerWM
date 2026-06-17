@@ -35,6 +35,10 @@ final class AgentController: NSObject {
     private let flash = FlashOverlay()
     private let pomodoroBar = PomodoroBar()
     private let enableColorBar: Bool
+    private let pomodoroIndicatorHeight: Double
+    private let pomodoroIndicatorAlpha: Double
+    private let pomodoroColorRemaining: NSColor
+    private let pomodoroColorUsed: NSColor
     private let config: ConfigLoader.LoadedConfig
     private let configURL: URL
     private let learnedMemory: WindowMemory?
@@ -69,6 +73,10 @@ final class AgentController: NSObject {
                                           restPeriodSec: config.pomodoroRestSec,
                                           enableColorBar: config.pomodoroEnableColorBar))
         enableColorBar = config.pomodoroEnableColorBar
+        pomodoroIndicatorHeight = config.pomodoroIndicatorHeight
+        pomodoroIndicatorAlpha = config.pomodoroIndicatorAlpha
+        pomodoroColorRemaining = PomodoroBar.color(named: config.pomodoroColorRemaining)
+        pomodoroColorUsed = PomodoroBar.color(named: config.pomodoroColorUsed)
         super.init()
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
     }
@@ -183,7 +191,8 @@ final class AgentController: NSObject {
         pomodoroItem?.button?.title = pomodoro.isActive ? pomodoro.displayString : ""
         if pomodoro.isActive && enableColorBar {
             pomodoroBar.update(timeLeft: pomodoro.timeLeft, maxTime: pomodoro.maxTimeSec,
-                               heightRatio: 0.2, alpha: 0.3, remaining: .green, used: .red)
+                               heightRatio: pomodoroIndicatorHeight, alpha: pomodoroIndicatorAlpha,
+                               remaining: pomodoroColorRemaining, used: pomodoroColorUsed)
         } else {
             pomodoroBar.hide()
         }

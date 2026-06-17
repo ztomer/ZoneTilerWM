@@ -59,6 +59,13 @@ final class ConfigLoaderTests: XCTestCase {
         // Aliases (raw; resolution deferred to hotkey work).
         XCTAssertEqual(cfg.aliases["mash"], ["ctrl", "cmd"])
         XCTAssertEqual(cfg.aliases["HYPER"], ["shift", "ctrl", "alt", "cmd"])
+
+        // Pomodoro color-bar indicator (drives the menubar strip geometry/colors).
+        XCTAssertTrue(cfg.pomodoroEnableColorBar)
+        XCTAssertEqual(cfg.pomodoroIndicatorHeight, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(cfg.pomodoroIndicatorAlpha, 0.3, accuracy: 0.0001)
+        XCTAssertEqual(cfg.pomodoroColorRemaining, "green")
+        XCTAssertEqual(cfg.pomodoroColorUsed, "red")
     }
 
     func testAppSwitcherAndAppCutsDecode() throws {

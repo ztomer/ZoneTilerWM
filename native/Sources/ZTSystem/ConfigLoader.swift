@@ -46,6 +46,10 @@ public enum ConfigLoader {
         public var pomodoroWorkSec: Int
         public var pomodoroRestSec: Int
         public var pomodoroEnableColorBar: Bool
+        public var pomodoroIndicatorHeight: Double        // ratio of menubar height (0..1)
+        public var pomodoroIndicatorAlpha: Double
+        public var pomodoroColorRemaining: String         // color name, e.g. "green"
+        public var pomodoroColorUsed: String              // color name, e.g. "red"
         public var pomodoroHotkeys: [String: [String]]   // action -> [modifierAlias, key]
         public var tilerHotkeys: [String: [String]]      // action -> [modifierAlias, key]
         public var systemHotkeys: [String: [String]]     // action -> [modifierAlias, key]
@@ -145,6 +149,10 @@ public enum ConfigLoader {
         var work_period_sec: Int?
         var rest_period_sec: Int?
         var enable_color_bar: Bool?
+        var indicator_height: Double?
+        var indicator_alpha: Double?
+        var color_time_remaining: String?
+        var color_time_used: String?
         var hotkeys: [String: [String]]?
     }
 
@@ -245,6 +253,10 @@ public enum ConfigLoader {
             pomodoroWorkSec: raw.pomodoro?.work_period_sec ?? 3120,
             pomodoroRestSec: raw.pomodoro?.rest_period_sec ?? 1020,
             pomodoroEnableColorBar: raw.pomodoro?.enable_color_bar ?? true,
+            pomodoroIndicatorHeight: raw.pomodoro?.indicator_height ?? 0.2,
+            pomodoroIndicatorAlpha: raw.pomodoro?.indicator_alpha ?? 0.3,
+            pomodoroColorRemaining: raw.pomodoro?.color_time_remaining ?? "green",
+            pomodoroColorUsed: raw.pomodoro?.color_time_used ?? "red",
             pomodoroHotkeys: raw.pomodoro?.hotkeys ?? [:],
             tilerHotkeys: t.hotkeys ?? [:],
             systemHotkeys: raw.system_hotkeys ?? [:])

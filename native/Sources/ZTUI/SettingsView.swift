@@ -61,7 +61,7 @@ public struct SettingsView: View {
             memory.tabItem { Text("Memory") }
             layouts.tabItem { Text("Layouts") }
         }
-        .frame(width: 520, height: 420)
+        .frame(width: 560, height: 420)
         .padding()
     }
 
@@ -95,12 +95,13 @@ public struct SettingsView: View {
     private var memory: some View {
         VStack(alignment: .leading) {
             Text("Learned placements (by frequency)").font(.headline)
+            // Explicit widths so the numeric columns (esp. Count) never clip; App flexes.
             Table(model.preferences) {
-                TableColumn("App") { Text($0.app) }
-                TableColumn("Monitor") { Text($0.monitor) }
-                TableColumn("Zone") { Text($0.zone) }
-                TableColumn("Tile") { Text($0.tile) }
-                TableColumn("Count") { Text("\($0.count)") }
+                TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 150)
+                TableColumn("Monitor") { Text($0.monitor) }.width(min: 56, ideal: 64, max: 80)
+                TableColumn("Zone") { Text($0.zone) }.width(min: 44, ideal: 52, max: 70)
+                TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 64)
+                TableColumn("Count") { Text("\($0.count)") }.width(min: 56, ideal: 70, max: 90)
             }
         }
     }

@@ -55,20 +55,29 @@ public final class PomodoroBar {
     private var remainingWindow: NSWindow?
     public init() {}
 
+    /// Pure geometry: the two top-edge strips (used on the left, remaining on the right) in
+    /// top-left CG coords, mirroring pomodoor.lua's `pom_draw_on_menu`. `menubarHeight` is the
+    /// screen's menubar thickness; bar height = indicator_height ratio of it (min 2px).
+    public static func layout(timeLeft: Int, maxTime: Int, heightRatio: Double,
+                              fullFrame: CGRect, menubarHeight: Double) -> (used: ZTRect, remaining: ZTRect) {
+        let barHeight = max(2.0, menubarHeight * heightRatio)
+        let ratio = maxTime > 0 ? max(0, min(1, Double(timeLeft) / Double(maxTime))) : 0
+        let remainingW = fullFrame.width * ratio
+        let usedW = fullFrame.width - remainingW
+        let used = ZTRect(x: fullFrame.minX, y: fullFrame.minY, w: usedW, h: barHeight)
+        let remaining = ZTRect(x: fullFrame.minX + usedW, y: fullFrame.minY, w: remainingW, h: barHeight)
+        return (used, remaining)
+    }
+
     public func update(timeLeft: Int, maxTime: Int, heightRatio: Double, alpha: Double,
                        remaining: NSColor, used: NSColor) {
         DispatchQueue.main.async { [weak self] in
             guard let self, maxTime > 0 else { return }
-            let full = CGDisplayBounds(CGMainDisplayID())
-            let barHeight = max(2.0, 22.0 * heightRatio)   // ~menubar height * ratio
-            let ratio = max(0, min(1, Double(timeLeft) / Double(maxTime)))
-            let remainingW = full.width * ratio
-            let usedW = full.width - remainingW
-            // Top edge in CG coords -> NS frames.
-            let usedRect = ZTRect(x: full.minX, y: full.minY, w: usedW, h: barHeight)
-            let remainingRect = ZTRect(x: full.minX + usedW, y: full.minY, w: remainingW, h: barHeight)
-            self.usedWindow = self.place(self.usedWindow, usedRect, used.withAlphaComponent(alpha))
-            self.remainingWindow = self.place(self.remainingWindow, remainingRect, remaining.withAlphaComponent(alpha))
+            let rects = PomodoroBar.layout(timeLeft: timeLeft, maxTime: maxTime, heightRatio: heightRatio,
+                                           fullFrame: CGDisplayBounds(CGMainDisplayID()),
+                                           menubarHeight: PomodoroBar.mainMenubarHeight())
+            self.usedWindow = self.place(self.usedWindow, rects.used, used.withAlphaComponent(alpha))
+            self.remainingWindow = self.place(self.remainingWindow, rects.remaining, remaining.withAlphaComponent(alpha))
         }
     }
 
@@ -76,6 +85,31 @@ public final class PomodoroBar {
         DispatchQueue.main.async { [weak self] in
             self?.usedWindow?.orderOut(nil); self?.usedWindow = nil
             self?.remainingWindow?.orderOut(nil); self?.remainingWindow = nil
+        }
+    }
+
+    /// Menubar thickness for the main screen, in CG points: NSScreen.frame.height minus
+    /// visibleFrame.height isn't right (that also nets the Dock); use the explicit menubar
+    /// inset = frame.maxY - visibleFrame.maxY (top gap), matching Lua's frame.y delta.
+    static func mainMenubarHeight() -> Double {
+        guard let s = NSScreen.main else { return 24 }
+        let delta = s.frame.maxY - s.visibleFrame.maxY
+        return delta > 0 ? Double(delta) : 24
+    }
+
+    /// Resolve the small set of color names the Lua config uses to NSColor (falls back to a
+    /// hashed-name gray for anything unrecognized, never crashes).
+    public static func color(named name: String) -> NSColor {
+        switch name.lowercased() {
+        case "green": return .systemGreen
+        case "red": return .systemRed
+        case "blue": return .systemBlue
+        case "yellow": return .systemYellow
+        case "orange": return .systemOrange
+        case "purple": return .systemPurple
+        case "white": return .white
+        case "black": return .black
+        default: return .gray
         }
     }
 
