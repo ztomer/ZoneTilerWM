@@ -6,9 +6,18 @@
 /// produces string ids like "4a"/"4b". Mirrors Lua, where `tonumber(tile_index)` yields
 /// a number for the former and nil for the latter. Equality is type-strict (matching
 /// Lua's `==`): `.int(1)` does not equal `.string("1")`.
-public enum TileIndex: Codable, Equatable {
+public enum TileIndex: Codable, Equatable, Hashable {
     case int(Int)
     case string(String)
+
+    /// Canonical string form, matching Lua's `tostring(tile_index)`. Used as the
+    /// deterministic tie-break key (lexicographic) in window-memory ranking.
+    public var sortKey: String {
+        switch self {
+        case .int(let i): return String(i)
+        case .string(let s): return s
+        }
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()

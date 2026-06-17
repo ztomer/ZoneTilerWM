@@ -200,7 +200,12 @@ function window_memory.get_preferred_tile(app_name, monitor_id, zone_key)
     local best_tile = nil
     local max_count = -1
 
-    for tile_index, stats in pairs(tile_prefs) do
+    -- Sorted iteration so ties break deterministically (smallest key string wins).
+    local tkeys = {}
+    for tile_index in pairs(tile_prefs) do tkeys[#tkeys + 1] = tile_index end
+    table.sort(tkeys, function(a, b) return tostring(a) < tostring(b) end)
+    for _, tile_index in ipairs(tkeys) do
+        local stats = tile_prefs[tile_index]
         local count = (type(stats) == "table" and stats.count) or stats
         if count > max_count then
             max_count = count
@@ -229,7 +234,12 @@ function window_memory.get_preferred_zone(app_name, monitor_id)
     local best_zone = nil
     local max_total_count = -1
 
-    for zone_key, tiles_prefs in pairs(monitor_prefs) do
+    -- Sorted iteration so ties break deterministically (smallest zone key wins).
+    local zkeys = {}
+    for zone_key in pairs(monitor_prefs) do zkeys[#zkeys + 1] = zone_key end
+    table.sort(zkeys)
+    for _, zone_key in ipairs(zkeys) do
+        local tiles_prefs = monitor_prefs[zone_key]
         local current_zone_total_count = 0
         for _, stats in pairs(tiles_prefs) do
             local count = (type(stats) == "table" and stats.count) or stats
@@ -277,9 +287,12 @@ function window_memory.get_ranked_preferences(app_name, monitor_id)
         end
     end
 
-    -- Sort by count descending
+    -- Sort by count descending; total order (zone, then tile string) so ties are
+    -- deterministic and portable (table.sort is unstable).
     table.sort(ranked, function(a, b)
-        return a.count > b.count
+        if a.count ~= b.count then return a.count > b.count end
+        if a.zone_key ~= b.zone_key then return a.zone_key < b.zone_key end
+        return tostring(a.tile_index) < tostring(b.tile_index)
     end)
 
     return ranked
@@ -533,5 +546,9 @@ function window_memory.init(cfg)
     debug_log("Window memory system initialized")
     return window_memory
 end
+
+-- Test/diagnostic seam: serialize the current in-memory state directly (no live
+-- window capture). Used by the differential oracle to inspect learned state.
+window_memory._save_to_disk = save_memory_to_disk
 
 return window_memory

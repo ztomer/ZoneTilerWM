@@ -70,6 +70,68 @@ case "zones":
         screen: screen, config: scenario.config, offsets: offsets)
     FileHandle.standardOutput.write(try encoder.encode(ZoneOut(layout_key: layoutKey, zones: zones)))
 
+case "memory":
+    struct WH: Decodable { var w: Double; var h: Double }
+    struct EventIn: Decodable {
+        var op: String
+        var windowId: Int?
+        var app: String?; var monitor: String?; var zone: String?; var tile: TileIndex?
+        var win: WH?; var screen: WH?
+    }
+    struct ConfigIn: Decodable { var excluded_apps: [String]?; var settle_delay_sec: Double? }
+    struct QueryIn: Decodable { var app: String; var monitor: String; var zone: String? }
+    struct Scenario: Decodable { var config: ConfigIn?; var events: [EventIn]; var queries: [QueryIn]? }
+
+    struct RememberedOut: Encodable { let zone_key: String; let tile_index: TileIndex }
+    struct RankedOut: Encodable {
+        let zone_key: String; let tile_index: TileIndex
+        let count: Int; let mean_ar: Double; let mean_area: Double
+    }
+    struct QueryOut: Encodable {
+        let app: String; let monitor: String; let zone: String?
+        let remembered: RememberedOut?
+        let preferred_zone: String?
+        let preferred_tile: TileIndex?
+        let ranked: [RankedOut]
+    }
+    struct Out: Encodable { let save: WindowMemory.SaveData; let queries: [QueryOut] }
+
+    guard let scenario = try? JSONDecoder().decode(Scenario.self, from: input) else {
+        fail("bad memory scenario JSON")
+    }
+    let settle = (scenario.config?.settle_delay_sec ?? 2.0) > 0
+    let wm = WindowMemory(excludedApps: scenario.config?.excluded_apps ?? [], settleEnabled: settle)
+
+    for e in scenario.events {
+        switch e.op {
+        case "position":
+            wm.positionWindow(windowId: e.windowId ?? 0, app: e.app ?? "", monitor: e.monitor ?? "",
+                              zone: e.zone ?? "", tile: e.tile ?? .int(0),
+                              winW: e.win?.w ?? 0, winH: e.win?.h ?? 0,
+                              screenW: e.screen?.w ?? 0, screenH: e.screen?.h ?? 0)
+        case "flush":
+            wm.flushAll()
+        default:
+            break
+        }
+    }
+
+    var queries: [QueryOut] = []
+    for q in scenario.queries ?? [] {
+        let remembered = wm.rememberedPosition(app: q.app, monitor: q.monitor)
+            .map { RememberedOut(zone_key: $0.zone, tile_index: $0.tile) }
+        let preferredZone = wm.preferredZone(app: q.app, monitor: q.monitor)
+        let preferredTile = q.zone.flatMap { wm.preferredTile(app: q.app, monitor: q.monitor, zone: $0) }
+        let ranked = wm.rankedPreferences(app: q.app, monitor: q.monitor).map {
+            RankedOut(zone_key: $0.zoneKey, tile_index: $0.tile,
+                      count: $0.count, mean_ar: $0.meanAR, mean_area: $0.meanArea)
+        }
+        queries.append(QueryOut(app: q.app, monitor: q.monitor, zone: q.zone,
+                                remembered: remembered, preferred_zone: preferredZone,
+                                preferred_tile: preferredTile, ranked: ranked))
+    }
+    FileHandle.standardOutput.write(try encoder.encode(Out(save: wm.save(), queries: queries)))
+
 default:
-    fail("unknown mode '\(mode)' (expected 'solve' or 'zones')")
+    fail("unknown mode '\(mode)' (expected 'solve', 'zones', or 'memory')")
 }
