@@ -30,4 +30,8 @@ public protocol WindowSystem: AnyObject {
     /// Raise + focus a specific window (by CGWindowID). Returns success.
     @discardableResult
     func focus(windowId: Int) -> Bool
+
+    /// Minimize / unminimize a specific window (by CGWindowID). Returns success.
+    @discardableResult
+    func setMinimized(_ minimized: Bool, windowId: Int) -> Bool
 }

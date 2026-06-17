@@ -167,6 +167,18 @@ final class AgentController: NSObject {
         pomodoroItem?.button?.title = pomodoro.isActive ? pomodoro.displayString : ""
     }
 
+    func bindMiscHotkeys(_ config: ConfigLoader.LoadedConfig) {
+        // Zen mode (minimize other windows on the focused screen).
+        bindAction(config.resolvedHotkey("zen_mode", in: config.tilerHotkeys), label: "zen_mode") { [weak self] in
+            self?.coordinator.toggleZen()
+        }
+        // System: toggle Activity Monitor.
+        let cfg = appSwitcher
+        bindAction(config.resolvedHotkey("activity_monitor", in: config.systemHotkeys), label: "activity_monitor") {
+            AppController.toggle(app: "Activity Monitor", config: cfg)
+        }
+    }
+
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "⊞"
@@ -200,5 +212,6 @@ if let audioKey = config.audioHotkeyKey {
     controller.bindAudioHotkey(modifier: config.audioHotkeyModifier, key: audioKey,
                                devices: config.audioDevices, shortcut: config.audioShortcutCallback)
 }
+controller.bindMiscHotkeys(config)
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. ⌘Q to quit.")
 app.run()

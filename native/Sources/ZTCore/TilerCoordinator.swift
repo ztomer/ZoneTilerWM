@@ -56,6 +56,25 @@ public final class TilerCoordinator {
         self.storage = storage
     }
 
+    private var zenActive = false
+    private var zenHidden: [Int] = []
+
+    /// Zen mode: minimize every other window on the focused window's screen; toggle restores.
+    public func toggleZen() {
+        guard let focused = windowSystem.focusedWindow(), let uuid = focused.screenUUID else { return }
+        if zenActive {
+            for id in zenHidden { windowSystem.setMinimized(false, windowId: id) }
+            zenHidden = []
+            zenActive = false
+        } else {
+            zenHidden = []
+            for w in windowSystem.windows(onScreen: uuid) where w.id != focused.id {
+                if windowSystem.setMinimized(true, windowId: w.id) { zenHidden.append(w.id) }
+            }
+            zenActive = true
+        }
+    }
+
     /// Logical monitor id (string) for memory keys, via MonitorManager. nil if no manager.
     private func monitorKey(_ uuid: String) -> String? {
         monitorManager.map { String($0.id(forUUID: uuid)) }

@@ -14,6 +14,8 @@ private final class FakeWindowSystem: WindowSystem {
     @discardableResult func moveFocusedWindow(to rect: ZTRect) -> Bool { movedTo = rect; return true }
     @discardableResult func move(windowId: Int, to rect: ZTRect) -> Bool { moved.append((windowId, rect)); return true }
     @discardableResult func focus(windowId: Int) -> Bool { true }
+    private(set) var minimized: [Int: Bool] = [:]
+    @discardableResult func setMinimized(_ m: Bool, windowId: Int) -> Bool { minimized[windowId] = m; return true }
 }
 
 private final class FakeScreenProvider: ScreenProvider {
@@ -111,6 +113,25 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(Set(moves.map { $0.windowId }), Set(ws.moved.map { $0.id }))
         // The focused window anchors to "j".
         XCTAssertEqual(moves.first { $0.windowId == 1 }?.zoneKey, "j")
+    }
+
+    func testZenMinimizesOthersAndRestores() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")
+        ws.onScreen = [
+            ws.focused!,
+            LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1"),
+            LiveWindow(id: 3, appName: "C", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1"),
+        ]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        coord.toggleZen()
+        XCTAssertEqual(ws.minimized[2], true)
+        XCTAssertEqual(ws.minimized[3], true)
+        XCTAssertNil(ws.minimized[1])     // focused window not minimized
+        coord.toggleZen()
+        XCTAssertEqual(ws.minimized[2], false)
+        XCTAssertEqual(ws.minimized[3], false)
     }
 
     func testNoScreenForWindow() {

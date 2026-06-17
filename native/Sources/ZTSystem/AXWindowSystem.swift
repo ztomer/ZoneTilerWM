@@ -97,6 +97,13 @@ public final class AXWindowSystem: WindowSystem {
         return true
     }
 
+    @discardableResult
+    public func setMinimized(_ minimized: Bool, windowId: Int) -> Bool {
+        guard let r = resolveWindow(windowId: windowId) else { return false }
+        let value: CFBoolean = minimized ? kCFBooleanTrue : kCFBooleanFalse
+        return AXUIElementSetAttributeValue(r.window, kAXMinimizedAttribute as CFString, value) == .success
+    }
+
     /// Apply a frame with the AXEnhancedUserInterface toggle (Firefox/Zen quirk), pos-then-size.
     private func applyFrame(_ window: AXUIElement, app: AXUIElement, rect: CGRect) {
         var wasEnhanced = false

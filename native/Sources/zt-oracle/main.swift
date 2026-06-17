@@ -275,6 +275,7 @@ case "movezone":
         @discardableResult func moveFocusedWindow(to rect: ZTRect) -> Bool { true }
         @discardableResult func move(windowId: Int, to rect: ZTRect) -> Bool { true }
         @discardableResult func focus(windowId: Int) -> Bool { true }
+        @discardableResult func setMinimized(_ m: Bool, windowId: Int) -> Bool { true }
     }
     final class FakeSP: ScreenProvider {
         let screens: [ScreenSnapshot]

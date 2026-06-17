@@ -48,6 +48,7 @@ public enum ConfigLoader {
         public var pomodoroEnableColorBar: Bool
         public var pomodoroHotkeys: [String: [String]]   // action -> [modifierAlias, key]
         public var tilerHotkeys: [String: [String]]      // action -> [modifierAlias, key]
+        public var systemHotkeys: [String: [String]]     // action -> [modifierAlias, key]
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
         public func resolvedHotkey(_ action: String, in group: [String: [String]]) -> (modifier: [String], key: String)? {
@@ -157,6 +158,7 @@ public enum ConfigLoader {
         var appCuts: RawAppCuts?
         var hyperAppCuts: RawAppCuts?
         var audio_switcher: RawAudio?
+        var system_hotkeys: [String: [String]]?
     }
 
     /// A resolved app-shortcut group: the actual modifier names + key->app entries.
@@ -244,7 +246,8 @@ public enum ConfigLoader {
             pomodoroRestSec: raw.pomodoro?.rest_period_sec ?? 1020,
             pomodoroEnableColorBar: raw.pomodoro?.enable_color_bar ?? true,
             pomodoroHotkeys: raw.pomodoro?.hotkeys ?? [:],
-            tilerHotkeys: t.hotkeys ?? [:])
+            tilerHotkeys: t.hotkeys ?? [:],
+            systemHotkeys: raw.system_hotkeys ?? [:])
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {
