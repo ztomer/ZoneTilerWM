@@ -66,6 +66,41 @@ public final class SettingsModel: ObservableObject {
     public func setMarginsSize(_ px: Int) {
         setOrAppend(section: "tiler.margins", key: "size", rawValue: "\(px)")
     }
+    public func setMarginsScreenEdge(_ on: Bool) {
+        setOrAppend(section: "tiler.margins", key: "screen_edge", rawValue: on ? "true" : "false")
+    }
+    public func setWorkingSetMinutes(_ minutes: Int) {
+        setOrAppend(section: "tiler.working_set", key: "time_limit_sec", rawValue: "\(minutes * 60)")
+    }
+    public func setCenterZones(_ zones: [String]) {
+        setOrAppend(section: "tiler", key: "auto_tile_center_zones", rawValue: tomlArray(zones))
+    }
+
+    // Pomodoro
+    public func setPomodoroWorkMinutes(_ m: Int) { setOrAppend(section: "pomodoro", key: "work_period_sec", rawValue: "\(m * 60)") }
+    public func setPomodoroRestMinutes(_ m: Int) { setOrAppend(section: "pomodoro", key: "rest_period_sec", rawValue: "\(m * 60)") }
+    public func setPomodoroColorBar(_ on: Bool) { setOrAppend(section: "pomodoro", key: "enable_color_bar", rawValue: on ? "true" : "false") }
+    public func setPomodoroIndicatorHeight(_ v: Double) { setOrAppend(section: "pomodoro", key: "indicator_height", rawValue: String(format: "%.2f", v)) }
+    public func setPomodoroIndicatorAlpha(_ v: Double) { setOrAppend(section: "pomodoro", key: "indicator_alpha", rawValue: String(format: "%.2f", v)) }
+    public func setPomodoroColor(remaining: Bool, _ name: String) {
+        setOrAppend(section: "pomodoro", key: remaining ? "color_time_remaining" : "color_time_used", rawValue: "\"\(name)\"")
+    }
+
+    // Audio
+    public func setAudioDevices(_ devices: [String]) { setOrAppend(section: "audio_switcher", key: "devices", rawValue: tomlArray(devices)) }
+    public func setAudioHotkey(alias: String, key: String) { setOrAppend(section: "audio_switcher", key: "hotkey", rawValue: "[\"\(alias)\", \"\(key)\"]") }
+    public func setAudioShortcut(_ s: String) { setOrAppend(section: "audio_switcher", key: "shortcut_callback", rawValue: "\"\(s)\"") }
+
+    // Window memory
+    public func setWindowMemoryEnabled(_ on: Bool) { setOrAppend(section: "window_memory", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setExcludedApps(_ apps: [String]) { setOrAppend(section: "window_memory", key: "excluded_apps", rawValue: tomlArray(apps)) }
+
+    // Advanced: auto-tiler solver weights (integers; negative = reward).
+    public func setSolverWeight(_ key: String, _ v: Int) { setOrAppend(section: "tiler.solver_weights", key: key, rawValue: "\(v)") }
+
+    private func tomlArray(_ items: [String]) -> String {
+        "[" + items.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
+    }
     /// One app shortcut, e.g. [appCuts] "q" = "BambuStudio".
     public func setAppShortcut(group: String, key: String, app: String) {
         setOrAppend(section: group, key: "\"\(key)\"", rawValue: "\"\(app)\"")
@@ -190,7 +225,7 @@ public struct SettingsView: View {
             LayoutEditorView(model: model).tabItem { Text("Layouts") }
             analytics.tabItem { Text("Analytics") }
         }
-        .frame(width: 680, height: 560)
+        .frame(width: 680, height: 600)
         .padding()
     }
 
@@ -223,6 +258,16 @@ public struct SettingsView: View {
                 Stepper("Working-set capacity: \(model.config.workingSetMaxCapacity)",
                         value: Binding(get: { model.config.workingSetMaxCapacity },
                                        set: { model.setWorkingSetCapacity($0) }), in: 1...12)
+                Stepper("Working-set staleness: \(model.config.workingSetTimeLimit / 60) min",
+                        value: Binding(get: { model.config.workingSetTimeLimit / 60 },
+                                       set: { model.setWorkingSetMinutes($0) }), in: 1...240)
+                LabeledContent("Auto-tile center zones") {
+                    HStack {
+                        TextField("e.g. j, center, 0", text: $centerZonesEdit).textFieldStyle(.roundedBorder)
+                            .onSubmit { commitCenterZones() }
+                        Button("Save") { commitCenterZones() }
+                    }
+                }
             }
             Section("Input") {
                 Picker("Keyboard layout", selection: Binding(
@@ -242,10 +287,25 @@ public struct SettingsView: View {
                         value: Binding(get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
                                        set: { model.setMarginsSize($0) }), in: 0...40)
                     .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
+                Toggle("Apply margin at screen edges", isOn: Binding(
+                    get: { model.config.zoneConfig.margins?.screen_edge ?? false },
+                    set: { model.setMarginsScreenEdge($0) }))
+                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
             }
+            PomodoroSettings(model: model)
+            AudioSettings(model: model)
+            MemorySettings(model: model)
+            AdvancedSettings(model: model)
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
         .formStyle(.grouped)
+        .onAppear { centerZonesEdit = model.config.autoTileCenterZones.joined(separator: ", ") }
+    }
+
+    @State private var centerZonesEdit = ""
+    private func commitCenterZones() {
+        let zones = centerZonesEdit.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        model.setCenterZones(zones)
     }
 
     private var analytics: some View {
