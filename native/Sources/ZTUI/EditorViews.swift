@@ -89,21 +89,58 @@ struct ModifierLegend: View {
     }
 }
 
+/// One reusable hotkey row: label | modifier-alias picker | key recorder. Self-contained
+/// (its own recorder) so a feature can host its own keys (e.g. the Pomodoro tab) without the
+/// generic Keybinds tab. Names are shown bare; a ModifierLegend explains the glyphs.
+struct HotkeyRowView: View {
+    @ObservedObject var model: SettingsModel
+    let label: String
+    let section: String
+    let key: String
+    var labelWidth: CGFloat = 190
+    @StateObject private var recorder = ChordRecorder()
+
+    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+
+    var body: some View {
+        let v = model.hotkeyValue(section: section, key: key)
+        let alias = v.first ?? (aliasNames.first ?? "mash")
+        let keyName = v.count > 1 ? v[1] : ""
+        let recording = recorder.recordingKey == key
+        return HStack(spacing: 8) {
+            Text(label).frame(width: labelWidth, alignment: .trailing)
+            Picker("", selection: Binding(
+                get: { alias },
+                set: { model.setHotkey(section: section, key: key, alias: $0, keyName: keyName) })) {
+                ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+            }.labelsHidden().frame(width: 130)
+            Text("+").foregroundColor(.secondary)
+            Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
+                recorder.start(id: key)
+            }.frame(width: 84)
+            Spacer()
+        }
+        .onAppear {
+            recorder.onCapture = { _, k in
+                let a = model.hotkeyValue(section: section, key: key).first ?? (aliasNames.first ?? "mash")
+                model.setHotkey(section: section, key: key, alias: a, keyName: k)
+            }
+        }
+    }
+}
+
 struct KeybindEditorView: View {
     @ObservedObject var model: SettingsModel
-    @StateObject private var recorder = ChordRecorder()
 
     private struct Row: Identifiable { let id: String; let label: String; let section: String; let key: String }
 
+    // Pomodoro keys live in the Pomodoro tab; these are the tiling/movement/system keys.
     private let rows: [Row] = [
         .init(id: "resize_mode", label: "Resize mode", section: "tiler.hotkeys", key: "resize_mode"),
         .init(id: "placement_mode", label: "Move to next monitor", section: "tiler.hotkeys", key: "placement_mode"),
         .init(id: "zone_info", label: "Move to previous monitor", section: "tiler.hotkeys", key: "zone_info"),
         .init(id: "focus_next_screen", label: "Focus next screen", section: "tiler.hotkeys", key: "focus_next_screen"),
         .init(id: "focus_prev_screen", label: "Focus previous screen", section: "tiler.hotkeys", key: "focus_prev_screen"),
-        .init(id: "pom_enable", label: "Pomodoro start", section: "pomodoro.hotkeys", key: "enable"),
-        .init(id: "pom_disable", label: "Pomodoro pause/reset", section: "pomodoro.hotkeys", key: "disable"),
-        .init(id: "pom_reset", label: "Pomodoro reset count", section: "pomodoro.hotkeys", key: "reset"),
         .init(id: "window_hints", label: "Window hints", section: "system_hotkeys", key: "window_hints"),
         .init(id: "activity_monitor", label: "Activity Monitor", section: "system_hotkeys", key: "activity_monitor"),
         .init(id: "reload", label: "Reload config", section: "system_hotkeys", key: "reload"),
@@ -121,23 +158,13 @@ struct KeybindEditorView: View {
                     modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
                 }
                 groupBox("Actions") {
-                    ForEach(rows) { actionRow($0) }
+                    ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
                 }
             }
             .padding(.vertical, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear {
-            recorder.onCapture = { _, key in
-                guard let id = recordingId, let row = rows.first(where: { $0.id == id }) else { return }
-                let alias = model.hotkeyValue(section: row.section, key: row.key).first ?? defaultAlias()
-                model.setHotkey(section: row.section, key: row.key, alias: alias, keyName: key)
-                recordingId = nil
-            }
-        }
     }
-
-    @State private var recordingId: String?
 
     @ViewBuilder private func groupBox<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -146,40 +173,17 @@ struct KeybindEditorView: View {
         }
     }
 
-    private func aliasPicker(selection: Binding<String>) -> some View {
-        Picker("", selection: selection) {
-            ForEach(aliasNames, id: \.self) { Text($0).tag($0) }   // name only; the legend maps names → glyphs
-        }.labelsHidden()
-    }
-
     private func modifierRow(_ label: String, key: String, current: [String]) -> some View {
         HStack {
             Text(label).frame(width: 150, alignment: .trailing)
-            aliasPicker(selection: Binding(
+            Picker("", selection: Binding(
                 get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias() },
-                set: { model.setModifierAlias(key: key, alias: $0) })).frame(width: 180)
+                set: { model.setModifierAlias(key: key, alias: $0) })) {
+                ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+            }.labelsHidden().frame(width: 180)
             Spacer()
         }
     }
-
-    private func actionRow(_ row: Row) -> some View {
-        let value = model.hotkeyValue(section: row.section, key: row.key)
-        let alias = value.first ?? defaultAlias()
-        let keyName = value.count > 1 ? value[1] : ""
-        let recording = recordingId == row.id
-        return HStack(spacing: 8) {
-            Text(row.label).frame(width: 190, alignment: .trailing)
-            aliasPicker(selection: Binding(
-                get: { alias },
-                set: { model.setHotkey(section: row.section, key: row.key, alias: $0, keyName: keyName) })).frame(width: 130)
-            Text("+").foregroundColor(.secondary)
-            Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
-                recordingId = row.id; recorder.start(id: row.id)
-            }.frame(width: 84)
-            Spacer()
-        }
-    }
-
 }
 
 // MARK: - App shortcuts (visual keyboard map)
@@ -306,6 +310,8 @@ struct LayoutEditorView: View {
                     Text("Click a cell, then another to span a rectangle. Add appends it to the zone's cycle; Save writes config.toml.")
                         .font(.caption).foregroundColor(.secondary)
                 }
+                Divider()
+                DefaultZonesSection(model: model)
                 if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
             }
             .padding(.vertical, 4)

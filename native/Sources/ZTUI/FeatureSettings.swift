@@ -97,12 +97,10 @@ struct AudioSettings: View {
 
 // MARK: - Window memory
 
-struct MemorySettings: View {
+/// Window memory: enable + the exclusion list (lives in the Advanced tab).
+struct WindowMemorySection: View {
     @ObservedObject var model: SettingsModel
     @State private var excluded: [String] = []
-    @State private var zoneEdits: [String: String] = [:]
-    @State private var newApp = ""
-    @State private var newZone = ""
     @State private var loaded = false
 
     var body: some View {
@@ -123,7 +121,20 @@ struct MemorySettings: View {
                 Button("Save excluded") { model.setExcludedApps(excluded.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }) }
             }
         }
-        Section("Default zone per app") {
+        .onAppear { if !loaded { excluded = model.config.windowMemory.excludedApps; loaded = true } }
+    }
+}
+
+/// Per-app default zone (window_memory.app_zones) — lives under Layouts, since it assigns zones.
+struct DefaultZonesSection: View {
+    @ObservedObject var model: SettingsModel
+    @State private var zoneEdits: [String: String] = [:]
+    @State private var newApp = ""
+    @State private var newZone = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Default zone per app").font(.headline)
             Text("A fresh window of these apps tiles into the given zone key when nothing is learned yet.")
                 .font(.caption).foregroundColor(.secondary)
             ForEach(model.config.windowMemory.appZones.keys.sorted(), id: \.self) { app in
@@ -139,16 +150,59 @@ struct MemorySettings: View {
                 }
             }
             HStack {
-                TextField("app name", text: $newApp).textFieldStyle(.roundedBorder)
+                TextField("app name", text: $newApp).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
                 TextField("zone", text: $newZone).textFieldStyle(.roundedBorder).frame(width: 60).multilineTextAlignment(.center)
                 Button("Add") {
                     let a = newApp.trimmingCharacters(in: .whitespaces), z = newZone.trimmingCharacters(in: .whitespaces)
                     guard !a.isEmpty, !z.isEmpty else { return }
                     model.setAppZone(app: a, zone: z); newApp = ""; newZone = ""
                 }
+                Spacer()
             }
         }
-        .onAppear { if !loaded { excluded = model.config.windowMemory.excludedApps; loaded = true } }
+    }
+}
+
+// MARK: - Pomodoro tab (settings + its own keys)
+
+struct PomodoroTab: View {
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            PomodoroSettings(model: model)
+            Section("Keys") {
+                HotkeyRowView(model: model, label: "Start", section: "pomodoro.hotkeys", key: "enable", labelWidth: 120)
+                HotkeyRowView(model: model, label: "Pause / reset", section: "pomodoro.hotkeys", key: "disable", labelWidth: 120)
+                HotkeyRowView(model: model, label: "Reset count", section: "pomodoro.hotkeys", key: "reset", labelWidth: 120)
+                ModifierLegend(aliases: model.config.aliases)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Advanced tab (window memory + solver weights + learned data)
+
+struct AdvancedTab: View {
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            WindowMemorySection(model: model)
+            AdvancedSettings(model: model)
+            Section("Learned placements") {
+                Text("Where the auto-tiler has learned to put each app (read-only).")
+                    .font(.caption).foregroundColor(.secondary)
+                Table(model.preferences) {
+                    TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 110, ideal: 150)
+                    TableColumn("Mon") { Text($0.monitor) }.width(min: 44, ideal: 52, max: 70)
+                    TableColumn("Zone") { Text($0.zone) }.width(min: 44, ideal: 52, max: 64)
+                    TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
+                    TableColumn("Count") { Text("\($0.count)") }.width(min: 52, ideal: 64, max: 80)
+                }
+                .frame(minHeight: 220)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

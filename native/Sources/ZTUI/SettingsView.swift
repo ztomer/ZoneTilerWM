@@ -229,12 +229,13 @@ public struct SettingsView: View {
     public var body: some View {
         TabView {
             general.tabItem { Text("General") }
-            KeybindEditorView(model: model).tabItem { Text("Keybinds") }
+            KeybindEditorView(model: model).tabItem { Text("Keys") }
             AppShortcutsView(model: model).tabItem { Text("Apps") }
             LayoutEditorView(model: model).tabItem { Text("Layouts") }
-            analytics.tabItem { Text("Analytics") }
+            PomodoroTab(model: model).tabItem { Text("Pomodoro") }
+            AdvancedTab(model: model).tabItem { Text("Advanced") }
         }
-        .frame(width: 680, height: 600)
+        .frame(width: 680, height: 560)
         .padding()
     }
 
@@ -301,10 +302,7 @@ public struct SettingsView: View {
                     set: { model.setMarginsScreenEdge($0) }))
                     .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
             }
-            PomodoroSettings(model: model)
             AudioSettings(model: model)
-            MemorySettings(model: model)
-            AdvancedSettings(model: model)
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
         .formStyle(.grouped)
@@ -315,22 +313,6 @@ public struct SettingsView: View {
     private func commitCenterZones() {
         let zones = centerZonesEdit.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         model.setCenterZones(zones)
-    }
-
-    private var analytics: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Learned placements").font(.headline)
-            Text("Where the auto-tiler has learned to put each app (read-only). Higher count = stronger preference.")
-                .font(.caption).foregroundColor(.secondary)
-            Table(model.preferences) {
-                TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 150)
-                TableColumn("Monitor") { Text($0.monitor) }.width(min: 56, ideal: 64, max: 80)
-                TableColumn("Zone") { Text($0.zone) }.width(min: 44, ideal: 52, max: 70)
-                TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 64)
-                TableColumn("Count") { Text("\($0.count)") }.width(min: 56, ideal: 70, max: 90)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
 }
