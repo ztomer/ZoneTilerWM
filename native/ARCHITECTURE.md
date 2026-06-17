@@ -253,6 +253,16 @@ System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppC
 Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **116 Swift tests
 + 8 differential harnesses + Lua runner, all green**.
 
+**Identity / assets** (`native/Assets/`): app icon in light + dark variants
+(`AppIcon-1024-light.png` / `-dark.png`, a zone-grid-with-top-left-filled mark) and the
+matching `menubar-glyph.svg`, generated with the `gemini-bridge` skill. The live menubar draws
+the mark programmatically as a colored image (amber accent zone; grid lines flip for light/dark
+menubars, re-rendered on appearance change). The Pomodoro time shows in a frosted-glass capsule
+(behind-window `NSVisualEffectView` pinned in the status item with Auto Layout). The focus/tile
+flash uses the system accent color (adapts to appearance + the user's accent); the grid (cyan)
+and hint badges (amber on black) are deliberately high-contrast identity colors that read on any
+desktop.
+
 Three Lua-audit findings shaped scope (Lua is ground truth): the Lua does **not** auto-tile
 on new windows (that subscription only warms `window_cache`), has **no** config auto-reload
 (manual `hs.reload`), and its resize mode is internally inconsistent (modal arrows drive

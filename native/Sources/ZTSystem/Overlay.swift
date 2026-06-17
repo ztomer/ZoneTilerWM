@@ -133,13 +133,23 @@ public final class FlashOverlay {
     private var hideWork: DispatchWorkItem?
     public init() {}
 
-    public func flash(_ rect: ZTRect, duration: Double = 0.2,
-                      color: NSColor = NSColor(red: 0.5, green: 0.5, blue: 1.0, alpha: 0.3)) {
+    /// Flash uses the user's system accent color by default (NSColor.controlAccentColor), which
+    /// adapts to light/dark appearance and the user's chosen accent. A crisp accent border keeps
+    /// it legible over windows of any color. Pass `color` to override.
+    public func flash(_ rect: ZTRect, duration: Double = 0.2, color: NSColor? = nil) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            let accent = color ?? .controlAccentColor
             self.hideWork?.cancel()
             self.window?.orderOut(nil)
-            let w = makeOverlayWindow(CoordConvert.nsFrame(fromCG: rect), color: color)
+            let w = makeOverlayWindow(CoordConvert.nsFrame(fromCG: rect), color: .clear)
+            let v = NSView(frame: NSRect(origin: .zero, size: CoordConvert.nsFrame(fromCG: rect).size))
+            v.wantsLayer = true
+            v.layer?.backgroundColor = accent.withAlphaComponent(0.22).cgColor
+            v.layer?.borderColor = accent.withAlphaComponent(0.9).cgColor
+            v.layer?.borderWidth = 2
+            v.layer?.cornerRadius = 6
+            w.contentView = v
             w.orderFront(nil)
             self.window = w
             let work = DispatchWorkItem { [weak self] in self?.window?.orderOut(nil); self?.window = nil }
