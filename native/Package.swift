@@ -18,6 +18,7 @@ let package = Package(
         .executable(name: "zt-oracle", targets: ["zt-oracle"]),
         .executable(name: "zt-axspike", targets: ["zt-axspike"]),
         .executable(name: "zt-probe", targets: ["zt-probe"]),
+        .executable(name: "zt-tile", targets: ["zt-tile"]),
     ],
     dependencies: [
         // Maintained TOML parser (toml++-backed, Codable support) for reading config.toml.
@@ -29,6 +30,7 @@ let package = Package(
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),
         .executableTarget(name: "zt-axspike", dependencies: ["ZTSystem"]),
         .executableTarget(name: "zt-probe", dependencies: ["ZTSystem"]),
+        .executableTarget(name: "zt-tile", dependencies: ["ZTSystem"]),
         .testTarget(name: "ZTCoreTests", dependencies: ["ZTCore"]),
         .testTarget(name: "ZTSystemTests", dependencies: ["ZTSystem"]),
     ]

@@ -11,6 +11,13 @@
 import Foundation
 import AppKit
 import ApplicationServices
+import ZTCore
+
+// Private AX SPI mapping an AX window element to its CGWindowID (the standard yabai-style
+// approach for matching AX windows to CGWindowList entries).
+@_silgen_name("_AXUIElementGetWindow")
+private func _AXUIElementGetWindow(_ element: AXUIElement,
+                                   _ identifier: UnsafeMutablePointer<CGWindowID>) -> AXError
 
 public struct OnScreenWindow {
     public let windowID: CGWindowID
@@ -27,7 +34,62 @@ public struct AXMoveError: Error, CustomStringConvertible {
     public var description: String { message }
 }
 
-public enum AXWindowSystem {
+public final class AXWindowSystem: WindowSystem {
+
+    private let screenProvider: ScreenProvider
+    public init(screenProvider: ScreenProvider) { self.screenProvider = screenProvider }
+
+    // MARK: - WindowSystem (live AX)
+
+    public func focusedWindow() -> LiveWindow? {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              let axWin = focusedAXWindow(pid: app.processIdentifier) else { return nil }
+        let cg = Self.frame(of: axWin)
+        var wid: CGWindowID = 0
+        _ = _AXUIElementGetWindow(axWin, &wid)
+        let uuid = screenProvider.screen(containing: (x: Double(cg.midX), y: Double(cg.midY)))?.uuid
+        return LiveWindow(id: Int(wid), appName: app.localizedName ?? "",
+                          frame: ZTRect(x: cg.origin.x, y: cg.origin.y, w: cg.size.width, h: cg.size.height),
+                          screenUUID: uuid)
+    }
+
+    public func windows(onScreen uuid: String) -> [LiveWindow] {
+        Self.onScreenWindows().filter { $0.layer == 0 }.compactMap { w in
+            let center = (x: Double(w.bounds.midX), y: Double(w.bounds.midY))
+            guard let s = screenProvider.screen(containing: center), s.uuid == uuid else { return nil }
+            return LiveWindow(id: Int(w.windowID), appName: w.ownerName,
+                              frame: ZTRect(x: w.bounds.origin.x, y: w.bounds.origin.y,
+                                            w: w.bounds.size.width, h: w.bounds.size.height),
+                              screenUUID: uuid)
+        }
+    }
+
+    @discardableResult
+    public func moveFocusedWindow(to rect: ZTRect) -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              let axWin = focusedAXWindow(pid: app.processIdentifier) else { return false }
+        let appElem = AXUIElementCreateApplication(app.processIdentifier)
+
+        // Always toggle AXEnhancedUserInterface for the move (Firefox/Zen-class apps need it).
+        var wasEnhanced = false
+        var v: CFTypeRef?
+        if AXUIElementCopyAttributeValue(appElem, Self.kAXEnhancedUserInterface, &v) == .success,
+           let b = v as? Bool { wasEnhanced = b }
+        if wasEnhanced { AXUIElementSetAttributeValue(appElem, Self.kAXEnhancedUserInterface, kCFBooleanFalse) }
+        Self.setFrame(axWin, CGRect(x: rect.x, y: rect.y, width: rect.w, height: rect.h))
+        if wasEnhanced { AXUIElementSetAttributeValue(appElem, Self.kAXEnhancedUserInterface, kCFBooleanTrue) }
+        return true
+    }
+
+    private func focusedAXWindow(pid: pid_t) -> AXUIElement? {
+        let appElem = AXUIElementCreateApplication(pid)
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElem, kAXFocusedWindowAttribute as CFString, &ref) == .success,
+              let w = ref, CFGetTypeID(w) == AXUIElementGetTypeID() else { return nil }
+        return (w as! AXUIElement)
+    }
+
+    // MARK: - Static helpers (used by zt-axspike + the instance methods above)
 
     /// Whether this process may use the Accessibility API. Pass prompt=true to surface the
     /// system permission dialog on first use.
