@@ -9,14 +9,16 @@ This repository holds two implementations:
 
 ## Native port (v2) status
 
-The native agent is feature-complete except the rich settings editors. It reads the same `config.toml` and `~/.config/ZoneTilerWM/*.json` as the Lua version.
+The native agent is feature-complete, including the full settings GUI. It reads the same `config.toml` and `~/.config/ZoneTilerWM/*.json` as the Lua version.
 
-Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory, audio switch, Pomodoro (menubar text + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints, config live-reload, overlays, and the settings GUI (General, a keybind editor, a visual layout editor, and the memory inspector).
+Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory (with recency/time decay), audio switch, Pomodoro (glass menubar pill + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints (app icon + keyboard-half spatial assignment), hotkey-conflict detection, config live-reload, overlays, multi-monitor navigation, and the settings GUI (6 tabs: General / Keys / Apps / Layouts / Pomodoro / Advanced, a keybind editor, a visual layout editor, and a separate analytics window with learned-placement heatmaps).
+
+Multi-monitor: logical monitor ids are seeded from the display arrangement at startup and re-registered on connect/disconnect/rearrange (`NSApplication.didChangeScreenParametersNotification`), so zone memory and resize offsets resolve to the right display after a hot-plug. Validated live on a two-display setup.
 
 Remaining:
 
-- Live multi-monitor validation of the screen-nav features (logic is unit-tested; needs a second display).
 - Productization: a real `.app` bundle, code signing/notarization, launch-at-login, and first-run accessibility onboarding. It currently runs as the SwiftPM `zt-agent` binary.
+- UI/performance polish tracked in [native/REVIEW.md](native/REVIEW.md) (settings-window sizing, form-commit consistency, solver flat cost-matrix). None are correctness regressions against the Lua spec.
 
 Build, run, and test the native port:
 
@@ -27,7 +29,7 @@ make verify        # swift tests + all differential harnesses + the Lua spec run
 make diff          # Lua<->Swift differential harnesses only
 ```
 
-Current baseline: 116 Swift tests, 8 differential harnesses, and the Lua runner all green.
+Current baseline: 142 Swift tests, 8 differential harnesses, and the Lua runner all green. Line coverage is ~92% for the pure-logic core (`ZTCore`) and lower for the OS-adapter/UI layers, which are validated via the differential oracles and live screenshot QA rather than unit tests — see [native/REVIEW.md](native/REVIEW.md) for the full coverage breakdown and the engineering/UX review.
 
 ## Features
 
@@ -255,10 +257,12 @@ You can extend the detection logic in `config.toml` under `[tiler.screen_detecti
 For detailed documentation, see the [docs/](docs/) folder:
 
 * **[Native Port Architecture](native/ARCHITECTURE.md)** - The v2 Swift port: design, layering, differential testing, port status
+* **[Native Port Review](native/REVIEW.md)** - Engineering (Linus/Uncle Bob), performance (Carmack), and UI/UX (Rams/Kare) review plus the code-coverage breakdown
 * **[Remaining Port Plan](native/REMAINING_PORT_PLAN.md)** - Per-slice status of the native port and what is left
 * **[Lua Architecture Overview](docs/ARCHITECTURE.md)** - Original Hammerspoon system design and data flow
 * **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
 * **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
+* **[SentinelOne Performance](docs/SENTINELONE_INVESTIGATION.md)** - Why AX-call count is the primary perf constraint, and how the Lua (window_cache) and native (CGWindowList reads) implementations each address it
 * **[Spaces Research](docs/SPACES_RESEARCH.md)** - macOS Spaces implementation research (out of scope)
 
 ---

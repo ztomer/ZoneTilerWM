@@ -30,9 +30,18 @@ ported module is checked for behavioral parity against it (see Differential Test
 - **Dependency inversion only at the OS boundary** — protocols (`WindowSystem`, `Storage`,
   `OverlayRenderer`, …) exist where they're earned by testability or a real dual
   implementation (AX vs AppleScript). No speculative abstraction inside `ZTCore`.
-- **Data over dispatch (performance)** — the algorithmic core operates on flat value-type
+- **Minimize AX calls (the *primary* perf gate)** — on SentinelOne-protected machines every
+  Accessibility call is hooked, logged, and analyzed (historically 1–2 s per `setFrame`), so
+  the real cost of an operation is its AX-round-trip *count*, not CPU. All reads / z-order /
+  occupancy go through `CGWindowListCopyWindowInfo` (zero AX, no permission, off the hooked
+  path); AX is touched only to *mutate* (move/focus/minimize) and to read the single focused
+  element. AX calls therefore scale with *actions*, not *window count* — strictly better than
+  the Lua, which needed `window_cache` because `hs.window.allWindows()` was per-window AX. See
+  `docs/SENTINELONE_INVESTIGATION.md` and `REVIEW.md` §1.
+- **Data over dispatch (CPU, second-order)** — the algorithmic core operates on flat value-type
   snapshots, never protocol existentials, to avoid witness-table dispatch / ARC churn in
-  hot loops (the O(Mᴺ) solver, per-event re-tile). Cost matrices are preallocated.
+  hot loops (the O(Mᴺ) solver, per-event re-tile). Cost matrices are preallocated. (Secondary
+  to the AX-call gate above.)
 - **Less but better (UI)** — overlays are unobtrusive and disappear when idle; the few
   shipped pixels (menubar glyph, indicators) are crisp and legible.
 
@@ -241,18 +250,23 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 | Zen mode | HYPER+\\ | unit |
 | Activity Monitor | HYPER+= | live |
 | Resize mode | resize_mode hotkey; arrows nudge zone lines | live (cyan overlay + line shift + persisted offsets); unit (GridLines, offset→placement) |
-| Multi-monitor nav | placement_mode/zone_info/focus_next/prev_screen | unit only (single display — live owed) |
-| Window hints | window_hints hotkey | live (label badges + type-to-focus); unit (label assignment) |
+| Multi-monitor nav | placement_mode/zone_info/focus_next/prev_screen | unit + live (two-display validated) |
+| Monitor identity | seed at startup + re-register on screen change | unit (lazy-mis-key regression) + live (id 1 = main, 2 = secondary) |
+| Window hints | window_hints hotkey | live (icon + key + name badges, keyboard-half placement); unit (label assignment) |
+| Hotkey conflicts | startup + reload log; Keys-tab banner | unit (`HotkeyConflicts.find`, real-config) |
 | Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
 | Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
 | Settings GUI | menubar → Settings… | live (General / Keys / Apps / Layouts / Pomodoro / Advanced) |
-| Analytics | menubar → Window Analytics… | live (zone-usage heatmap + learned-placement table, read-only) |
+| Analytics | menubar → Window Analytics… | live (zone/keyboard/by-app heatmaps + learned-placement table, read-only) |
 
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
 `AudioDevices`, `Overlay` (flash/bar/grid/hints), `ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
-Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **116 Swift tests
-+ 8 differential harnesses + Lua runner, all green**.
+Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **142 Swift tests
++ 8 differential harnesses + Lua runner, all green**. Line coverage is ~92% for the pure-logic
+`ZTCore` layer; the OS adapters / UI are validated by the differential oracles + live screenshot
+QA rather than unit tests. See `REVIEW.md` for the full coverage breakdown and the
+engineering/performance/UX review.
 
 **Identity / assets** (`native/Assets/`): app icon in light + dark variants
 (`AppIcon-1024-light.png` / `-dark.png`, a zone-grid-with-top-left-filled mark) and the
@@ -273,10 +287,16 @@ rebuilt coherently (arrows nudge zone grid lines via `ResizeManager`).
 
 ### Remaining
 
-- **Live multi-monitor validation** of the nav features (logic unit-tested; needs a second
-  display attached for the screenshot pass).
 - **Productization** (never in scope yet): a real `.app` bundle (`Info.plist`/`LSUIElement`),
   code signing / notarization, launch-at-login, and a first-run accessibility-permission
   onboarding. It currently runs as the SwiftPM `zt-agent` binary via `run.sh`.
+- **Quality/polish debt** from `REVIEW.md`: settings-window sizing vs content, form-commit
+  consistency (some fields commit only on Return), Keys-tab label alignment, the solver's
+  flat cost-matrix / array-assignment micro-optimizations, and raising unit coverage on
+  `AutoTiler` / `PlacementStrategy` / `TilerCoordinator` / `ConfigLoader`. None are
+  correctness regressions against the Lua spec.
 
-See `REMAINING_PORT_PLAN.md` for the per-slice detail.
+Live multi-monitor validation of the nav + monitor-identity features is now done (verified on
+a two-display setup: main display seeds to logical id 1, secondary to 2; re-registers on
+display-arrangement change). See `REMAINING_PORT_PLAN.md` for the per-slice detail and
+`REVIEW.md` for the review.
