@@ -192,13 +192,7 @@ struct AppShortcutsView: View {
     @State private var selectedKey: String?
     @State private var edit = ""
 
-    private let keyRows: [[String]] = [
-        ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"],
-        ["1","2","3","4","5","6","7","8","9","0"],
-        ["q","w","e","r","t","y","u","i","o","p"],
-        ["a","s","d","f","g","h","j","k","l",";"],
-        ["z","x","c","v","b","n","m",",",".","/"],
-    ]
+    private var keyRows: [[String]] { model.keyboardRows }
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
     private var currentGroup: ConfigLoader.AppHotkeyGroup {
         group == "appCuts" ? model.config.appCuts : model.config.hyperAppCuts
@@ -304,7 +298,7 @@ struct LayoutEditorView: View {
                         Picker("Edit grid", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
                             .frame(width: 150).onChange(of: grid) { _ in syncZone() }
                     }
-                    Text("Zones — each preview shows the zone's first tile. Click one to edit it.")
+                    Text("Zones — each key shows the zone mapped to it; the cells show its first tile. Click to edit.")
                         .font(.caption).foregroundColor(.secondary)
                     zonePreviews
                     Divider()
@@ -350,33 +344,46 @@ struct LayoutEditorView: View {
         }
     }
 
+    private func displayKey(_ k: String) -> String { k.count == 1 ? k.uppercased() : k }
+
+    // Zones laid out on the physical keyboard so each zone visibly maps to its key.
     private var zonePreviews: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 10)], alignment: .leading, spacing: 10) {
-            ForEach(zoneKeys, id: \.self) { z in zonePreview(z) }
+        VStack(spacing: 4) {
+            ForEach(model.keyboardRows.indices, id: \.self) { r in
+                HStack(spacing: 4) {
+                    ForEach(model.keyboardRows[r], id: \.self) { key in zoneKeycap(key) }
+                }
+            }
         }
     }
 
-    private func zonePreview(_ z: String) -> some View {
-        let span = (model.config.zoneConfig.layouts[grid]?[z]?.first).flatMap(GridCells.parse)
-        return VStack(spacing: 3) {
-            miniGrid(span: span)
-            Text(z).font(.system(.caption, design: .monospaced))
+    private func zoneKeycap(_ key: String) -> some View {
+        let tiles = model.config.zoneConfig.layouts[grid]?[key]
+        let isZone = tiles != nil
+        let span = tiles?.first.flatMap(GridCells.parse)
+        let sel = zone == key
+        return VStack(spacing: 2) {
+            miniGrid(span: span, dim: !isZone)
+            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundColor(isZone ? .primary : .secondary.opacity(0.6))
         }
-        .padding(6)
-        .background(zone == z ? Color.accentColor.opacity(0.18) : Color(NSColor.controlBackgroundColor).opacity(0.6))
-        .cornerRadius(6)
+        .frame(width: 54, height: 46)
+        .background(RoundedRectangle(cornerRadius: 6).fill(sel ? Color.accentColor.opacity(0.20)
+            : (isZone ? Color(NSColor.controlBackgroundColor) : Color.clear)))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Color.accentColor : Color.secondary.opacity(isZone ? 0.3 : 0.12), lineWidth: sel ? 2 : 0.5))
         .contentShape(Rectangle())
-        .onTapGesture { zone = z; loadTiles() }
+        .onTapGesture { if isZone { zone = key; loadTiles() } }
     }
 
-    private func miniGrid(span: GridCells.Span?) -> some View {
+    private func miniGrid(span: GridCells.Span?, dim: Bool = false) -> some View {
         VStack(spacing: 1) {
             ForEach(1...max(rows, 1), id: \.self) { r in
                 HStack(spacing: 1) {
                     ForEach(0..<max(cols, 1), id: \.self) { c in
                         Rectangle()
-                            .fill((span.map { contains($0, c, r) } ?? false) ? Color.accentColor : Color.secondary.opacity(0.25))
-                            .frame(width: 12, height: 10)
+                            .fill(dim ? Color.secondary.opacity(0.12)
+                                  : ((span.map { contains($0, c, r) } ?? false) ? Color.accentColor : Color.secondary.opacity(0.25)))
+                            .frame(width: 8, height: 6)
                     }
                 }
             }

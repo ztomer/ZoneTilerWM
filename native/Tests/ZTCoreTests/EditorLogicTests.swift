@@ -46,4 +46,19 @@ final class EditorLogicTests: XCTestCase {
         XCTAssertEqual(Keybinding.alias(forModifiers: ["shift", "ctrl", "alt", "cmd"], aliases: aliases), "HYPER")
         XCTAssertNil(Keybinding.alias(forModifiers: ["cmd"], aliases: aliases))   // no alias is just cmd
     }
+    // MARK: KeyboardLayout
+
+    func testKeyboardLayoutRows() {
+        let q = KeyboardLayout.rows(for: "qwerty")
+        XCTAssertEqual(q.count, 5)                       // F-row, numbers, 3 letter rows
+        XCTAssertEqual(q[2], ["q","w","e","r","t","y","u","i","o","p"])
+        // Dvorak home row differs from QWERTY at the same physical positions.
+        XCTAssertEqual(KeyboardLayout.rows(for: "dvorak")[3], ["a","o","e","u","i","d","h","t","n","s"])
+        // Unknown name falls back to QWERTY.
+        XCTAssertEqual(KeyboardLayout.rows(for: "azerty"), q)
+        // Every preset has 10 keys per row.
+        for name in KeyboardLayout.presets {
+            for row in KeyboardLayout.rows(for: name) { XCTAssertEqual(row.count, 10) }
+        }
+    }
 }

@@ -105,6 +105,25 @@ public final class SettingsModel: ObservableObject {
         } catch { lastWriteError = "\(error)" }
     }
 
+    // MARK: - Keyboard layout (Apps + zone renders)
+
+    /// The auto-detected layout preset name (qwerty/dvorak/colemak).
+    public var detectedKeyboard: String { KeyboardLayoutDetector.current() }
+    /// The user's choice: "auto" or a preset name.
+    public var keyboardChoice: String { config.keyboardLayout }
+    /// The effective physical key rows to render.
+    public var keyboardRows: [[String]] {
+        KeyboardLayout.rows(for: keyboardChoice == "auto" ? detectedKeyboard : keyboardChoice)
+    }
+    public func setKeyboardLayout(_ choice: String) {
+        if choice == "auto" {
+            guard let text = try? String(contentsOf: configURL, encoding: .utf8) else { return }
+            if let edited = TOMLEditor.removeKey(text, section: "ui", key: "keyboard_layout") { persist(edited) }
+        } else {
+            setOrAppend(section: "ui", key: "keyboard_layout", rawValue: "\"\(choice)\"")
+        }
+    }
+
     // MARK: - Monitors (Layouts tab)
 
     private let screenProvider = NSScreenProvider()
@@ -204,6 +223,16 @@ public struct SettingsView: View {
                 Stepper("Working-set capacity: \(model.config.workingSetMaxCapacity)",
                         value: Binding(get: { model.config.workingSetMaxCapacity },
                                        set: { model.setWorkingSetCapacity($0) }), in: 1...12)
+            }
+            Section("Input") {
+                Picker("Keyboard layout", selection: Binding(
+                    get: { model.keyboardChoice },
+                    set: { model.setKeyboardLayout($0) })) {
+                    Text("Auto (\(model.detectedKeyboard))").tag("auto")
+                    ForEach(KeyboardLayout.presets, id: \.self) { Text($0).tag($0) }
+                }
+                Text("Used to render the Apps and Layouts key maps. Auto follows the active macOS input source.")
+                    .font(.caption).foregroundColor(.secondary)
             }
             Section("Margins") {
                 Toggle("Enable margins", isOn: Binding(

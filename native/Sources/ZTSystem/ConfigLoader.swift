@@ -53,6 +53,7 @@ public enum ConfigLoader {
         public var pomodoroHotkeys: [String: [String]]   // action -> [modifierAlias, key]
         public var tilerHotkeys: [String: [String]]      // action -> [modifierAlias, key]
         public var systemHotkeys: [String: [String]]     // action -> [modifierAlias, key]
+        public var keyboardLayout: String                 // [ui] keyboard_layout: auto/qwerty/dvorak/colemak
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
         public func resolvedHotkey(_ action: String, in group: [String: [String]]) -> (modifier: [String], key: String)? {
@@ -167,7 +168,10 @@ public enum ConfigLoader {
         var hyperAppCuts: RawAppCuts?
         var audio_switcher: RawAudio?
         var system_hotkeys: [String: [String]]?
+        var ui: RawUI?
     }
+
+    private struct RawUI: Decodable { var keyboard_layout: String? }
 
     /// A resolved app-shortcut group: the actual modifier names + key->app entries.
     public struct AppHotkeyGroup: Equatable {
@@ -259,7 +263,8 @@ public enum ConfigLoader {
             pomodoroColorUsed: raw.pomodoro?.color_time_used ?? "red",
             pomodoroHotkeys: raw.pomodoro?.hotkeys ?? [:],
             tilerHotkeys: t.hotkeys ?? [:],
-            systemHotkeys: raw.system_hotkeys ?? [:])
+            systemHotkeys: raw.system_hotkeys ?? [:],
+            keyboardLayout: raw.ui?.keyboard_layout ?? "auto")
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {
