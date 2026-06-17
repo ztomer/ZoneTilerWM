@@ -28,6 +28,7 @@ public final class TilerCoordinator {
     private let offsets: ZoneCalculator.OffsetProvider
     private let overlapThreshold: Double
     private let focusCycler = FocusManager.Cycler()
+    private let focusTracker = WindowFocusTracker()
 
     // Optional adaptive memory: when present, manual zone moves are learned + persisted, and
     // auto-tile becomes memory-augmented. monitorManager maps screen UUID -> the logical id
@@ -156,9 +157,14 @@ public final class TilerCoordinator {
         guard let uuid, let screen = screenProvider.screen(uuid: uuid) else { return [] }
 
         let live = windowSystem.windows(onScreen: uuid)   // front-to-back
-        let windows = live.map {
-            AutoTiler.Window(id: $0.id, app: $0.appName, monitor: uuid, frame: $0.frame,
-                             lastFocusedTime: now, isStandard: true, isMinimized: false)
+        // Feed real per-window focus times so the working-set age cull behaves like the Lua
+        // (window_cache last_focused_time). Unseen windows fall back to `now`, matching the
+        // Lua `info and info.last_focused_time or now`; baseline-seed them so they can age out.
+        let windows = live.map { w -> AutoTiler.Window in
+            focusTracker.recordIfAbsent(id: w.id, at: now)
+            return AutoTiler.Window(id: w.id, app: w.appName, monitor: uuid, frame: w.frame,
+                                    lastFocusedTime: focusTracker.lastFocused(id: w.id) ?? now,
+                                    isStandard: true, isMinimized: false)
         }
         let zOrder = live.map { $0.id }
         let focusedId = windowSystem.focusedWindow()?.id
@@ -172,6 +178,24 @@ public final class TilerCoordinator {
         for m in moves { windowSystem.move(windowId: m.windowId, to: m.rect) }
         return moves
     }
+
+    /// Stamp the currently-focused window's focus time (drive from a periodic poll / focus
+    /// event in the agent). Mirrors window_cache.lua's windowFocused subscription.
+    public func noteFocusedWindow(now: Int) {
+        if let id = windowSystem.focusedWindow()?.id { focusTracker.record(id: id, at: now) }
+    }
+
+    /// Baseline-seed focus times for all currently-visible windows across all screens, once at
+    /// startup (window_cache.refresh equivalent) so pre-existing windows can age out of the
+    /// working set. Does not overwrite times already tracked.
+    public func seedFocusTimes(now: Int) {
+        for s in screenProvider.allScreens() {
+            for w in windowSystem.windows(onScreen: s.uuid) { focusTracker.recordIfAbsent(id: w.id, at: now) }
+        }
+    }
+
+    /// Drop focus-time entries for windows no longer live (pass all current window ids).
+    public func pruneFocusTimes(liveIds: Set<Int>) { focusTracker.prune(keepingIds: liveIds) }
 
     /// Per-app ranked memory preferences for a monitor, for AutoTiler.plan.
     private func rankedMemory(forApps apps: Set<String>, screenUUID: String) -> [String: [MemoryPref]] {

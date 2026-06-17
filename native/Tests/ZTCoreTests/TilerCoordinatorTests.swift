@@ -115,6 +115,34 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(moves.first { $0.windowId == 1 }?.zoneKey, "j")
     }
 
+    func testAutoTileFeedsRealFocusAgeIntoPlan() {
+        // The Lua working-set cull (auto_tiler.lua) routes windows last-focused beyond
+        // working_set.time_limit_sec to the limbo-stack pass instead of the solver — they're
+        // still moved, but to a different target. The live regression we're fixing was that
+        // every window was fed lastFocusedTime=now, so the cull never engaged. Prove the
+        // coordinator now feeds true per-window focus age: a stale window yields a DIFFERENT
+        // plan than the same windows treated as fresh.
+        let w1 = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 800, h: 600), screenUUID: "M1")
+        let w2 = LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 100, y: 100, w: 400, h: 400), screenUUID: "M1")
+        let atConfig = AutoTiler.Config(centerZones: ["j"], workingSetTimeLimit: 1800,
+                                        workingSetMaxCapacity: 6, mode: "usage",
+                                        weights: CostWeights(), zoneConfig: zoneConfig())
+        func plan(staleWindow2: Bool) -> [Int: ZTRect] {
+            let ws = FakeWindowSystem(); ws.onScreen = [w1, w2]
+            let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                         zoneConfig: zoneConfig(), placementStrategy: "rotate")
+            if staleWindow2 { ws.focused = w2; coord.noteFocusedWindow(now: 0) }   // last focus far in past
+            ws.focused = w1; coord.noteFocusedWindow(now: 10_000)
+            let moves = coord.autoTileScreen(autoTilerConfig: atConfig, memory: [:], now: 10_000)
+            return Dictionary(uniqueKeysWithValues: moves.map { ($0.windowId, $0.rect) })
+        }
+        let stale = plan(staleWindow2: true)
+        let fresh = plan(staleWindow2: false)
+        XCTAssertNotEqual(stale[2], fresh[2],
+                          "stale window 2 should be placed differently (limbo) than when fresh — focus age must reach the plan")
+        XCTAssertEqual(stale[1], fresh[1], "the current window's placement is unaffected by window 2's age")
+    }
+
     func testZenMinimizesOthersAndRestores() {
         let ws = FakeWindowSystem()
         ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")

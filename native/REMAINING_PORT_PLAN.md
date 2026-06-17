@@ -19,50 +19,53 @@ until a second display is available.
 
 ---
 
-## Slice 1 — Live auto-place on new windows (highest value, hardest)
+## Slice 1 — Window-cache passive focus tracking (working-set cull parity)
 
-**Goal:** opening/closing a window re-runs the auto-tiler automatically, the way the Lua
-does via Hammerspoon's `window.filter` / `hs.window.filter` subscriptions. Today auto-tiling
-only fires on the manual `HYPER+return`.
+**SCOPE CORRECTION (Lua audit, before implementing):** the Lua does **NOT** auto-tile on
+new windows. `modules/tiler.lua:55-61` subscribes to windowCreated/Opened/Destroyed but the
+callbacks only call `window_cache.update(...)` (the `:57` comment "Call existing handlers
+here if needed" is a no-op stub). `window_cache.lua`'s focus watcher updates each window's
+`last_focused_time`. Auto-tiling fires only on the manual hotkey / `tile_on_startup`. So
+"auto-place new windows" would be a NEW feature, which violates Lua-is-ground-truth — dropped.
 
-**Lua ground truth:** `modules/auto_tiler.lua` (the 4-pass cascade + working-set culling) is
-already ported and diffed (`diff_autotiler.sh`). What's NOT yet ported is the *trigger* —
-the Lua subscribes to window-created / -destroyed / -focused events and calls the tiler.
-Find the subscription wiring in `init.lua` / `modules/tiler.lua` / wherever the
-`hs.window.filter` callbacks live, and treat its debounce + which-events-trigger-retile as
-the spec.
+**The real parity gap** (found at `native/Sources/ZTCore/TilerCoordinator.swift:161`): the
+live agent builds every `AutoTiler.Window` with `lastFocusedTime: now`, so `now - lastFocused
+== 0` for all windows and the **age-based working-set cull never fires live**. The Lua's
+`auto_tiler.lua:128-136` culls windows whose `last_focused_time` is older than
+`working_set.time_limit_sec` (default 1800s), reading it from `window_cache`. The ported
+`AutoTiler` already implements the cull correctly *given* real timestamps — that's exactly
+what `diff_autotiler.sh` exercises with per-window `last_focused_time` in its scenarios. The
+agent just isn't supplying real times.
 
-**Native technique:**
-- `NSWorkspace.shared.notificationCenter` for app launch/terminate is coarse; per-window
-  needs AX observers: `AXObserverCreate` + `AXObserverAddNotification` for
-  `kAXWindowCreatedNotification`, `kAXUIElementDestroyedNotification`,
-  `kAXFocusedWindowChangedNotification`, `kAXApplicationActivatedNotification` on each
-  running app's `AXUIElement` (`AXUIElementCreateApplication(pid)`).
-- Need an app-lifecycle watcher (`NSWorkspace didLaunchApplicationNotification` /
-  `didTerminateApplicationNotification`) to attach/detach AX observers as apps come and go.
-- Debounce a burst of events (apps often emit several on open) before re-tiling — mirror the
-  Lua's debounce interval.
-- Respect the working-set / excluded-apps / `auto_tiling_mode` config already loaded.
+**Goal:** port `window_cache.lua`'s passive focus-time tracking so the live auto-tile feeds
+true per-window `lastFocusedTime`, making the working-set cull behave like the Lua.
 
-**New differential oracle (required — this is a coordinator decision):**
-- `tools/oracle_autoplace.lua` — given (current windows, screens, config, memory, the
-  new-window event) run the real Lua trigger+auto_tiler path, emit the resulting
-  assignment map.
-- Swift side: a `zt-oracle autoplace` mode over the same contract.
-- `tools/gen_fuzz_autoplace.lua` + `cmp_autoplace.lua` + `diff_autoplace.sh`; add to
-  `make verify`'s harness loop and `tools/verify.sh`.
-- Add a `ZTCore` behavioral test for the new-window→placement decision.
+**Implementation (no new oracle needed — the decision is already diff_autotiler-verified):**
+- `ZTCore`: pure `WindowFocusTracker` keyed by window id (`Int` / CGWindowID):
+  `record(id:at:)`, `recordIfAbsent(id:at:)`, `lastFocused(id:) -> Int?`, `forget(id:)`,
+  `prune(keepingIds:)`. Unit-tested.
+- `TilerCoordinator`: own a `WindowFocusTracker`; add `noteFocusedWindow(now:)` (stamp the
+  current focused window) and `seedFocusTimes(now:)` (stamp all currently-enumerated windows
+  if absent — mirrors `window_cache.refresh` baseline). In `autoTileScreen`, replace
+  `lastFocusedTime: now` with `tracker.lastFocused(id:) ?? now` (matches Lua
+  `info and info.last_focused_time or now`).
+- `zt-agent`: at startup, `seedFocusTimes(now:)` once after building the coordinator; a ~1s
+  `Timer` calls `noteFocusedWindow(now:)` (poll granularity is negligible vs the 1800s
+  threshold; the Lua is event-driven but the cull outcome is identical within seconds).
+  Prune dead ids opportunistically on auto-tile.
 
-**Layering:** the *decision* (which zone for the new window) stays in `ZTCore`
-(value-snapshot in, assignment out). The AX observer plumbing is a `ZTSystem` adapter behind
-a `WindowEventSource` protocol (`onWindowCreated/Destroyed/FocusChanged` callbacks) so the
-coordinator is testable with a fake event source.
+**Tests:**
+- `WindowFocusTrackerTests`: record/overwrite, recordIfAbsent doesn't clobber, prune, lazy
+  default.
+- `TilerCoordinatorTests` (FakeWindowSystem): seed old focus time for a window + recent for
+  another, run `autoTileScreen`, assert the stale window is culled from the move set exactly
+  as the Lua would (the cull threshold honored end-to-end through the coordinator).
 
-**User-POV validation:** launch agent, open a fresh window (e.g. a new Finder window), screenshot
-that it auto-tiled into the expected zone; deterministic assertion = post-event AX frame readback.
+**User-POV validation:** N/A on screen (timing behavior). The deterministic coordinator test
+is the assertion. Optionally log the culled set when debugging.
 
-**Done when:** diff_autoplace green over a few hundred seeds; live new-window auto-tiles
-correctly on screenshot + AX readback; `make verify` green.
+**Done when:** tracker + coordinator tests green; live auto-tile honors focus age; existing
+`diff_autotiler` still green; `make verify` green.
 
 ---
 

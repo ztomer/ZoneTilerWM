@@ -32,6 +32,7 @@ final class AgentController: NSObject {
     private var statusItem: NSStatusItem?
     private var pomodoroItem: NSStatusItem?
     private var pomodoroTimer: Timer?
+    private var focusTimer: Timer?
     private let flash = FlashOverlay()
     private let pomodoroBar = PomodoroBar()
     private let enableColorBar: Bool
@@ -167,6 +168,18 @@ final class AgentController: NSObject {
         log("zt-agent: \(label) hotkey \(h.modifier)+\(h.key) -> \(ok ? "ok" : "FAILED")")
     }
 
+    /// Passive focus-time tracking (port of window_cache.lua's windowFocused subscription):
+    /// seed all visible windows once, then poll the focused window every second so the
+    /// auto-tiler's working-set age cull sees real per-window focus times. Poll granularity is
+    /// negligible against the 1800s default cull threshold.
+    func setupFocusTracking() {
+        let now = Int(Date().timeIntervalSince1970)
+        coordinator.seedFocusTimes(now: now)
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.coordinator.noteFocusedWindow(now: Int(Date().timeIntervalSince1970))
+        }
+    }
+
     func setupPomodoro(_ config: ConfigLoader.LoadedConfig) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = ""   // shown only while active
@@ -245,6 +258,7 @@ app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 let controller = AgentController(config: config, configURL: configURL)
 controller.setupStatusItem()
 controller.setupPomodoro(config)
+controller.setupFocusTracking()
 controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
 controller.bindFocusHotkeys(modifier: config.focusModifier, zoneKeys: zoneKeys.sorted())
 if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }
