@@ -211,29 +211,39 @@ public final class SettingsModel: ObservableObject {
         public let id = UUID()
         public let app: String, monitor: String, zone: String, tile: String
         public let count: Int
+        public let lastSeen: Int
     }
 
     public var preferences: [Pref] {
         guard let memory else { return [] }
         return memory.save().preferences
             .map { Pref(app: $0.app_name, monitor: $0.monitor_id, zone: $0.zone_key,
-                        tile: $0.tile_index.sortKey, count: $0.data.count) }
+                        tile: $0.tile_index.sortKey, count: $0.data.count, lastSeen: $0.data.last_seen) }
             .sorted { $0.count > $1.count }
     }
 
-    /// Total learned count per zone key, optionally filtered by app/monitor — for the key heatmap.
-    public func zoneUsage(app: String? = nil, monitor: String? = nil) -> [String: Int] {
+    /// Half-life (2 weeks) for the analytics recency weighting.
+    private static let recencyHalfLife = 1_209_600.0
+    /// A preference's count, optionally recency-decayed (legacy rows with no timestamp aren't decayed).
+    private func weight(_ p: Pref, recency: Bool) -> Int {
+        guard recency, p.lastSeen > 0 else { return p.count }
+        let age = Double(max(0, Int(Date().timeIntervalSince1970) - p.lastSeen))
+        return Int((Double(p.count) * pow(0.5, age / Self.recencyHalfLife)).rounded())
+    }
+
+    /// Total (optionally recency-weighted) count per zone key, filtered by app/monitor.
+    public func zoneUsage(app: String? = nil, monitor: String? = nil, recency: Bool = false) -> [String: Int] {
         var out: [String: Int] = [:]
         for p in preferences where (app == nil || p.app == app) && (monitor == nil || p.monitor == monitor) {
-            out[p.zone, default: 0] += p.count
+            out[p.zone, default: 0] += weight(p, recency: recency)
         }
         return out
     }
 
     /// Spatial occupancy per grid cell ([col][row-1]) for a given grid, filtered by app/monitor:
-    /// each learned (zone, tile) is resolved to its cell span in that grid and its count added to
-    /// every covered cell. Returns the grid (cols,rows), the counts, and the max for normalizing.
-    public func cellUsage(grid: String, app: String? = nil, monitor: String? = nil)
+    /// each learned (zone, tile) is resolved to its cell span in that grid and its (optionally
+    /// recency-weighted) count added to every covered cell.
+    public func cellUsage(grid: String, app: String? = nil, monitor: String? = nil, recency: Bool = false)
         -> (cols: Int, rows: Int, cells: [[Int]], max: Int) {
         guard let g = config.zoneConfig.grids[grid], let layout = config.zoneConfig.layouts[grid] else {
             return (0, 0, [], 0)
@@ -242,8 +252,9 @@ public final class SettingsModel: ObservableObject {
         for p in preferences where (app == nil || p.app == app) && (monitor == nil || p.monitor == monitor) {
             guard let tiles = layout[p.zone], let idx = Int(p.tile), idx >= 1, idx <= tiles.count,
                   let span = GridCells.parse(tiles[idx - 1]) else { continue }
+            let w = weight(p, recency: recency)
             for c in span.c0...span.c1 where c < g.cols {
-                for r in span.r0...span.r1 where r >= 1 && r - 1 < g.rows { cells[c][r - 1] += p.count }
+                for r in span.r0...span.r1 where r >= 1 && r - 1 < g.rows { cells[c][r - 1] += w }
             }
         }
         return (g.cols, g.rows, cells, cells.flatMap { $0 }.max() ?? 0)

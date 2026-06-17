@@ -9,8 +9,9 @@ public struct AnalyticsView: View {
     @ObservedObject var model: SettingsModel
     @State private var monitor = "all"
     @State private var app = "all"
-    @State private var mode = "screen"          // "screen" (spatial cells) | "keyboard" (zone keys)
+    @State private var mode = "screen"          // "screen" (spatial cells) | "keyboard" (zone keys) | "apps"
     @State private var grid = ""
+    @State private var recency = false          // weight by recency (decays stale habits)
     public init(model: SettingsModel) { self.model = model }
 
     private var monitorFilter: String? { monitor == "all" ? nil : monitor }
@@ -54,6 +55,7 @@ public struct AnalyticsView: View {
                     Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
                         .labelsHidden().frame(width: 90)
                 }
+                Toggle("Recency", isOn: $recency).toggleStyle(.switch).help("Weight recent placements higher (2-week half-life)")
                 Spacer()
                 Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
                      : mode == "keyboard" ? "Which zone keys windows land in."
@@ -104,7 +106,7 @@ public struct AnalyticsView: View {
 
     // Spatial: the monitor's grid cells colored by occupancy.
     private var spatialHeatmap: some View {
-        let u = model.cellUsage(grid: grid, app: appFilter, monitor: monitorFilter)
+        let u = model.cellUsage(grid: grid, app: appFilter, monitor: monitorFilter, recency: recency)
         return VStack(spacing: 3) {
             if u.cols == 0 { Text("No grid").foregroundColor(.secondary) }
             ForEach(0..<max(u.rows, 1), id: \.self) { r in
@@ -153,7 +155,7 @@ public struct AnalyticsView: View {
     }
 
     private func miniHeatmap(app: String) -> some View {
-        let u = model.cellUsage(grid: grid, app: app, monitor: monitorFilter)
+        let u = model.cellUsage(grid: grid, app: app, monitor: monitorFilter, recency: recency)
         return VStack(spacing: 1) {
             ForEach(0..<max(u.rows, 1), id: \.self) { r in
                 HStack(spacing: 1) {
@@ -168,7 +170,7 @@ public struct AnalyticsView: View {
 
     // Keyboard: zone keys colored by usage.
     private var keyboardHeatmap: some View {
-        let usage = model.zoneUsage(app: appFilter, monitor: monitorFilter)
+        let usage = model.zoneUsage(app: appFilter, monitor: monitorFilter, recency: recency)
         let maxCount = max(usage.values.max() ?? 1, 1)
         return VStack(spacing: 4) {
             ForEach(model.keyboardRows.indices, id: \.self) { r in

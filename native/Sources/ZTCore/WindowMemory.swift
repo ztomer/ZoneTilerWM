@@ -52,6 +52,7 @@ public final class WindowMemory {
         public var count: Int
         public var meanAR: Double
         public var meanArea: Double
+        public var lastSeen: Int = 0   // epoch seconds of the most recent learn; 0 = unknown
     }
 
     public struct Ranked: Equatable {
@@ -60,6 +61,8 @@ public final class WindowMemory {
         public let count: Int
         public let meanAR: Double
         public let meanArea: Double
+        public let lastSeen: Int
+        public let weight: Double   // recency-decayed count (== count when no `now` is supplied)
     }
 
     private struct Pending {
@@ -76,10 +79,12 @@ public final class WindowMemory {
 
     private let excluded: Set<String>
     private let settleEnabled: Bool
+    private let clock: () -> Int   // injected; default {0} keeps tests/oracle timestamp-free
 
-    public init(excludedApps: [String] = [], settleEnabled: Bool = true) {
+    public init(excludedApps: [String] = [], settleEnabled: Bool = true, clock: @escaping () -> Int = { 0 }) {
         self.excluded = Set(excludedApps)
         self.settleEnabled = settleEnabled
+        self.clock = clock
     }
 
     private func isExcluded(_ app: String) -> Bool { excluded.contains(app) }
@@ -128,6 +133,7 @@ public final class WindowMemory {
         stats.meanAR = ((stats.meanAR * n) + newAR) / (n + 1)
         stats.meanArea = ((stats.meanArea * n) + newAreaRatio) / (n + 1)
         stats.count += 1
+        stats.lastSeen = clock()   // 0 under the default clock (oracle/tests); real epoch live
 
         preferences[p.app, default: [:]][p.monitor, default: [:]][p.zone, default: [:]][p.tile] = stats
     }
@@ -163,18 +169,29 @@ public final class WindowMemory {
         return best
     }
 
-    /// Preferences ranked by count desc, then zone asc, then tile sortKey asc.
-    public func rankedPreferences(app: String, monitor: String) -> [Ranked] {
+    /// Preferences ranked by weight desc, then zone asc, then tile sortKey asc. With `now` nil
+    /// (the default — and what the differential oracle uses), weight == count, so the order is
+    /// exactly count-desc as before. With `now` supplied and a learned timestamp, the count is
+    /// recency-decayed with the given half-life, so recent habits outrank stale ones.
+    public func rankedPreferences(app: String, monitor: String,
+                                  now: Int? = nil, halfLifeSec: Double = 1_209_600) -> [Ranked] {
         guard let monitorPrefs = preferences[app]?[monitor] else { return [] }
         var ranked: [Ranked] = []
         for (zone, tiles) in monitorPrefs {
             for (tile, stats) in tiles {
+                let weight: Double
+                if let now, stats.lastSeen > 0 {
+                    weight = Double(stats.count) * pow(0.5, Double(max(0, now - stats.lastSeen)) / halfLifeSec)
+                } else {
+                    weight = Double(stats.count)
+                }
                 ranked.append(Ranked(zoneKey: zone, tile: tile, count: stats.count,
-                                     meanAR: stats.meanAR, meanArea: stats.meanArea))
+                                     meanAR: stats.meanAR, meanArea: stats.meanArea,
+                                     lastSeen: stats.lastSeen, weight: weight))
             }
         }
         ranked.sort { a, b in
-            if a.count != b.count { return a.count > b.count }
+            if a.weight != b.weight { return a.weight > b.weight }
             if a.zoneKey != b.zoneKey { return a.zoneKey < b.zoneKey }
             return a.tile.sortKey < b.tile.sortKey
         }
@@ -210,8 +227,17 @@ public final class WindowMemory {
             public var count: Int
             public var mean_ar: Double
             public var mean_area: Double
-            public init(count: Int, mean_ar: Double, mean_area: Double) {
-                self.count = count; self.mean_ar = mean_ar; self.mean_area = mean_area
+            public var last_seen: Int   // epoch seconds of last learn; 0 / absent for legacy data
+            public init(count: Int, mean_ar: Double, mean_area: Double, last_seen: Int = 0) {
+                self.count = count; self.mean_ar = mean_ar; self.mean_area = mean_area; self.last_seen = last_seen
+            }
+            enum CodingKeys: String, CodingKey { case count, mean_ar, mean_area, last_seen }
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                count = (try? c.decode(Int.self, forKey: .count)) ?? 0
+                mean_ar = (try? c.decode(Double.self, forKey: .mean_ar)) ?? 0
+                mean_area = (try? c.decode(Double.self, forKey: .mean_area)) ?? 0
+                last_seen = (try? c.decode(Int.self, forKey: .last_seen)) ?? 0   // tolerant of legacy
             }
         }
 
@@ -281,7 +307,8 @@ public final class WindowMemory {
                     for (tile, stats) in tiles {
                         prefs.append(.init(
                             app_name: app, monitor_id: monitor, zone_key: zone, tile_index: tile,
-                            data: .init(count: stats.count, mean_ar: stats.meanAR, mean_area: stats.meanArea)))
+                            data: .init(count: stats.count, mean_ar: stats.meanAR, mean_area: stats.meanArea,
+                                        last_seen: stats.lastSeen)))
                     }
                 }
             }
@@ -300,7 +327,8 @@ public final class WindowMemory {
         }
         for pref in data.preferences {
             preferences[pref.app_name, default: [:]][pref.monitor_id, default: [:]][pref.zone_key, default: [:]][pref.tile_index]
-                = Stats(count: pref.data.count, meanAR: pref.data.mean_ar, meanArea: pref.data.mean_area)
+                = Stats(count: pref.data.count, meanAR: pref.data.mean_ar, meanArea: pref.data.mean_area,
+                        lastSeen: pref.data.last_seen)
         }
     }
 }

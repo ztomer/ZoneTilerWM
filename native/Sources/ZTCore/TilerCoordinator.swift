@@ -184,8 +184,9 @@ public final class TilerCoordinator {
         let focusedId = windowSystem.focusedWindow()?.id
         let screens = [AutoTiler.Screen(uuid: uuid, name: screen.name, frame: screen.frame)]
 
-        // Memory-augmented: ranked preferences per app for this monitor (logical id key).
-        let memory = memoryOverride ?? rankedMemory(forApps: Set(live.map { $0.appName }), screenUUID: uuid)
+        // Memory-augmented: ranked preferences per app for this monitor (logical id key),
+        // recency-weighted by `now` so recent habits outrank stale ones.
+        let memory = memoryOverride ?? rankedMemory(forApps: Set(live.map { $0.appName }), screenUUID: uuid, now: now)
 
         let moves = AutoTiler.plan(config: autoTilerConfig, screens: screens, windows: windows,
                                    zOrder: zOrder, focusedId: focusedId, memory: memory, now: now)
@@ -263,14 +264,17 @@ public final class TilerCoordinator {
     /// Per-app ranked memory preferences for a monitor, for AutoTiler.plan. Apps with no learned
     /// position fall back to their configured default zone (window_memory.app_zones), so a fresh
     /// window of a known app still has a target. Learned positions always win.
-    private func rankedMemory(forApps apps: Set<String>, screenUUID: String) -> [String: [MemoryPref]] {
+    private func rankedMemory(forApps apps: Set<String>, screenUUID: String, now: Int? = nil) -> [String: [MemoryPref]] {
         let key = monitorKey(screenUUID)
         var result: [String: [MemoryPref]] = [:]
         for app in apps {
             if let memory, let key {
-                let ranked = memory.rankedPreferences(app: app, monitor: key)
+                let ranked = memory.rankedPreferences(app: app, monitor: key, now: now)
                 if !ranked.isEmpty {
-                    result[app] = ranked.map { MemoryPref(zone_key: $0.zoneKey, tile_index: $0.tile, count: $0.count) }
+                    // Use the recency-decayed weight as the effective usage count (>=1 so a known
+                    // preference is never lost to decay), preserving ranked order.
+                    result[app] = ranked.map { MemoryPref(zone_key: $0.zoneKey, tile_index: $0.tile,
+                                                          count: max(1, Int($0.weight.rounded()))) }
                     continue
                 }
             }

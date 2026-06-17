@@ -15,6 +15,29 @@ final class WindowMemoryTests: XCTestCase {
         wm.flush(windowId: id)
     }
 
+    func testRecencyDecayReordersRanking() {
+        // j is used more (count 10) but long ago; k is used less (5) but recently.
+        let wm = WindowMemory()
+        wm.load(WindowMemory.SaveData(positions: [], preferences: [
+            .init(app_name: "A", monitor_id: "1", zone_key: "j", tile_index: .int(1),
+                  data: .init(count: 10, mean_ar: 0, mean_area: 0, last_seen: 1_000)),
+            .init(app_name: "A", monitor_id: "1", zone_key: "k", tile_index: .int(1),
+                  data: .init(count: 5, mean_ar: 0, mean_area: 0, last_seen: 100_000)),
+        ]))
+        // No `now`: pure count order → j first (matches the Lua / diff oracle behavior).
+        XCTAssertEqual(wm.rankedPreferences(app: "A", monitor: "1").first?.zoneKey, "j")
+        // With `now` + a short half-life: the stale j decays below the recent k.
+        let recent = wm.rankedPreferences(app: "A", monitor: "1", now: 100_000, halfLifeSec: 3_600)
+        XCTAssertEqual(recent.first?.zoneKey, "k")
+        XCTAssertEqual(recent.first?.count, 5)   // raw count is preserved; only the weight decays
+    }
+
+    func testClockStampsLastSeen() {
+        let wm = WindowMemory(clock: { 4_242 })
+        learn(wm, id: 1, app: "Zen", monitor: "1", zone: "j", tile: 1, w: 800, h: 600)
+        XCTAssertEqual(wm.save().preferences.first?.data.last_seen, 4_242)
+    }
+
     func testRunningMeanAndCount() {
         let wm = WindowMemory()
         // Two learns of the same slot on a 1920x1080 screen.

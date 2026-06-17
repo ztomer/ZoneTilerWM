@@ -127,7 +127,8 @@ final class AgentController: NSObject {
         var store: Storage?
         if config.windowMemory.enabled {
             let s = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
-            let mem = WindowMemory(excludedApps: config.windowMemory.excludedApps, settleEnabled: true)
+            let mem = WindowMemory(excludedApps: config.windowMemory.excludedApps, settleEnabled: true,
+                                   clock: { Int(Date().timeIntervalSince1970) })
             if let saved = s.load("window_positions", as: WindowMemory.SaveData.self) { mem.load(saved) }
             memory = mem
             store = s
