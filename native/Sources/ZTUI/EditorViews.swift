@@ -89,8 +89,6 @@ struct KeybindEditorView: View {
         .init(id: "reload", label: "Reload config", section: "system_hotkeys", key: "reload"),
     ]
 
-    @State private var appEdits: [String: String] = [:]   // "group/key" -> in-progress app name
-
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
     private func defaultAlias() -> String { aliasNames.first ?? "mash" }
 
@@ -103,10 +101,6 @@ struct KeybindEditorView: View {
                 }
                 groupBox("Actions") {
                     ForEach(rows) { actionRow($0) }
-                }
-                groupBox("App shortcuts") {
-                    appGroup("App launcher", group: "appCuts", current: model.config.appCuts)
-                    appGroup("Hyper apps", group: "hyperAppCuts", current: model.config.hyperAppCuts)
                 }
             }
             .padding(.vertical, 4)
@@ -166,29 +160,95 @@ struct KeybindEditorView: View {
         }
     }
 
-    private func appGroup(_ title: String, group: String, current: ConfigLoader.AppHotkeyGroup) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title).font(.subheadline).bold()
-                aliasPicker(selection: Binding(
-                    get: { current.modifier.first ?? defaultAlias() },
-                    set: { model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]") })).frame(width: 160)
+}
+
+// MARK: - App shortcuts (visual keyboard map)
+
+/// A keyboard render of the app-launch shortcuts: each keycap shows the app the key launches
+/// for the selected modifier group. Click a key to assign / change / clear its app.
+struct AppShortcutsView: View {
+    @ObservedObject var model: SettingsModel
+    @State private var group = "appCuts"
+    @State private var selectedKey: String?
+    @State private var edit = ""
+
+    private let keyRows: [[String]] = [
+        ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"],
+        ["1","2","3","4","5","6","7","8","9","0"],
+        ["q","w","e","r","t","y","u","i","o","p"],
+        ["a","s","d","f","g","h","j","k","l",";"],
+        ["z","x","c","v","b","n","m",",",".","/"],
+    ]
+    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+    private var currentGroup: ConfigLoader.AppHotkeyGroup {
+        group == "appCuts" ? model.config.appCuts : model.config.hyperAppCuts
+    }
+    private func displayKey(_ k: String) -> String { k.count == 1 ? k.uppercased() : k }
+
+    var body: some View {
+        let apps = currentGroup.apps
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Picker("", selection: $group) {
+                    Text("App launcher").tag("appCuts")
+                    Text("Hyper apps").tag("hyperAppCuts")
+                }.pickerStyle(.segmented).frame(width: 240).labelsHidden()
+                Text("Modifier").foregroundColor(.secondary)
+                Picker("", selection: Binding(
+                    get: { Keybinding.alias(forModifiers: currentGroup.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash") },
+                    set: { model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]") })) {
+                    ForEach(aliasNames, id: \.self) { Text("\($0)  \(ModGlyph.string(model.config.aliases[$0] ?? []))").tag($0) }
+                }.labelsHidden().frame(width: 150)
                 Spacer()
             }
-            ForEach(current.apps.keys.sorted(), id: \.self) { k in
-                let slot = "\(group)/\(k)"
-                HStack(spacing: 8) {
-                    Text(k.uppercased()).font(.system(.body, design: .monospaced))
-                        .frame(width: 36, alignment: .trailing).foregroundColor(.secondary)
-                    TextField("app name", text: Binding(
-                        get: { appEdits[slot] ?? current.apps[k] ?? "" },
-                        set: { appEdits[slot] = $0 }))
-                        .textFieldStyle(.roundedBorder).frame(width: 240)
-                        .onSubmit { model.setAppShortcut(group: group, key: k, app: appEdits[slot] ?? current.apps[k] ?? "") }
-                    Spacer()
+            Text("Each key shows the app it launches with the selected modifier. Click a key to edit.")
+                .font(.caption).foregroundColor(.secondary)
+            VStack(spacing: 4) {
+                ForEach(keyRows.indices, id: \.self) { r in
+                    HStack(spacing: 4) {
+                        ForEach(keyRows[r], id: \.self) { key in keycap(key, app: apps[key] ?? "") }
+                    }
                 }
             }
+            Divider()
+            if let k = selectedKey {
+                HStack(spacing: 8) {
+                    Text(ModGlyph.string(currentGroup.modifier) + displayKey(k))
+                        .font(.system(.body, design: .monospaced)).frame(width: 90, alignment: .leading)
+                    TextField("app name (blank to clear)", text: $edit)
+                        .textFieldStyle(.roundedBorder).frame(width: 240).onSubmit { commit(k) }
+                    Button("Set") { commit(k) }
+                    Button("Clear") { model.removeAppShortcut(group: group, key: k); selectedKey = nil; edit = "" }
+                    Spacer()
+                }
+            } else {
+                Text("No key selected.").font(.caption).foregroundColor(.secondary)
+            }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.vertical, 4)
+    }
+
+    private func keycap(_ key: String, app: String) -> some View {
+        let mapped = !app.isEmpty
+        let sel = selectedKey == key
+        return VStack(spacing: 1) {
+            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced)).foregroundColor(.secondary)
+            Text(app).font(.system(size: 8)).lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 2)
+        .frame(width: 58, height: 40)
+        .background(RoundedRectangle(cornerRadius: 6).fill(mapped ? Color.accentColor.opacity(0.22) : Color(NSColor.controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: sel ? 2 : 0.5))
+        .contentShape(Rectangle())
+        .onTapGesture { selectedKey = key; edit = app }
+    }
+
+    private func commit(_ k: String) {
+        let v = edit.trimmingCharacters(in: .whitespaces)
+        if v.isEmpty { model.removeAppShortcut(group: group, key: k) }
+        else { model.setAppShortcut(group: group, key: k, app: v) }
     }
 }
 

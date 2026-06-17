@@ -83,6 +83,23 @@ final class TOMLEditorTests: XCTestCase {
         XCTAssertEqual(changedLineCount(original, edited), 1)   // replaced, not appended
     }
 
+    func testRemoveKeyDropsOnlyThatLine() throws {
+        let original = try realConfig()
+        // appCuts has "e" = "Finder"; removing it should delete just that line and re-parse.
+        let edited = try XCTUnwrap(TOMLEditor.removeKey(original, section: "appCuts", key: "e"))
+        XCTAssertFalse(edited.contains("\"e\" = \"Finder\""))
+        XCTAssertEqual(original.components(separatedBy: "\n").count - 1,
+                       edited.components(separatedBy: "\n").count)   // exactly one line removed
+        let cfg = try ConfigLoader.load(tomlString: edited, homeDirectory: "/Users/test")
+        XCTAssertNil(cfg.appCuts.apps["e"])
+        XCTAssertEqual(cfg.appCuts.apps["w"], "Whatsapp")   // sibling intact
+    }
+
+    func testRemoveKeyMissingReturnsNil() throws {
+        let original = try realConfig()
+        XCTAssertNil(TOMLEditor.removeKey(original, section: "appCuts", key: "nonesuch"))
+    }
+
     func testMissingKeyReturnsNil() throws {
         let original = try realConfig()
         XCTAssertNil(TOMLEditor.setValue(original, section: "tiler", key: "no_such_key", rawValue: "1"))

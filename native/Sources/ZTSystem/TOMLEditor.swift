@@ -79,6 +79,28 @@ public enum TOMLEditor {
         return out
     }
 
+    /// Remove a single `key` line within `section`. Returns nil if not found. Used to clear an
+    /// app-shortcut binding (delete the key rather than leaving an empty value).
+    public static func removeKey(_ toml: String, section: String, key: String) -> String? {
+        let wantSection = section.trimmingCharacters(in: .whitespaces)
+        var lines = toml.components(separatedBy: "\n")
+        let keyEscaped = NSRegularExpression.escapedPattern(for: key)
+        let keyRegex = try! NSRegularExpression(pattern: #"^\s*"?'?"# + "(\(keyEscaped))" + #""?'?\s*=\s*"#)
+        var current = ""
+        for (i, line) in lines.enumerated() {
+            let ns = line as NSString
+            let full = NSRange(location: 0, length: ns.length)
+            if let h = headerRegex.firstMatch(in: line, range: full) {
+                current = ns.substring(with: h.range(at: 1)).trimmingCharacters(in: .whitespaces); continue
+            }
+            if current == wantSection, keyRegex.firstMatch(in: line, range: full) != nil {
+                lines.remove(at: i)
+                return lines.joined(separator: "\n")
+            }
+        }
+        return nil
+    }
+
     /// Remove a `[section]` header and its body (lines up to the next header / EOF). Returns nil
     /// if the section isn't present. Used to clear a GUI-managed override back to default.
     public static func removeSection(_ toml: String, section: String) -> String? {

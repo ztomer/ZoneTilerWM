@@ -70,6 +70,12 @@ public final class SettingsModel: ObservableObject {
     public func setAppShortcut(group: String, key: String, app: String) {
         setOrAppend(section: group, key: "\"\(key)\"", rawValue: "\"\(app)\"")
     }
+    /// Clear a shortcut: delete the key line entirely.
+    public func removeAppShortcut(group: String, key: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeKey(text, section: group, key: key) else { return }
+        persist(edited)
+    }
     /// Per-monitor grid override; passing nil clears it back to auto-detect.
     public func setMonitorOverride(name: String, grid: String?) {
         let section = "tiler.custom_screens.\"\(name)\""
@@ -161,10 +167,11 @@ public struct SettingsView: View {
         TabView {
             general.tabItem { Text("General") }
             KeybindEditorView(model: model).tabItem { Text("Keybinds") }
+            AppShortcutsView(model: model).tabItem { Text("Apps") }
             LayoutEditorView(model: model).tabItem { Text("Layouts") }
             analytics.tabItem { Text("Analytics") }
         }
-        .frame(width: 660, height: 520)
+        .frame(width: 680, height: 560)
         .padding()
     }
 
