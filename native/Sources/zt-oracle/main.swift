@@ -314,6 +314,36 @@ case "movezone":
     }
     FileHandle.standardOutput.write(try encoder.encode(out))
 
+case "focus":
+    struct WinIn: Decodable { var id: Int; var app: String; var frame: ZTRect; var z_order: Int }
+    struct StateIn: Decodable { var monitor_id: String; var zone_key: String; var tile_index: Int }
+    struct Scenario: Decodable {
+        var monitor_id: String
+        var zone_key: String
+        var overlap_threshold: Double?
+        var zone_tiles: [ZTRect]
+        var windows: [WinIn]
+        var state: [String: StateIn]?
+    }
+    struct Out: Encodable {
+        struct Entry: Encodable { let window_id: Int; let tile_index: Int; let explicit: Bool; let z_order: Int }
+        let ordered: [Entry]
+    }
+
+    guard let s = try? JSONDecoder().decode(Scenario.self, from: input) else { fail("bad focus JSON") }
+    let screenWindows = s.windows.map {
+        FocusManager.ScreenWindow(windowId: $0.id, appName: $0.app, frame: $0.frame, zOrder: $0.z_order)
+    }
+    let state = s.state ?? [:]
+    let ordered = FocusManager.collectZoneWindows(
+        monitorId: s.monitor_id, zoneKey: s.zone_key, windowsOnScreen: screenWindows,
+        stateForWindow: { id in
+            state[String(id)].map { FocusManager.WindowState(monitorId: $0.monitor_id, zoneKey: $0.zone_key, tileIndex: $0.tile_index) }
+        },
+        zoneTiles: s.zone_tiles, overlapThreshold: s.overlap_threshold ?? 0.5)
+    let out = Out(ordered: ordered.map { Out.Entry(window_id: $0.windowId, tile_index: $0.tileIndex, explicit: $0.explicit, z_order: $0.zOrder) })
+    FileHandle.standardOutput.write(try encoder.encode(out))
+
 default:
-    fail("unknown mode '\(mode)' (expected solve/zones/memory/place/strategy/autotiler/movezone)")
+    fail("unknown mode '\(mode)' (expected solve/zones/memory/place/strategy/autotiler/movezone/focus)")
 }

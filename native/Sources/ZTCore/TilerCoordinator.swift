@@ -26,17 +26,45 @@ public final class TilerCoordinator {
     private let zoneConfig: ZoneConfig
     private let strategy: PlacementStrategy.Strategy
     private let offsets: ZoneCalculator.OffsetProvider
+    private let overlapThreshold: Double
+    private let focusCycler = FocusManager.Cycler()
 
     public init(windowSystem: WindowSystem,
                 screenProvider: ScreenProvider,
                 zoneConfig: ZoneConfig,
                 placementStrategy: String,
+                overlapThreshold: Double = 0.5,
                 offsets: @escaping ZoneCalculator.OffsetProvider = ZoneCalculator.zeroOffsets) {
         self.windowSystem = windowSystem
         self.screenProvider = screenProvider
         self.zoneConfig = zoneConfig
         self.strategy = PlacementStrategy.Strategy(config: placementStrategy)
+        self.overlapThreshold = overlapThreshold
         self.offsets = offsets
+    }
+
+    /// Cycle focus among the windows in `zoneKey` on the focused window's screen. Returns the
+    /// window id now focused, or nil. Overlap-based collection (no explicit tiler state yet).
+    @discardableResult
+    public func cycleFocus(_ zoneKey: String) -> Int? {
+        guard let focused = windowSystem.focusedWindow(),
+              let uuid = focused.screenUUID, let screen = screenProvider.screen(uuid: uuid) else { return nil }
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets).zones
+        guard let tiles = zones[zoneKey], !tiles.isEmpty else { return nil }
+
+        let live = windowSystem.windows(onScreen: uuid)
+        let screenWindows = live.enumerated().map { (i, w) in
+            FocusManager.ScreenWindow(windowId: w.id, appName: w.appName, frame: w.frame, zOrder: i + 1)
+        }
+        let zoneWindows = FocusManager.collectZoneWindows(
+            monitorId: uuid, zoneKey: zoneKey, windowsOnScreen: screenWindows,
+            stateForWindow: { _ in nil }, zoneTiles: tiles, overlapThreshold: overlapThreshold)
+        let freshOrder = zoneWindows.map { $0.windowId }
+        guard let next = focusCycler.cycle(focusedId: focused.id, zoneKey: zoneKey,
+                                           monitorId: uuid, freshOrder: freshOrder) else { return nil }
+        windowSystem.focus(windowId: next)
+        return next
     }
 
     /// Move the focused window into `zoneKey` on its current screen.

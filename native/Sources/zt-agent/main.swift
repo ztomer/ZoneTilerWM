@@ -84,6 +84,19 @@ final class AgentController: NSObject {
         log("zt-agent: bound \(bound)/\(zoneKeys.count) zone hotkeys with modifier \(modifier)")
     }
 
+    func bindFocusHotkeys(modifier: [String], zoneKeys: [String]) {
+        let mask = KeyMap.modifierMask(for: modifier)
+        guard mask != 0 else { return }
+        var bound = 0
+        for zoneKey in zoneKeys {
+            guard let code = KeyMap.keyCode(for: zoneKey) else { continue }
+            if binder.bind(keyCode: code, modifiers: mask, action: { [weak self] in
+                _ = self?.coordinator.cycleFocus(zoneKey)
+            }) { bound += 1 }
+        }
+        log("zt-agent: bound \(bound)/\(zoneKeys.count) focus-cycle hotkeys with modifier \(modifier)")
+    }
+
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "⊞"
@@ -108,6 +121,7 @@ app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 let controller = AgentController(config: config)
 controller.setupStatusItem()
 controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
+controller.bindFocusHotkeys(modifier: config.focusModifier, zoneKeys: zoneKeys.sorted())
 if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }
 controller.bindAppHotkeys(config.appCuts, label: "appCuts")
 controller.bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")

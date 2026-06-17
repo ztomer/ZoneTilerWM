@@ -112,7 +112,10 @@ local function sort_zone_windows_for_intuitive_order(zone_windows_list)
         if a.explicit ~= b.explicit then
             return a.explicit
         end
-        return a.z_order < b.z_order
+        if a.z_order ~= b.z_order then
+            return a.z_order < b.z_order
+        end
+        return a.window_id < b.window_id -- total-order tie-break (deterministic)
     end)
 end
 
@@ -325,6 +328,13 @@ function focus_manager.init(cfg, mm, zc, wsm, log_func)
     zone_calculator = zc
     window_state_manager = wsm
     debug_log = log_func or debug_log
+end
+
+-- Test seam: expose the pure zone-window collection + ordering for differential testing.
+function focus_manager._ordered_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles, z_map)
+    local zw = collect_zone_windows(monitor_id, zone_key, screen_obj, zone_tiles, z_map)
+    sort_zone_windows_for_intuitive_order(zw)
+    return zw
 end
 
 return focus_manager
