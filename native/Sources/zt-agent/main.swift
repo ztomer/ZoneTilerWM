@@ -170,7 +170,8 @@ final class AgentController: NSObject {
                          offsetProvider: { [weak resizeManager] m, a, i in
                              resizeManager?.getOffset(monitor: m, axis: a, index: i) ?? 0
                          },
-                         memory: memory, monitorManager: monitorManager, storage: storage)
+                         memory: memory, monitorManager: monitorManager, storage: storage,
+                         appZones: config.windowMemory.enabled ? config.windowMemory.appZones : [:])
     }
 
     /// Zone keys = union of keys across all layouts (excluding the "default" fallback marker).

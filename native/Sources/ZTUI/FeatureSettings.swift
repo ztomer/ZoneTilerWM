@@ -100,6 +100,9 @@ struct AudioSettings: View {
 struct MemorySettings: View {
     @ObservedObject var model: SettingsModel
     @State private var excluded: [String] = []
+    @State private var zoneEdits: [String: String] = [:]
+    @State private var newApp = ""
+    @State private var newZone = ""
     @State private var loaded = false
 
     var body: some View {
@@ -118,6 +121,31 @@ struct MemorySettings: View {
                 Button("Add app") { excluded.append("") }
                 Spacer()
                 Button("Save excluded") { model.setExcludedApps(excluded.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }) }
+            }
+        }
+        Section("Default zone per app") {
+            Text("A fresh window of these apps tiles into the given zone key when nothing is learned yet.")
+                .font(.caption).foregroundColor(.secondary)
+            ForEach(model.config.windowMemory.appZones.keys.sorted(), id: \.self) { app in
+                HStack {
+                    Text(app)
+                    Spacer()
+                    TextField("zone", text: Binding(
+                        get: { zoneEdits[app] ?? model.config.windowMemory.appZones[app] ?? "" },
+                        set: { zoneEdits[app] = $0 }))
+                        .textFieldStyle(.roundedBorder).frame(width: 60).multilineTextAlignment(.center)
+                        .onSubmit { model.setAppZone(app: app, zone: (zoneEdits[app] ?? "").trimmingCharacters(in: .whitespaces)) }
+                    Button { model.removeAppZone(app: app) } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
+                }
+            }
+            HStack {
+                TextField("app name", text: $newApp).textFieldStyle(.roundedBorder)
+                TextField("zone", text: $newZone).textFieldStyle(.roundedBorder).frame(width: 60).multilineTextAlignment(.center)
+                Button("Add") {
+                    let a = newApp.trimmingCharacters(in: .whitespaces), z = newZone.trimmingCharacters(in: .whitespaces)
+                    guard !a.isEmpty, !z.isEmpty else { return }
+                    model.setAppZone(app: a, zone: z); newApp = ""; newZone = ""
+                }
             }
         }
         .onAppear { if !loaded { excluded = model.config.windowMemory.excludedApps; loaded = true } }

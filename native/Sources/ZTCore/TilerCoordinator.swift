@@ -38,6 +38,9 @@ public final class TilerCoordinator {
     private let memory: WindowMemory?
     private let monitorManager: MonitorManager?
     private let storage: Storage?
+    // Per-app default zone (window_memory.app_zones): used during auto-tile when an app has no
+    // learned position yet. Empty = no defaults.
+    private let appZones: [String: String]
 
     public init(windowSystem: WindowSystem,
                 screenProvider: ScreenProvider,
@@ -47,7 +50,8 @@ public final class TilerCoordinator {
                 offsetProvider: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double = { _, _, _ in 0 },
                 memory: WindowMemory? = nil,
                 monitorManager: MonitorManager? = nil,
-                storage: Storage? = nil) {
+                storage: Storage? = nil,
+                appZones: [String: String] = [:]) {
         self.windowSystem = windowSystem
         self.screenProvider = screenProvider
         self.zoneConfig = zoneConfig
@@ -57,6 +61,7 @@ public final class TilerCoordinator {
         self.memory = memory
         self.monitorManager = monitorManager
         self.storage = storage
+        self.appZones = appZones
     }
 
     private var zenActive = false
@@ -255,14 +260,22 @@ public final class TilerCoordinator {
     /// Drop focus-time entries for windows no longer live (pass all current window ids).
     public func pruneFocusTimes(liveIds: Set<Int>) { focusTracker.prune(keepingIds: liveIds) }
 
-    /// Per-app ranked memory preferences for a monitor, for AutoTiler.plan.
+    /// Per-app ranked memory preferences for a monitor, for AutoTiler.plan. Apps with no learned
+    /// position fall back to their configured default zone (window_memory.app_zones), so a fresh
+    /// window of a known app still has a target. Learned positions always win.
     private func rankedMemory(forApps apps: Set<String>, screenUUID: String) -> [String: [MemoryPref]] {
-        guard let memory, let key = monitorKey(screenUUID) else { return [:] }
+        let key = monitorKey(screenUUID)
         var result: [String: [MemoryPref]] = [:]
         for app in apps {
-            let ranked = memory.rankedPreferences(app: app, monitor: key)
-            if !ranked.isEmpty {
-                result[app] = ranked.map { MemoryPref(zone_key: $0.zoneKey, tile_index: $0.tile, count: $0.count) }
+            if let memory, let key {
+                let ranked = memory.rankedPreferences(app: app, monitor: key)
+                if !ranked.isEmpty {
+                    result[app] = ranked.map { MemoryPref(zone_key: $0.zoneKey, tile_index: $0.tile, count: $0.count) }
+                    continue
+                }
+            }
+            if let zone = appZones[app] {
+                result[app] = [MemoryPref(zone_key: zone, tile_index: .int(1), count: 1)]
             }
         }
         return result

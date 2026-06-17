@@ -202,6 +202,23 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertNil(coord.focusScreen(.next))
     }
 
+    func testAppZonesDefaultPlacementWhenNoMemory() {
+        // No learned memory; an app with a configured default zone (window_memory.app_zones)
+        // should auto-tile into that zone. "Zen" -> "k" (= b1:b2 right column in this 2x2).
+        let ws = FakeWindowSystem()
+        let w = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")
+        ws.focused = w; ws.onScreen = [w]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     monitorManager: MonitorManager(), appZones: ["Zen": "k"])
+        let atConfig = AutoTiler.Config(centerZones: ["zzz"], workingSetTimeLimit: 1800,
+                                        workingSetMaxCapacity: 6, mode: "usage",
+                                        weights: CostWeights(), zoneConfig: zoneConfig())
+        let moves = coord.autoTileScreen(autoTilerConfig: atConfig, now: 10_000)
+        // "k" in the test zoneConfig = ["b1:b2"] → right half (x:500,w:500).
+        XCTAssertEqual(moves.first { $0.windowId == 1 }?.zoneKey, "k")
+    }
+
     func testZenMinimizesOthersAndRestores() {
         let ws = FakeWindowSystem()
         ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")

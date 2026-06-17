@@ -94,6 +94,15 @@ public final class SettingsModel: ObservableObject {
     // Window memory
     public func setWindowMemoryEnabled(_ on: Bool) { setOrAppend(section: "window_memory", key: "enabled", rawValue: on ? "true" : "false") }
     public func setExcludedApps(_ apps: [String]) { setOrAppend(section: "window_memory", key: "excluded_apps", rawValue: tomlArray(apps)) }
+    /// Per-app default zone (window_memory.app_zones), e.g. "Arc" = "k".
+    public func setAppZone(app: String, zone: String) {
+        setOrAppend(section: "window_memory.app_zones", key: "\"\(app)\"", rawValue: "\"\(zone)\"")
+    }
+    public func removeAppZone(app: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeKey(text, section: "window_memory.app_zones", key: app) else { return }
+        persist(edited)
+    }
 
     // Advanced: auto-tiler solver weights (integers; negative = reward).
     public func setSolverWeight(_ key: String, _ v: Int) { setOrAppend(section: "tiler.solver_weights", key: key, rawValue: "\(v)") }
