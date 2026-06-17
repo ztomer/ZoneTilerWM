@@ -492,9 +492,38 @@ final class AgentController: NSObject {
         gridOverlay.show(screenCGFrame: resizeScreenFrame, verticalX: lines.vertical, horizontalY: lines.horizontal)
     }
 
+    /// The menubar mark: a 2x2 zone grid with the top-left zone filled (matches the app icon).
+    /// Drawn as a template image so macOS tints it for light/dark menubars.
+    private static func menubarGlyph() -> NSImage {
+        let s: CGFloat = 18
+        let img = NSImage(size: NSSize(width: s, height: s), flipped: false) { _ in
+            let inset: CGFloat = 2.5
+            let rect = NSRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
+            let cx = rect.midX, cy = rect.midY
+            let lw: CGFloat = 1.4
+            NSColor.black.set()
+            let outline = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
+            // Fill the top-left quadrant, clipped to the rounded outline.
+            NSGraphicsContext.saveGraphicsState()
+            outline.addClip()
+            NSBezierPath(rect: NSRect(x: rect.minX, y: cy, width: cx - rect.minX, height: rect.maxY - cy)).fill()
+            NSGraphicsContext.restoreGraphicsState()
+            // Outline + cross lines.
+            outline.lineWidth = lw; outline.stroke()
+            let cross = NSBezierPath()
+            cross.move(to: NSPoint(x: cx, y: rect.minY)); cross.line(to: NSPoint(x: cx, y: rect.maxY))
+            cross.move(to: NSPoint(x: rect.minX, y: cy)); cross.line(to: NSPoint(x: rect.maxX, y: cy))
+            cross.lineWidth = lw; cross.stroke()
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }
+
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.title = "⊞"
+        item.button?.image = AgentController.menubarGlyph()
+        item.button?.title = ""
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "ZoneTilerWM — v2 agent", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
