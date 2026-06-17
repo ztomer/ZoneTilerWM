@@ -15,6 +15,7 @@ let package = Package(
     products: [
         .library(name: "ZTCore", targets: ["ZTCore"]),
         .library(name: "ZTSystem", targets: ["ZTSystem"]),
+        .library(name: "ZTUI", targets: ["ZTUI"]),
         .executable(name: "zt-oracle", targets: ["zt-oracle"]),
         .executable(name: "zt-axspike", targets: ["zt-axspike"]),
         .executable(name: "zt-probe", targets: ["zt-probe"]),
@@ -29,11 +30,12 @@ let package = Package(
     targets: [
         .target(name: "ZTCore"),
         .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"]),
+        .target(name: "ZTUI", dependencies: ["ZTCore", "ZTSystem"]),
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),
         .executableTarget(name: "zt-axspike", dependencies: ["ZTSystem"]),
         .executableTarget(name: "zt-probe", dependencies: ["ZTSystem"]),
         .executableTarget(name: "zt-tile", dependencies: ["ZTSystem"]),
-        .executableTarget(name: "zt-agent", dependencies: ["ZTSystem"]),
+        .executableTarget(name: "zt-agent", dependencies: ["ZTSystem", "ZTUI"]),
         .executableTarget(name: "zt-autotile", dependencies: ["ZTSystem"]),
         .testTarget(name: "ZTCoreTests", dependencies: ["ZTCore"]),
         .testTarget(name: "ZTSystemTests", dependencies: ["ZTSystem"]),

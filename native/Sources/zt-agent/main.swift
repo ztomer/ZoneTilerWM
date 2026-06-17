@@ -8,6 +8,7 @@ import Foundation
 import AppKit
 import ZTCore
 import ZTSystem
+import ZTUI
 
 func log(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
 
@@ -34,8 +35,12 @@ final class AgentController: NSObject {
     private let flash = FlashOverlay()
     private let pomodoroBar = PomodoroBar()
     private let enableColorBar: Bool
+    private let config: ConfigLoader.LoadedConfig
+    private let configURL: URL
+    private let learnedMemory: WindowMemory?
+    private var settings: SettingsWindowController?
 
-    init(config: ConfigLoader.LoadedConfig) {
+    init(config: ConfigLoader.LoadedConfig, configURL: URL) {
         let screens = NSScreenProvider()
         windowSystem = AXWindowSystem(screenProvider: screens)
 
@@ -45,12 +50,14 @@ final class AgentController: NSObject {
         let monitorManager = MonitorManager()
         if config.windowMemory.enabled {
             let store = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
-            let mem = WindowMemory(excludedApps: config.windowMemory.excludedApps,
-                                   settleEnabled: config.windowMemory.settleDelaySec > 0 || true)
+            let mem = WindowMemory(excludedApps: config.windowMemory.excludedApps, settleEnabled: true)
             if let saved = store.load("window_positions", as: WindowMemory.SaveData.self) { mem.load(saved) }
             memory = mem
             storage = store
         }
+        self.config = config
+        self.configURL = configURL
+        self.learnedMemory = memory
 
         coordinator = TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
                                        zoneConfig: config.zoneConfig,
@@ -200,9 +207,20 @@ final class AgentController: NSObject {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "ZoneTilerWM — v2 agent", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
+    }
+
+    @objc func openSettings() {
+        if settings == nil {
+            settings = SettingsWindowController(model: SettingsModel(configURL: configURL, config: config, memory: learnedMemory))
+        }
+        settings?.show()
     }
 }
 
@@ -215,7 +233,7 @@ for (_, zones) in config.zoneConfig.layouts {
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 
-let controller = AgentController(config: config)
+let controller = AgentController(config: config, configURL: configURL)
 controller.setupStatusItem()
 controller.setupPomodoro(config)
 controller.bindZoneHotkeys(modifier: config.tilerModifier, zoneKeys: zoneKeys.sorted())
