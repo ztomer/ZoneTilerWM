@@ -47,18 +47,24 @@ public struct AnalyticsView: View {
                 Picker("", selection: $mode) {
                     Text("Screen").tag("screen")
                     Text("Keyboard").tag("keyboard")
-                }.pickerStyle(.segmented).frame(width: 180).labelsHidden()
-                if mode == "screen" {
+                    Text("By app").tag("apps")
+                }.pickerStyle(.segmented).frame(width: 230).labelsHidden()
+                if mode != "keyboard" {
                     Text("Grid").foregroundColor(.secondary)
                     Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
                         .labelsHidden().frame(width: 90)
                 }
                 Spacer()
                 Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
-                                      : "Which zone keys windows land in.")
+                     : mode == "keyboard" ? "Which zone keys windows land in."
+                     : "Each app's placement footprint — tap one to filter.")
                     .font(.caption).foregroundColor(.secondary)
             }
-            if mode == "screen" { spatialHeatmap } else { keyboardHeatmap }
+            switch mode {
+            case "keyboard": keyboardHeatmap
+            case "apps": smallMultiples
+            default: spatialHeatmap
+            }
             Divider()
             Text("Detail — \(filtered.count) learned placements\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
             Table(filtered) {
@@ -116,6 +122,48 @@ public struct AnalyticsView: View {
             }
         }
         .frame(maxWidth: 520)
+    }
+
+    // Small multiples: one mini spatial heatmap per app, to compare placement habits.
+    private var topApps: [String] {
+        let totals = Dictionary(grouping: model.preferences.filter { !$0.app.isEmpty }, by: { $0.app })
+            .mapValues { $0.filter { monitorFilter == nil || $0.monitor == monitorFilter }.reduce(0) { $0 + $1.count } }
+        return totals.filter { $0.value > 0 }.sorted { $0.value > $1.value }.prefix(16).map { $0.key }
+    }
+
+    private var smallMultiples: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], alignment: .leading, spacing: 12) {
+                ForEach(topApps, id: \.self) { a in
+                    VStack(spacing: 5) {
+                        Text(a).font(.caption).fontWeight(.semibold).lineLimit(1).truncationMode(.tail)
+                        miniHeatmap(app: a)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8)
+                        .fill(app == a ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor).opacity(0.5)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(app == a ? Color.accentColor : Color.secondary.opacity(0.2)))
+                    .contentShape(Rectangle())
+                    .onTapGesture { app = (app == a ? "all" : a) }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .frame(maxHeight: 280)
+    }
+
+    private func miniHeatmap(app: String) -> some View {
+        let u = model.cellUsage(grid: grid, app: app, monitor: monitorFilter)
+        return VStack(spacing: 1) {
+            ForEach(0..<max(u.rows, 1), id: \.self) { r in
+                HStack(spacing: 1) {
+                    ForEach(0..<max(u.cols, 1), id: \.self) { c in
+                        let count = (c < u.cells.count && r < u.cells[c].count) ? u.cells[c][r] : 0
+                        Rectangle().fill(intensityColor(count, u.max)).frame(width: 16, height: 13)
+                    }
+                }
+            }
+        }
     }
 
     // Keyboard: zone keys colored by usage.
