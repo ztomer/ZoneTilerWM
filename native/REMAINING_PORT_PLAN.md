@@ -196,6 +196,12 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
   - Apps (own tab): a **visual keyboard render** — each keycap shows the app it launches for the
     selected modifier group (App launcher / Hyper apps), mapped keys tinted; click a key to
     assign/change (Set) or clear (Remove). Full add/remove via TOMLEditor setOrAppend/removeKey.
+  - A **modifier legend** (alias → glyphs) replaces per-row glyph expansion; alias pickers show
+    names only.
+  - **Keyboard layout** is auto-detected (TIS input source → qwerty/dvorak/colemak) and
+    overridable in General → Input ([ui] keyboard_layout). Both the Apps keyboard and the
+    **Layouts zone map** render from it — zones now sit on the physical keyboard, each keycap
+    showing the zone mapped to that key + a mini-grid of its first tile.
   - Layouts: **monitor → grid → zones** hierarchy — monitors list with auto-detected grid +
     override picker (persists to custom_screens) + Edit-zones; **visual zone previews**
     (mini-grid per zone, first tile highlighted); click-two-cells tile editor for the selected
