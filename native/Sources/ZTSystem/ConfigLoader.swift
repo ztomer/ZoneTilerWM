@@ -39,6 +39,10 @@ public enum ConfigLoader {
         public var appSwitcher: AppSwitcher.Config
         public var appCuts: AppHotkeyGroup
         public var hyperAppCuts: AppHotkeyGroup
+        public var audioDevices: [String]
+        public var audioHotkeyModifier: [String]
+        public var audioHotkeyKey: String?
+        public var audioShortcutCallback: String?
     }
 
     // MARK: - TOML decode model (only the sections the ported core needs)
@@ -117,6 +121,12 @@ public enum ConfigLoader {
         }
     }
 
+    private struct RawAudio: Decodable {
+        var devices: [String]?
+        var hotkey: [String]?
+        var shortcut_callback: String?
+    }
+
     private struct RawConfig: Decodable {
         var version: String?
         var tiler: RawTiler
@@ -125,6 +135,7 @@ public enum ConfigLoader {
         var app_switcher: RawAppSwitcher?
         var appCuts: RawAppCuts?
         var hyperAppCuts: RawAppCuts?
+        var audio_switcher: RawAudio?
     }
 
     /// A resolved app-shortcut group: the actual modifier names + key->app entries.
@@ -203,7 +214,11 @@ public enum ConfigLoader {
             focusModifier: resolveMod(t.focus_modifier),
             appSwitcher: appSwitcher,
             appCuts: appCuts,
-            hyperAppCuts: hyperAppCuts)
+            hyperAppCuts: hyperAppCuts,
+            audioDevices: raw.audio_switcher?.devices ?? [],
+            audioHotkeyModifier: resolveMod((raw.audio_switcher?.hotkey ?? []).first),
+            audioHotkeyKey: (raw.audio_switcher?.hotkey ?? []).count >= 2 ? raw.audio_switcher?.hotkey?[1] : nil,
+            audioShortcutCallback: raw.audio_switcher?.shortcut_callback)
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

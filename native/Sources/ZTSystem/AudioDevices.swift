@@ -48,6 +48,30 @@ public enum AudioDevices {
         return stringProperty(deviceID, kAudioObjectPropertyName)
     }
 
+    /// Set the system default output device by name. Returns success.
+    @discardableResult
+    public static func setDefaultOutput(named name: String) -> Bool {
+        guard let device = outputDevices().first(where: { $0.name == name }) else { return false }
+        var deviceID = device.id
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        let status = AudioObjectSetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil,
+            UInt32(MemoryLayout<AudioDeviceID>.size), &deviceID)
+        return status == noErr
+    }
+
+    /// Run a macOS Shortcut by name in the background (the audio_switcher.shortcut_callback).
+    public static func runShortcut(_ name: String) {
+        guard !name.isEmpty else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+        process.arguments = ["run", name]
+        try? process.run()
+    }
+
     // MARK: - Internals
 
     private static func isOutput(_ id: AudioDeviceID) -> Bool {

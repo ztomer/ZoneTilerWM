@@ -68,6 +68,9 @@ runs the equivalent Lua and compares — fakes verify wiring, the diff verifies 
   deterministic assertion is the post-move AX frame readback.
 - **Tooling:** prefer the Read/Grep tools over `sed`/`awk`/`head` (a shell-rewrite hook can
   mangle them). Don't `git push`.
+- **Build gotcha:** changing a public `ZTCore` initializer/signature can leave the
+  executables linking the old symbol ("Undefined symbols … TilerCoordinator.__allocating_init").
+  SwiftPM incremental misses it — `rm -rf native/.build && swift build` to recover.
 
 ## Dev: accessibility (UI phase)
 

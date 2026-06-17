@@ -113,6 +113,21 @@ final class AgentController: NSObject {
         log("zt-agent: bound \(bound)/\(zoneKeys.count) focus-cycle hotkeys with modifier \(modifier)")
     }
 
+    func bindAudioHotkey(modifier: [String], key: String, devices: [String], shortcut: String?) {
+        guard devices.count >= 2, let code = KeyMap.keyCode(for: key) else { return }
+        let mask = KeyMap.modifierMask(for: modifier)
+        guard mask != 0 else { return }
+        let ok = binder.bind(keyCode: code, modifiers: mask) {
+            let current = AudioDevices.defaultOutputName()
+            guard let next = AudioSwitcher.nextDevice(configured: devices, currentName: current) else { return }
+            if AudioDevices.setDefaultOutput(named: next) {
+                log("zt-agent: audio -> \(next)")
+                if let shortcut, !shortcut.isEmpty { AudioDevices.runShortcut(shortcut) }
+            }
+        }
+        log("zt-agent: audio hotkey \(modifier)+\(key) -> \(ok ? "ok" : "FAILED")")
+    }
+
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.title = "⊞"
@@ -141,5 +156,9 @@ controller.bindFocusHotkeys(modifier: config.focusModifier, zoneKeys: zoneKeys.s
 if let hyper = config.aliases["HYPER"] { controller.bindAutoTile(modifier: hyper, key: "return") }
 controller.bindAppHotkeys(config.appCuts, label: "appCuts")
 controller.bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")
+if let audioKey = config.audioHotkeyKey {
+    controller.bindAudioHotkey(modifier: config.audioHotkeyModifier, key: audioKey,
+                               devices: config.audioDevices, shortcut: config.audioShortcutCallback)
+}
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. ⌘Q to quit.")
 app.run()
