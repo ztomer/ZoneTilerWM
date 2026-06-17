@@ -178,9 +178,25 @@ It applies to the system/adapter + ZTUI phases — not the headless ZTCore ports
 | placement_strategy | PlacementStrategy | diff_strategy 500/500 | 217b298 |
 | auto_tiler | AutoTiler | diff_autotiler 600/600 | 34129c5 |
 
-**The pure ZTCore algorithmic IP is complete** (22 Swift tests; zero Lua↔Swift divergence
-across all differential harnesses). Remaining work is the system/adapter layer (AX window
-moves + the Firefox/EnhancedUI quirk, Carbon hotkeys, NSScreen/CGDisplay, CGWindowList
-z-order, overlays, CoreAudio, menubar, JSON storage, config file-watch) and the ZTUI
-settings GUI — all UI-dependent, validated per the visual-validation rule, and deferred
-until the other project stops exercising the UI.
+**The pure ZTCore algorithmic IP is complete** — zero Lua↔Swift divergence across all
+differential harnesses.
+
+### Adapter layer (ZTSystem) — headless pieces done
+
+| Adapter | Notes |
+|---|---|
+| `Storage` (protocol) + `JSONFileStorage` | One JSON file per key under ~/.config/ZoneTilerWM; loads legacy shapes (numeric monitor_id, bare-count prefs); verified against the real window_positions.json. |
+| `ConfigLoader` (TOMLKit) | Decodes the real config.toml into ZTCore models; ~ expansion; golden-tested. |
+| `ResizeManager` | Grid-line offsets (±2% steps, ±40% clamp); supplies ZoneCalculator's OffsetProvider; persists via Storage. |
+
+External dep: **TOMLKit** (toml++-backed) for config parsing — chosen over a hand-rolled
+parser. `Package.resolved` is committed.
+
+### Remaining — all UI-dependent, deferred
+
+The rest of ZTSystem needs live macOS APIs and is validated per the visual-validation rule,
+deferred until the other project stops exercising the UI: AX window moves (+ the
+Firefox/EnhancedUI quirk), Carbon hotkeys, NSScreen/CGDisplay + stable UUIDs, CGWindowList
+z-order, overlays (grid/alert/Pomodoro bar), CoreAudio, NSStatusItem menubar, NSWorkspace
+app launching, config file-watch; plus the `ZTUI` SwiftUI settings GUI. The Phase 0 AX
+spike is the natural first step there. `swift test` currently: 33 tests green.
