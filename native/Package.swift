@@ -16,6 +16,7 @@ let package = Package(
         .library(name: "ZTCore", targets: ["ZTCore"]),
         .library(name: "ZTSystem", targets: ["ZTSystem"]),
         .executable(name: "zt-oracle", targets: ["zt-oracle"]),
+        .executable(name: "zt-axspike", targets: ["zt-axspike"]),
     ],
     dependencies: [
         // Maintained TOML parser (toml++-backed, Codable support) for reading config.toml.
@@ -25,6 +26,7 @@ let package = Package(
         .target(name: "ZTCore"),
         .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"]),
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),
+        .executableTarget(name: "zt-axspike", dependencies: ["ZTSystem"]),
         .testTarget(name: "ZTCoreTests", dependencies: ["ZTCore"]),
         .testTarget(name: "ZTSystemTests", dependencies: ["ZTSystem"]),
     ]
