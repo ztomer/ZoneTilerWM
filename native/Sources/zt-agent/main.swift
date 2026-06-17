@@ -31,6 +31,9 @@ final class AgentController: NSObject {
     private var statusItem: NSStatusItem?
     private var pomodoroItem: NSStatusItem?
     private var pomodoroTimer: Timer?
+    private let flash = FlashOverlay()
+    private let pomodoroBar = PomodoroBar()
+    private let enableColorBar: Bool
 
     init(config: ConfigLoader.LoadedConfig) {
         let screens = NSScreenProvider()
@@ -58,6 +61,7 @@ final class AgentController: NSObject {
         pomodoro = Pomodoro(config: .init(workPeriodSec: config.pomodoroWorkSec,
                                           restPeriodSec: config.pomodoroRestSec,
                                           enableColorBar: config.pomodoroEnableColorBar))
+        enableColorBar = config.pomodoroEnableColorBar
         super.init()
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
     }
@@ -97,7 +101,9 @@ final class AgentController: NSObject {
             let ok = binder.bind(keyCode: code, modifiers: mask) { [weak self] in
                 guard let self else { return }
                 switch self.coordinator.moveFocusedToZone(zoneKey) {
-                case .success(let o): log("zt-agent: '\(zoneKey)' -> tile \(o.tileIndex) applied=\(o.applied)")
+                case .success(let o):
+                    log("zt-agent: '\(zoneKey)' -> tile \(o.tileIndex) applied=\(o.applied)")
+                    self.flash.flash(o.target)
                 case .failure(let e): log("zt-agent: '\(zoneKey)' -> \(e)")
                 }
             }
@@ -113,7 +119,10 @@ final class AgentController: NSObject {
         for zoneKey in zoneKeys {
             guard let code = KeyMap.keyCode(for: zoneKey) else { continue }
             if binder.bind(keyCode: code, modifiers: mask, action: { [weak self] in
-                _ = self?.coordinator.cycleFocus(zoneKey)
+                guard let self else { return }
+                if self.coordinator.cycleFocus(zoneKey) != nil, let f = self.windowSystem.focusedWindow()?.frame {
+                    self.flash.flash(f)
+                }
             }) { bound += 1 }
         }
         log("zt-agent: bound \(bound)/\(zoneKeys.count) focus-cycle hotkeys with modifier \(modifier)")
@@ -165,6 +174,12 @@ final class AgentController: NSObject {
 
     private func refreshPomodoro() {
         pomodoroItem?.button?.title = pomodoro.isActive ? pomodoro.displayString : ""
+        if pomodoro.isActive && enableColorBar {
+            pomodoroBar.update(timeLeft: pomodoro.timeLeft, maxTime: pomodoro.maxTimeSec,
+                               heightRatio: 0.2, alpha: 0.3, remaining: .green, used: .red)
+        } else {
+            pomodoroBar.hide()
+        }
     }
 
     func bindMiscHotkeys(_ config: ConfigLoader.LoadedConfig) {
