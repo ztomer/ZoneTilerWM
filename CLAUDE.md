@@ -40,6 +40,12 @@ file is the quick operational guide.
 Pure logic with low float risk (focus/app/pomodoro/audio/etc.) can be TDD'd with Swift unit
 tests mirroring the Lua instead of a full oracle.
 
+**The Lua/Hammerspoon version is ground truth — always.** This includes orchestration /
+coordinator *decisions*, not just leaf algorithms: e.g. the live move-to-zone decision is
+diffed against the real `zone_calculator` + `placement_strategy` (`diff_movezone.sh`), not
+only fake-unit-tested. When you build a new decision path, add a differential oracle that
+runs the equivalent Lua and compares — fakes verify wiring, the diff verifies behavior.
+
 ## Conventions / gotchas
 
 - **Layering:** `ZTCore` = pure logic, must NOT import AppKit/ApplicationServices; operates
