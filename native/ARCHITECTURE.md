@@ -104,11 +104,12 @@ fixed target. Fixes made on `v2`:
   in `get_preferred_tile`/`get_preferred_zone`.
 - `placement_strategy.lua` — `find_largest_free_tile` sort is a total order (available
   desc, then original index asc).
+- `auto_tiler.lua` — total-order tie-breaks on the working-set sort, solver
+  available-tiles sort, and both fill-gaps sorts; `os.time` injectable via `auto_tiler._now`.
 - `toml.lua` — Lua 5.5 compat (generic-for variables are now `const`; shadow with locals).
-- **Remaining (do when porting `auto_tiler`):** unstable `table.sort` at
-  `auto_tiler.lua:459/480`; inject `os.time` at `auto_tiler.lua:131`.
 
-The solver core (`layout_solver.lua`) was already deterministic.
+The solver core (`layout_solver.lua`) was already deterministic. All determinism cleanup
+is complete.
 
 ### Recipe: porting a new ZTCore module
 
@@ -175,8 +176,11 @@ It applies to the system/adapter + ZTUI phases — not the headless ZTCore ports
 | window_memory | WindowMemory | diff_memory 400/400 | 7acdb7e |
 | smart_placer | SmartPlacer | diff_place 500/500 | ce82b71 |
 | placement_strategy | PlacementStrategy | diff_strategy 500/500 | 217b298 |
-| auto_tiler | _(next)_ | — | — |
+| auto_tiler | AutoTiler | diff_autotiler 600/600 | 34129c5 |
 
-After `auto_tiler`, the pure ZTCore IP is essentially complete; remaining work is the
-system/adapter layer (AX, Carbon hotkeys, NSScreen, overlays) and the ZTUI settings GUI —
-all UI-dependent, validated per the visual-validation rule.
+**The pure ZTCore algorithmic IP is complete** (22 Swift tests; zero Lua↔Swift divergence
+across all differential harnesses). Remaining work is the system/adapter layer (AX window
+moves + the Firefox/EnhancedUI quirk, Carbon hotkeys, NSScreen/CGDisplay, CGWindowList
+z-order, overlays, CoreAudio, menubar, JSON storage, config file-watch) and the ZTUI
+settings GUI — all UI-dependent, validated per the visual-validation rule, and deferred
+until the other project stops exercising the UI.
