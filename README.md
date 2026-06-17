@@ -16,19 +16,26 @@ Multi-monitor: logical monitor ids are seeded from the display arrangement at st
 
 Remaining:
 
-- Productization: a real `.app` bundle, code signing/notarization, launch-at-login, and first-run accessibility onboarding. It currently runs as the SwiftPM `zt-agent` binary.
-- UI/performance polish tracked in [native/REVIEW.md](native/REVIEW.md) (settings-window sizing, form-commit consistency, solver flat cost-matrix). None are correctness regressions against the Lua spec.
+- Productization polish: Developer ID signing + notarization (currently ad-hoc), launch-at-login (`SMAppService`), and first-run accessibility onboarding. The `.app` bundle + CI/CD exist (below).
+- UI/performance polish tracked in [native/REVIEW.md](native/REVIEW.md). None are correctness regressions.
 
-Build, run, and test the native port:
+Develop, test, and build:
 
 ```sh
 ./build.sh         # build the native package (pass-through flags, e.g. ./build.sh -c release)
-./run.sh           # build and launch the zt-agent menubar app (Ctrl-C to quit)
-make verify        # swift tests + all differential harnesses + the Lua spec runner
-make diff          # Lua<->Swift differential harnesses only
+./run.sh           # build and launch the agent in the foreground (Ctrl-C to quit)
+make verify        # swift unit + golden tests
+make app           # build ZoneTilerWM.app (Release, ad-hoc signed) via xcodegen + xcodebuild
 ```
 
-Current baseline: 142 Swift tests, 8 differential harnesses, and the Lua runner all green. Line coverage is ~92% for the pure-logic core (`ZTCore`) and lower for the OS-adapter/UI layers, which are validated via the differential oracles and live screenshot QA rather than unit tests — see [native/REVIEW.md](native/REVIEW.md) for the full coverage breakdown and the engineering/UX review.
+Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic core (`ZTCore`). The OS-adapter/UI layers are validated via live screenshot QA + the post-move AX frame readback rather than unit tests — see [native/REVIEW.md](native/REVIEW.md).
+
+### Packaging & CI/CD
+
+- **`.app` bundle:** `project.yml` (XcodeGen) generates `ZoneTilerWM.xcodeproj` — a thin app target that links the SwiftPM package and ships as an `LSUIElement` menubar agent (`com.zaidenstein.ZoneTilerWM`), ad-hoc signed. `make app` builds it. The generated project + `build/` are gitignored; `project.yml` is the source of truth. Installed builds read/seed config at `~/.config/ZoneTilerWM/config.toml`.
+- **CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)): on push/PR, runs `make verify` + the `.app` build on a **self-hosted macOS runner** (this Mac — avoids 10×-billed hosted-macOS minutes on the private repo; no signing secrets leave the machine).
+- **Release** ([.github/workflows/release.yml](.github/workflows/release.yml)): pushing a `v*` tag builds the Release `.app`, zips it, and attaches it to a GitHub Release.
+- **One-time runner setup:** repo Settings → Actions → Runners → New self-hosted runner (macOS); apply the `self-hosted` + `macOS` labels. Needs `xcodegen` (`brew install xcodegen`) on PATH.
 
 ## Features
 

@@ -1,0 +1,33 @@
+name: CI
+
+# Build + test on every push/PR. Runs on a SELF-HOSTED macOS runner (this Mac) so the
+# private repo doesn't burn GitHub's 10x-billed hosted-macOS minutes and no signing secrets
+# leave the machine. One-time runner setup: repo Settings -> Actions -> Runners -> New
+# self-hosted runner (macOS); label it `self-hosted` + `macOS`.
+
+on:
+  push:
+    branches: [v2]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift unit + golden tests
+        run: make verify
+
+      - name: Build the .app bundle (catches project.yml / packaging drift)
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH"
+          xcodegen generate
+          xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
+            -configuration Release -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO build

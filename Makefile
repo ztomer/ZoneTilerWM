@@ -2,12 +2,13 @@
 # the original Hammerspoon/Lua implementation and its differential oracle harness were
 # retired once the port reached parity (they live on in git history + the `origin` remote).
 
-.PHONY: verify test-swift build probe help
+.PHONY: verify test-swift build app probe help
 
 help:
 	@echo "make verify      - swift unit + golden tests (native/)"
 	@echo "make test-swift  - alias for verify"
 	@echo "make build       - build the native package"
+	@echo "make app         - build ZoneTilerWM.app (Release, ad-hoc signed) via xcodegen"
 	@echo "make probe       - read-only system probe (screens/windows/audio)"
 
 verify test-swift:
@@ -15,6 +16,14 @@ verify test-swift:
 
 build:
 	@cd native && swift build
+
+# Generate the Xcode project from project.yml and build the .app bundle. Needs xcodegen
+# (brew install xcodegen). Output: build/dd/Build/Products/Release/ZoneTilerWM.app
+app:
+	@PATH="/opt/homebrew/bin:$$PATH" xcodegen generate
+	@xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
+		-configuration Release -derivedDataPath build/dd build
+	@echo "built: build/dd/Build/Products/Release/ZoneTilerWM.app"
 
 probe: build
 	@native/.build/debug/zt-probe
