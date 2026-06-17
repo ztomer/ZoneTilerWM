@@ -222,13 +222,33 @@ parser. `Package.resolved` is committed.
 post-move **AX frame readback** (`kAXPosition`/`kAXSize`) equal to the target within
 tolerance — exactly what `zt-axspike` reports. Screenshots are the human-eye pass.
 
-### Remaining — UI-dependent only, validated per the visual-validation rule
+### UI phase — implemented (in `zt-agent`; pending the visual UI round)
 
-Everything left drives the UI or grabs input, deferred until the UI is free: Carbon global
-hotkeys (+ resize modal), AX **setFrame** wiring (the mover is proven; the `WindowSystem`
-protocol + `TilerCoordinator` move-to-zone glue land here, alongside CGWindowID↔AXUIElement
-matching), NSWorkspace window create/destroy/focus notifications + app launch/hide,
-overlays (grid/alert/Pomodoro bar drawing), setting the audio default, NSStatusItem
-menubar, config file-watch reload; plus the `ZTUI` SwiftUI settings GUI. Each visual piece
-runs through the visual-validation rule. `swift test` currently: **70 tests green**; all
-six differential harnesses green; Lua runner 4/4.
+The keyboard-driven WM is live in the `zt-agent` menubar app; each decision is differentially
+verified vs Hammerspoon and/or live-validated:
+
+| Feature | Trigger | Verification |
+|---|---|---|
+| Zone tiling | mash+zone | diff_movezone 400/400; live (Zen) |
+| Auto-tile screen | HYPER+return | diff_autotiler 600/600; live |
+| Focus cycling | mash_shift+zone | diff_focus 400/400 |
+| App switcher | appCuts/hyperAppCuts | unit; live (⇧⌃E→Finder) |
+| Adaptive memory | learns on tile, persists | unit; diff_memory |
+| Audio switch | HYPER+' | unit (cycle) |
+| Pomodoro | mash+9/0; menubar + bar | unit (state machine) |
+| Zen mode | HYPER+\\ | unit |
+| Activity Monitor | HYPER+= | — |
+| Overlays | flash on tile/focus; Pomodoro bar | visual (UI round) |
+| Settings GUI v1 | menubar → Settings… | visual (UI round) |
+
+New system adapters: `CarbonHotkeyBinder`, `KeyMap`, `AppController`, `AudioDevices` setter,
+`Overlay` (flash/bar), `ZTUI` (SwiftUI settings). `make verify` → **78 Swift tests + 8
+differential harnesses + Lua runner, all green**.
+
+### Deferred (next session)
+
+Heavier/niche items not yet built: NSWorkspace **new-window auto-place** (needs AX
+window-created observers — the hardest remaining), **resize mode** (modal hotkey layer +
+grid overlay + ResizeManager), **config file-watch** reload + agent reconfigure,
+focus-next/prev-screen + move-to-monitor, window-hints, placement-mode/zone-info, and the
+`ZTUI` **keybind editor + visual layout editor** (v2). Same differential + visual discipline.

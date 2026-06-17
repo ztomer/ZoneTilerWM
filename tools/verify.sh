@@ -13,11 +13,12 @@ N="${1:-100}"
 fail=0
 
 echo "== swift test =="
-( cd native && swift test 2>&1 | tail -1 )
-[ "${PIPESTATUS[0]}" -eq 0 ] || { echo "  swift test FAILED"; fail=1; }
+swift_out="$(cd native && swift test 2>&1)"; swift_status=$?
+echo "  $(printf '%s' "$swift_out" | grep -E 'Executed [0-9]+ tests, with' | tail -1)"
+[ "$swift_status" -eq 0 ] || { echo "  swift test FAILED"; fail=1; }
 
 echo "== differential harnesses ($N fuzz seeds each) =="
-for m in solver zones memory place strategy autotiler movezone; do
+for m in solver zones memory place strategy autotiler movezone focus; do
   out="$(tools/diff_$m.sh "$N" 2>&1)"; status=$?
   printf "  %-10s %s\n" "$m:" "$(printf '%s' "$out" | tail -1)"
   [ "$status" -eq 0 ] || fail=1
