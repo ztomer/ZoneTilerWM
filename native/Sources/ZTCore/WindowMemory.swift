@@ -10,6 +10,22 @@
 
 import Foundation
 
+/// Decodes a value that may be persisted as String, Int, or Double, returning its string
+/// form. Legacy window_positions.json files store monitor ids (and occasionally other
+/// fields) as numbers; the native model keys everything by String.
+extension KeyedDecodingContainer {
+    func decodeStringy(_ key: Key) throws -> String {
+        if let s = try? decode(String.self, forKey: key) { return s }
+        if let i = try? decode(Int.self, forKey: key) { return String(i) }
+        if let d = try? decode(Double.self, forKey: key) {
+            return d == d.rounded() ? String(Int(d)) : String(d)
+        }
+        throw DecodingError.dataCorruptedError(
+            forKey: key, in: self,
+            debugDescription: "expected String, Int, or Double for \(key.stringValue)")
+    }
+}
+
 public final class WindowMemory {
 
     public struct Position: Equatable {
@@ -158,19 +174,76 @@ public final class WindowMemory {
             public var monitor_id: String
             public var zone_key: String
             public var tile_index: TileIndex
+
+            public init(app_name: String, monitor_id: String, zone_key: String, tile_index: TileIndex) {
+                self.app_name = app_name; self.monitor_id = monitor_id
+                self.zone_key = zone_key; self.tile_index = tile_index
+            }
+
+            enum CodingKeys: String, CodingKey { case app_name, monitor_id, zone_key, tile_index }
+
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                app_name = try c.decodeStringy(.app_name)
+                monitor_id = try c.decodeStringy(.monitor_id)   // legacy files store this as a number
+                zone_key = try c.decodeStringy(.zone_key)
+                tile_index = try c.decode(TileIndex.self, forKey: .tile_index)
+            }
         }
+
         public struct StatsData: Codable, Equatable {
             public var count: Int
             public var mean_ar: Double
             public var mean_area: Double
+            public init(count: Int, mean_ar: Double, mean_area: Double) {
+                self.count = count; self.mean_ar = mean_ar; self.mean_area = mean_area
+            }
         }
+
         public struct PreferenceEntry: Codable, Equatable {
             public var app_name: String
             public var monitor_id: String
             public var zone_key: String
             public var tile_index: TileIndex
             public var data: StatsData
+
+            public init(app_name: String, monitor_id: String, zone_key: String,
+                        tile_index: TileIndex, data: StatsData) {
+                self.app_name = app_name; self.monitor_id = monitor_id; self.zone_key = zone_key
+                self.tile_index = tile_index; self.data = data
+            }
+
+            enum CodingKeys: String, CodingKey { case app_name, monitor_id, zone_key, tile_index, data, count }
+
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                app_name = try c.decodeStringy(.app_name)
+                monitor_id = try c.decodeStringy(.monitor_id)
+                zone_key = try c.decodeStringy(.zone_key)
+                tile_index = try c.decode(TileIndex.self, forKey: .tile_index)
+                // New format: a stats object under `data`. Legacy (per window_memory.lua's
+                // load_positions): a bare numeric `count`, or `data` itself a number.
+                if let d = try? c.decode(StatsData.self, forKey: .data) {
+                    data = d
+                } else if let count = try? c.decode(Int.self, forKey: .count) {
+                    data = StatsData(count: count, mean_ar: 0, mean_area: 0)
+                } else if let count = try? c.decode(Int.self, forKey: .data) {
+                    data = StatsData(count: count, mean_ar: 0, mean_area: 0)
+                } else {
+                    data = StatsData(count: 0, mean_ar: 0, mean_area: 0)
+                }
+            }
+
+            public func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(app_name, forKey: .app_name)
+                try c.encode(monitor_id, forKey: .monitor_id)
+                try c.encode(zone_key, forKey: .zone_key)
+                try c.encode(tile_index, forKey: .tile_index)
+                try c.encode(data, forKey: .data)
+            }
         }
+
         public var positions: [PositionEntry]
         public var preferences: [PreferenceEntry]
     }

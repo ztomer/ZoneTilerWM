@@ -4,20 +4,28 @@ import PackageDescription
 // Native Swift port of ZoneTilerWM (v2). Lives under native/ to stay cleanly separated
 // from the Lua source tree (modules/, tests/) which remains the executable spec.
 //
-//   ZTCore     — pure logic, NO AppKit/ApplicationServices import. Operates on value
-//                snapshots. Headless-testable; the algorithmic IP lives here.
-//   zt-oracle  — executable mirroring tools/oracle_solver.lua's JSON contract, used for
-//                differential testing against the Lua implementation.
+//   ZTCore     — pure logic, NO AppKit/ApplicationServices import. Value snapshots.
+//                Headless-testable; the algorithmic IP.
+//   ZTSystem   — adapter layer (Foundation now; AppKit/AX/Carbon later). JSON storage,
+//                config.toml loading. Conforms to ZTCore protocols.
+//   zt-oracle  — executable mirroring the Lua oracles' JSON contracts for differential tests.
 let package = Package(
     name: "ZoneTilerWM",
     platforms: [.macOS(.v13)],
     products: [
         .library(name: "ZTCore", targets: ["ZTCore"]),
+        .library(name: "ZTSystem", targets: ["ZTSystem"]),
         .executable(name: "zt-oracle", targets: ["zt-oracle"]),
+    ],
+    dependencies: [
+        // Maintained TOML parser (toml++-backed, Codable support) for reading config.toml.
+        .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
     ],
     targets: [
         .target(name: "ZTCore"),
+        .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"]),
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),
         .testTarget(name: "ZTCoreTests", dependencies: ["ZTCore"]),
+        .testTarget(name: "ZTSystemTests", dependencies: ["ZTSystem"]),
     ]
 )
