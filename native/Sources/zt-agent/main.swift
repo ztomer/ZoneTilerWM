@@ -76,23 +76,13 @@ final class AgentController: NSObject {
     // on restart; in-session learning is persisted as it happens).
     private let learnedMemory: WindowMemory?
     private let storage: Storage?
-    // Resize mode: grid-line offsets (persisted independently of window memory).
+    // Resize mode: grid-line offsets (persisted independently of window memory). The manager is
+    // shared with the coordinator's offsetProvider; the modal UI lives in ResizeModeController.
     private let resizeManager = ResizeManager()
     private let resizeStorage: Storage
-    private let gridOverlay = GridOverlay()
-    private var resizeActive = false
-    private var resizeModalIDs: [UInt32] = []
-    private var resizeMonitorKey = ""
-    private var resizeScreenFrame = ZTRect(x: 0, y: 0, w: 0, h: 0)
-    private var resizeCols = 1
-    private var resizeRows = 1
-    private var resizeVIndex: Int?
-    private var resizeHIndex: Int?
-    // Window hints: label badges + a transient key-capture modal.
-    private let hintOverlay = HintOverlay()
-    private var hintsActive = false
-    private var hintModalIDs: [UInt32] = []
-    private var hintTargets: [String: Int] = [:]
+    // The two modal sub-controllers (extracted from this composition root).
+    private var resizeMode: ResizeModeController!
+    private var windowHints: WindowHintsController!
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -160,6 +150,15 @@ final class AgentController: NSObject {
         pomodoroColorRemaining = PomodoroBar.color(named: config.pomodoroColorRemaining)
         pomodoroColorUsed = PomodoroBar.color(named: config.pomodoroColorUsed)
         super.init()
+        // Modal sub-controllers; their config-derived inputs read self.config so a live reload
+        // is picked up automatically.
+        resizeMode = ResizeModeController(
+            binder: binder, screens: screens, windowSystem: windowSystem, monitorManager: monitorManager,
+            resizeManager: resizeManager, resizeStorage: resizeStorage,
+            zoneConfig: { [weak self] in self?.config.zoneConfig ?? ZoneConfig(grids: [:], layouts: [:], margins: Margins(enabled: false, size: 0, screen_edge: false)) })
+        windowHints = WindowHintsController(
+            binder: binder, screens: screens, windowSystem: windowSystem,
+            keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" })
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
     }
 
@@ -461,7 +460,7 @@ final class AgentController: NSObject {
         }
         // Resize mode: toggle the grid-line adjustment modal.
         bindAction(config.resolvedHotkey("resize_mode", in: config.tilerHotkeys), label: "resize_mode") { [weak self] in
-            self?.toggleResizeMode()
+            self?.resizeMode.toggle()
         }
         // Multi-monitor: move focused window to next/previous monitor (placement_mode/zone_info),
         // and focus next/previous screen. No-ops on a single display.
@@ -479,157 +478,11 @@ final class AgentController: NSObject {
         }
         // System: window hints (label each window, type to focus) + config reload hotkey.
         bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
-            self?.toggleWindowHints()
+            self?.windowHints.toggle()
         }
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.reloadFromDisk()
         }
-    }
-
-    // MARK: - Window hints (port of hs.hints.windowHints)
-
-    private func toggleWindowHints() { hintsActive ? exitWindowHints() : enterWindowHints() }
-
-    private func enterWindowHints() {
-        // All visible standard windows across screens, front-to-back, deduped by id.
-        var seen = Set<Int>()
-        var wins: [LiveWindow] = []
-        for s in screens.allScreens() {
-            for w in windowSystem.windows(onScreen: s.uuid) where !seen.contains(w.id) {
-                seen.insert(w.id); wins.append(w)
-            }
-        }
-        guard !wins.isEmpty else { return }
-
-        // Desktop bounds (union of screens) → normalize each window center to [0,1] so the hint
-        // key's physical keyboard position maps to where the window sits on screen.
-        let frames = screens.allScreens().map { $0.frame }
-        let minX = frames.map { $0.x }.min() ?? 0, maxX = frames.map { $0.x + $0.w }.max() ?? 1
-        let minY = frames.map { $0.y }.min() ?? 0, maxY = frames.map { $0.y + $0.h }.max() ?? 1
-        func norm(_ v: Double, _ lo: Double, _ hi: Double) -> Double { hi > lo ? (v - lo) / (hi - lo) : 0.5 }
-        let centers = wins.map { w in
-            (x: norm(w.frame.x + w.frame.w / 2, minX, maxX), y: norm(w.frame.y + w.frame.h / 2, minY, maxY))
-        }
-        let labels = WindowHints.spatialLabels(centers: centers, keys: hintKeyRows())
-        let labeled = zip(labels, wins).filter { !$0.0.isEmpty }
-        if labeled.count < wins.count {
-            log("zt-agent: window hints — \(wins.count) windows, \(labeled.count) labeled")
-        }
-        hintTargets = [:]
-        var badges: [(label: String, app: String, icon: NSImage?, center: ZTRect)] = []
-        for (label, w) in labeled {
-            hintTargets[label] = w.id
-            let center = ZTRect(x: w.frame.x + w.frame.w / 2, y: w.frame.y + w.frame.h / 2, w: 0, h: 0)
-            badges.append((label, w.appName, appIcon(for: w.appName), center))
-        }
-        hintsActive = true
-        hintOverlay.show(badges)
-        bindHintModal(labels: labeled.map { $0.0 })
-        log("zt-agent: window hints ON (\(hintTargets.count) windows) — type a label, ESC cancels")
-    }
-
-    /// The 3 letter rows of the active keyboard layout, used as spatially-assignable hint keys.
-    private func hintKeyRows() -> [[String]] {
-        let name = config.keyboardLayout == "auto" ? KeyboardLayoutDetector.current() : config.keyboardLayout
-        return Array(KeyboardLayout.rows(for: name).suffix(3))
-    }
-
-    private var iconCache: [String: NSImage?] = [:]
-    /// The running app's icon by display name (cached to avoid re-querying every hint pass).
-    private func appIcon(for name: String) -> NSImage? {
-        if let cached = iconCache[name] { return cached }
-        let icon = NSWorkspace.shared.runningApplications.first { $0.localizedName == name }?.icon
-        iconCache[name] = icon
-        return icon
-    }
-
-    private func exitWindowHints() {
-        guard hintsActive else { return }
-        hintsActive = false
-        for id in hintModalIDs { binder.unbind(id) }
-        hintModalIDs = []
-        hintTargets = [:]
-        hintOverlay.hide()
-    }
-
-    private func bindHintModal(labels: [String]) {
-        for label in labels {
-            guard let code = KeyMap.keyCode(for: label) else { continue }
-            if let id = binder.register(keyCode: code, modifiers: 0, action: { [weak self] in
-                guard let self, let wid = self.hintTargets[label] else { return }
-                self.windowSystem.focus(windowId: wid)
-                self.exitWindowHints()
-            }) { hintModalIDs.append(id) }
-        }
-        if let esc = KeyMap.keyCode(for: "escape"),
-           let id = binder.register(keyCode: esc, modifiers: 0, action: { [weak self] in self?.exitWindowHints() }) {
-            hintModalIDs.append(id)
-        }
-    }
-
-    // MARK: - Resize mode (coherent port: arrows nudge the zone grid lines)
-
-    private func toggleResizeMode() { resizeActive ? exitResizeMode() : enterResizeMode() }
-
-    /// Enter: pick the interior grid lines nearest the focused window, show the overlay, and
-    /// bind bare arrows + escape. Arrows nudge those lines' offsets; the overlay redraws live.
-    private func enterResizeMode() {
-        guard let focused = windowSystem.focusedWindow(), let uuid = focused.screenUUID,
-              let screen = screens.screen(uuid: uuid) else { return }
-        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
-        guard let key = ZoneCalculator.layoutKey(for: info, config: config.zoneConfig),
-              let grid = config.zoneConfig.grids[key] else {
-            log("zt-agent: resize mode — no grid for the focused screen"); return
-        }
-        resizeMonitorKey = String(monitorManager.id(forUUID: uuid))
-        resizeScreenFrame = screen.frame
-        resizeCols = grid.cols; resizeRows = grid.rows
-        let cx = focused.frame.x + focused.frame.w / 2, cy = focused.frame.y + focused.frame.h / 2
-        resizeVIndex = GridLines.nearestInteriorIndex(to: cx, start: screen.frame.x, total: screen.frame.w, count: grid.cols)
-        resizeHIndex = GridLines.nearestInteriorIndex(to: cy, start: screen.frame.y, total: screen.frame.h, count: grid.rows)
-
-        resizeActive = true
-        redrawGridOverlay()
-        bindResizeModal()
-        log("zt-agent: resize mode ON (grid \(grid.cols)x\(grid.rows), monitor \(resizeMonitorKey)) — arrows nudge lines, ESC exits")
-    }
-
-    private func exitResizeMode() {
-        guard resizeActive else { return }
-        resizeActive = false
-        for id in resizeModalIDs { binder.unbind(id) }
-        resizeModalIDs = []
-        gridOverlay.hide()
-        resizeManager.save(to: resizeStorage)
-        log("zt-agent: resize mode OFF (offsets saved)")
-    }
-
-    private func bindResizeModal() {
-        func reg(_ keyName: String, _ action: @escaping () -> Void) {
-            if let code = KeyMap.keyCode(for: keyName), let id = binder.register(keyCode: code, modifiers: 0, action: action) {
-                resizeModalIDs.append(id)
-            }
-        }
-        reg("left")  { [weak self] in self?.adjustResize(axis: "x", delta: -1) }
-        reg("right") { [weak self] in self?.adjustResize(axis: "x", delta: +1) }
-        reg("up")    { [weak self] in self?.adjustResize(axis: "y", delta: -1) }
-        reg("down")  { [weak self] in self?.adjustResize(axis: "y", delta: +1) }
-        reg("escape") { [weak self] in self?.exitResizeMode() }
-    }
-
-    private func adjustResize(axis: String, delta: Double) {
-        guard resizeActive else { return }
-        let index = axis == "x" ? resizeVIndex : resizeHIndex
-        guard let index else { return }   // no interior line on this axis (1xN / Nx1)
-        resizeManager.adjust(monitor: resizeMonitorKey, axis: axis, index: index, delta: delta)
-        redrawGridOverlay()
-    }
-
-    private func redrawGridOverlay() {
-        let lines = GridLines.positions(frame: resizeScreenFrame, cols: resizeCols, rows: resizeRows) { [resizeManager, resizeMonitorKey] axis, idx in
-            resizeManager.getOffset(monitor: resizeMonitorKey, axis: axis, index: idx)
-        }
-        gridOverlay.show(screenCGFrame: resizeScreenFrame, verticalX: lines.vertical, horizontalY: lines.horizontal)
     }
 
     /// The menubar mark: a 2x2 zone grid with the top-left zone in an amber accent (matches the
