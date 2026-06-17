@@ -82,23 +82,28 @@ public enum LayoutSolver {
         let n = windows.count
         let m = tiles.count
 
-        // Pre-compute the N×M cost matrix (window rank = 1-based input index).
-        var costMatrix = [[Double]](repeating: [Double](repeating: 0, count: m), count: n)
+        // Pre-compute the N×M cost matrix (window rank = 1-based input index) as one flat,
+        // cache-contiguous buffer indexed [i*m + j] — read in the backtracking inner loop.
+        var costMatrix = [Double](repeating: 0, count: n * m)
         for i in 0..<n {
             for j in 0..<m {
-                costMatrix[i][j] = assignmentCost(
+                costMatrix[i * m + j] = assignmentCost(
                     window: windows[i], tile: tiles[j], screen: screen,
                     windowRank: i + 1, weights: weights)
             }
         }
 
+        // Assignment is a dense [Int] indexed by window (-1 == skipped) rather than a
+        // dictionary: the leaf copy is a flat array copy and the inner-loop set/clear avoids
+        // hashing. Semantics are identical (skipped windows are simply left -1).
         final class State {
             var minCost = Double.infinity
-            var assignments: [Int: Int] = [:]
+            var assignments: [Int]
             var checks = 0
+            init(n: Int) { assignments = [Int](repeating: -1, count: n) }
         }
-        let best = State()
-        var current: [Int: Int] = [:]
+        let best = State(n: n)
+        var current = [Int](repeating: -1, count: n)
         var occupied: [ZTRect] = []
 
         func recurse(_ winIdx: Int, _ currentCost: Double) {
@@ -115,7 +120,7 @@ public enum LayoutSolver {
             best.checks += 1
             if best.checks > maxChecks { return }
 
-            // Option A: skip this window (explored first, matching Lua).
+            // Option A: skip this window (explored first, matching Lua; current stays -1).
             recurse(winIdx + 1, currentCost + weights.skipWindow)
 
             // Option B: every non-overlapping tile, in array order.
@@ -128,17 +133,20 @@ public enum LayoutSolver {
                 if overlaps { continue }
                 occupied.append(tiles[t].rect)
                 current[winIdx] = t
-                recurse(winIdx + 1, currentCost + costMatrix[winIdx][t])
-                current[winIdx] = nil
+                recurse(winIdx + 1, currentCost + costMatrix[winIdx * m + t])
+                current[winIdx] = -1
                 occupied.removeLast()
             }
         }
 
         recurse(0, 0)
 
-        // The assignment map is order-independent; callers that need a stable order sort it.
-        return best.assignments.map { (w, t) in
-            Move(windowIndex: w, tileIndex: t, cost: costMatrix[w][t])
+        // Emit a Move per assigned window (skipped windows excluded); callers sort if needed.
+        var moves: [Move] = []
+        for w in 0..<n where best.assignments[w] >= 0 {
+            let t = best.assignments[w]
+            moves.append(Move(windowIndex: w, tileIndex: t, cost: costMatrix[w * m + t]))
         }
+        return moves
     }
 }
