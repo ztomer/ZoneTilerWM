@@ -69,6 +69,26 @@ final class ChordRecorder: ObservableObject {
 
 // MARK: - Keybind editor
 
+/// A one-line key explaining what each modifier alias expands to, so individual rows can show
+/// just the alias name instead of repeating the glyphs everywhere.
+struct ModifierLegend: View {
+    let aliases: [String: [String]]
+    var body: some View {
+        let names = aliases.keys.sorted()
+        return HStack(spacing: 14) {
+            ForEach(names, id: \.self) { n in
+                HStack(spacing: 4) {
+                    Text(n).font(.caption).fontWeight(.semibold)
+                    Text(ModGlyph.string(aliases[n] ?? [])).font(.caption)
+                }
+            }
+            Spacer()
+        }
+        .foregroundColor(.secondary)
+        .padding(.bottom, 2)
+    }
+}
+
 struct KeybindEditorView: View {
     @ObservedObject var model: SettingsModel
     @StateObject private var recorder = ChordRecorder()
@@ -95,6 +115,7 @@ struct KeybindEditorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                ModifierLegend(aliases: model.config.aliases)
                 groupBox("Modifiers") {
                     modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
                     modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
@@ -127,7 +148,7 @@ struct KeybindEditorView: View {
 
     private func aliasPicker(selection: Binding<String>) -> some View {
         Picker("", selection: selection) {
-            ForEach(aliasNames, id: \.self) { Text("\($0)  \(ModGlyph.string(model.config.aliases[$0] ?? []))").tag($0) }
+            ForEach(aliasNames, id: \.self) { Text($0).tag($0) }   // name only; the legend maps names → glyphs
         }.labelsHidden()
     }
 
@@ -151,11 +172,10 @@ struct KeybindEditorView: View {
             aliasPicker(selection: Binding(
                 get: { alias },
                 set: { model.setHotkey(section: row.section, key: row.key, alias: $0, keyName: keyName) })).frame(width: 130)
+            Text("+").foregroundColor(.secondary)
             Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
                 recordingId = row.id; recorder.start(id: row.id)
             }.frame(width: 84)
-            Text(ModGlyph.chord([alias, keyName], aliases: model.config.aliases))
-                .font(.system(.callout, design: .monospaced)).foregroundColor(.secondary)
             Spacer()
         }
     }
@@ -197,10 +217,11 @@ struct AppShortcutsView: View {
                 Picker("", selection: Binding(
                     get: { Keybinding.alias(forModifiers: currentGroup.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash") },
                     set: { model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]") })) {
-                    ForEach(aliasNames, id: \.self) { Text("\($0)  \(ModGlyph.string(model.config.aliases[$0] ?? []))").tag($0) }
-                }.labelsHidden().frame(width: 150)
+                    ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+                }.labelsHidden().frame(width: 130)
                 Spacer()
             }
+            ModifierLegend(aliases: model.config.aliases)
             Text("Each key shows the app it launches with the selected modifier. Click a key to edit.")
                 .font(.caption).foregroundColor(.secondary)
             VStack(spacing: 4) {
