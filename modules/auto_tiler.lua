@@ -128,7 +128,8 @@ end
 local function _pass_working_set_cull(windows, mid, z_order_map)
     local t_limit = (config.tiler.working_set and config.tiler.working_set.time_limit_sec) or 1800
     local n_limit = (config.tiler.working_set and config.tiler.working_set.max_capacity) or 6
-    local now, active_pool, limbo_set = os.time(), {}, {}
+    -- `auto_tiler._now` lets tests/oracle inject a fixed clock (determinism); falls back to wall time.
+    local now, active_pool, limbo_set = auto_tiler._now or os.time(), {}, {}
     for _, win in ipairs(windows) do
         local info = window_cache.get_info(win:id())
         local last_focus = info and info.last_focused_time or now
@@ -151,18 +152,25 @@ local function _pass_working_set_cull(windows, mid, z_order_map)
             z_order = z_order_map[win:id()] or 9999
         }
     end
+    -- Total order (final window-id tie-break) so the working-set selection is deterministic.
     table.sort(active_pool, function(a, b)
         local sa, sb = scores[a:id()], scores[b:id()]
         if mode == "usage" then
             if sa.usage ~= sb.usage then
                 return sa.usage > sb.usage
             end
-            return sa.z_order < sb.z_order
+            if sa.z_order ~= sb.z_order then
+                return sa.z_order < sb.z_order
+            end
+            return a:id() < b:id()
         else
             if sa.z_order ~= sb.z_order then
                 return sa.z_order < sb.z_order
             end
-            return sa.usage > sb.usage
+            if sa.usage ~= sb.usage then
+                return sa.usage > sb.usage
+            end
+            return a:id() < b:id()
         end
     end)
     local working_set = {};
@@ -262,11 +270,14 @@ local function _pass_solver(windows, occupied_rects, move_queue, processed_ids, 
             end
         end
     end
-    -- Sort available tiles by area (largest first) to prioritize filling more screen space
+    -- Sort available tiles by area (largest first) to prioritize filling more screen space.
+    -- Total order (zone, then tile index) so ties are deterministic.
     table.sort(available_tiles, function(a, b)
         local area_a = a.rect.w * a.rect.h
         local area_b = b.rect.w * b.rect.h
-        return area_a > area_b
+        if area_a ~= area_b then return area_a > area_b end
+        if a.zone_key ~= b.zone_key then return a.zone_key < b.zone_key end
+        return tostring(a.tile_index) < tostring(b.tile_index)
     end)
     debug_log("Solver pass: " .. #available_tiles .. " tiles available, " .. #unplaced .. " windows to place")
     for i, t in ipairs(available_tiles) do
@@ -456,7 +467,11 @@ local function _pass_fill_gaps(move_queue, processed_ids, occupied_rects)
             goto continue_monitor
         end
 
-        table.sort(all_tiles, function(a, b) return a.area > b.area end)
+        table.sort(all_tiles, function(a, b)
+            if a.area ~= b.area then return a.area > b.area end
+            if a.zone_key ~= b.zone_key then return a.zone_key < b.zone_key end
+            return tostring(a.tile_index) < tostring(b.tile_index)
+        end)
 
         debug_log("Fill gaps: " .. #all_tiles .. " available tiles to consider")
 
@@ -477,7 +492,10 @@ local function _pass_fill_gaps(move_queue, processed_ids, occupied_rects)
                     table.insert(sorted_moves, {m = m, area = current_area})
                 end
             end
-            table.sort(sorted_moves, function(a, b) return a.area < b.area end)
+            table.sort(sorted_moves, function(a, b)
+                if a.area ~= b.area then return a.area < b.area end
+                return a.m.window:id() < b.m.window:id()
+            end)
 
             -- Track which tiles have been assigned to avoid conflicts
             local used_tiles = {}

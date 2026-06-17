@@ -46,4 +46,16 @@ public struct ZoneConfig: Codable, Equatable {
     public var margins: Margins?
     public var screen_detection: ScreenDetection?
     public var custom_screens: [String: CustomScreen]?
+
+    public init(grids: [String: GridConfig],
+                layouts: [String: [String: [String]]],
+                margins: Margins? = nil,
+                screen_detection: ScreenDetection? = nil,
+                custom_screens: [String: CustomScreen]? = nil) {
+        self.grids = grids
+        self.layouts = layouts
+        self.margins = margins
+        self.screen_detection = screen_detection
+        self.custom_screens = custom_screens
+    }
 }

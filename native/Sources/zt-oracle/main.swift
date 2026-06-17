@@ -191,6 +191,80 @@ case "strategy":
         selfId: scenario.self_id ?? 999)
     FileHandle.standardOutput.write(try encoder.encode(Out(found: tile != nil, tile: tile)))
 
+case "autotiler":
+    struct ScreenIn: Decodable { var uuid: String; var name: String; var id: Int?; var frame: ZTRect }
+    struct WindowIn: Decodable {
+        var id: Int; var app: String; var monitor: String; var frame: ZTRect
+        var last_focused_time: Int; var isStandard: Bool?; var isMinimized: Bool?
+    }
+    struct WorkingSetIn: Decodable { var time_limit_sec: Int?; var max_capacity: Int? }
+    struct ConfigIn: Decodable {
+        var auto_tile_center_zones: [String]?
+        var working_set: WorkingSetIn?
+        var auto_tiling_mode: String?
+        var solver_weights: SolverWeightsIn?
+        var grids: [String: GridConfig]
+        var layouts: [String: [String: [String]]]
+        var margins: Margins?
+        var screen_detection: ScreenDetection?
+        var custom_screens: [String: CustomScreen]?
+    }
+    struct SolverWeightsIn: Decodable {
+        var memory_exact: Double?; var memory_zone: Double?; var aspect_ratio: Double?
+        var area_ratio: Double?; var moved_dist: Double?; var skip_window: Double?; var coverage: Double?
+    }
+    struct Scenario: Decodable {
+        var now: Int
+        var config: ConfigIn
+        var screens: [ScreenIn]
+        var windows: [WindowIn]
+        var z_order: [Int]?
+        var focused_id: Int?
+        var memory: [String: [MemoryPref]]?
+    }
+    struct MoveOut: Encodable {
+        let window_id: Int; let monitor_id: String; let zone_key: String
+        let tile_index: TileIndex; let rect: ZTRect
+    }
+    struct Out: Encodable { let moves: [MoveOut] }
+
+    guard let scenario = try? JSONDecoder().decode(Scenario.self, from: input) else {
+        fail("bad autotiler scenario JSON")
+    }
+    let c = scenario.config
+    var weights = CostWeights()
+    if let w = c.solver_weights {
+        if let v = w.memory_exact { weights.memoryExact = v }
+        if let v = w.memory_zone { weights.memoryZone = v }
+        if let v = w.aspect_ratio { weights.aspectRatio = v }
+        if let v = w.area_ratio { weights.areaRatio = v }
+        if let v = w.moved_dist { weights.movedDist = v }
+        if let v = w.skip_window { weights.skipWindow = v }
+        if let v = w.coverage { weights.coverage = v }
+    }
+    let zoneConfig = ZoneConfig(grids: c.grids, layouts: c.layouts, margins: c.margins,
+                                screen_detection: c.screen_detection, custom_screens: c.custom_screens)
+    let config = AutoTiler.Config(
+        centerZones: c.auto_tile_center_zones ?? ["j", "center", "0"],
+        workingSetTimeLimit: c.working_set?.time_limit_sec ?? 1800,
+        workingSetMaxCapacity: c.working_set?.max_capacity ?? 6,
+        mode: c.auto_tiling_mode ?? "usage",
+        weights: weights, zoneConfig: zoneConfig)
+    let screens = scenario.screens.map { AutoTiler.Screen(uuid: $0.uuid, name: $0.name, frame: $0.frame) }
+    let windows = scenario.windows.map {
+        AutoTiler.Window(id: $0.id, app: $0.app, monitor: $0.monitor, frame: $0.frame,
+                         lastFocusedTime: $0.last_focused_time,
+                         isStandard: $0.isStandard ?? true, isMinimized: $0.isMinimized ?? false)
+    }
+    let planned = AutoTiler.plan(config: config, screens: screens, windows: windows,
+                                 zOrder: scenario.z_order ?? [], focusedId: scenario.focused_id,
+                                 memory: scenario.memory ?? [:], now: scenario.now)
+    let out = planned.map {
+        MoveOut(window_id: $0.windowId, monitor_id: $0.monitorId, zone_key: $0.zoneKey,
+                tile_index: $0.tileIndex, rect: $0.rect)
+    }
+    FileHandle.standardOutput.write(try encoder.encode(Out(moves: out)))
+
 default:
-    fail("unknown mode '\(mode)' (expected 'solve', 'zones', 'memory', 'place', or 'strategy')")
+    fail("unknown mode '\(mode)' (expected solve/zones/memory/place/strategy/autotiler)")
 }
