@@ -181,13 +181,26 @@ It applies to the system/adapter + ZTUI phases — not the headless ZTCore ports
 **The pure ZTCore algorithmic IP is complete** — zero Lua↔Swift divergence across all
 differential harnesses.
 
-### Adapter layer (ZTSystem) — headless pieces done
+### ZTCore logic modules (beyond the algorithmic IP) — done, headless
+
+All ported as pure logic operating on snapshots, unit-tested (the system calls are the
+boundary): **FocusManager** (zone-window collection/ordering + focus cycler),
+**AppSwitcher** (toggle decision incl. ambiguous-pair/special-mapping), **Pomodoro**
+(work/rest state machine), **AudioSwitcher** (device-cycle pick), **MonitorManager**
+(uuid→logical-id registry), **ResizeManager** (grid offsets).
+
+### Adapter layer (ZTSystem) — headless / read-only pieces done
 
 | Adapter | Notes |
 |---|---|
-| `Storage` (protocol) + `JSONFileStorage` | One JSON file per key under ~/.config/ZoneTilerWM; loads legacy shapes (numeric monitor_id, bare-count prefs); verified against the real window_positions.json. |
+| `Storage` + `JSONFileStorage` | JSON per key under ~/.config/ZoneTilerWM; loads legacy shapes (numeric monitor_id, bare-count prefs); verified vs the real window_positions.json. |
 | `ConfigLoader` (TOMLKit) | Decodes the real config.toml into ZTCore models; ~ expansion; golden-tested. |
-| `ResizeManager` | Grid-line offsets (±2% steps, ±40% clamp); supplies ZoneCalculator's OffsetProvider; persists via Storage. |
+| `ConfigValidator` | Semantic validation of a loaded config. |
+| `TOMLEditor` | Surgical comment-preserving in-place edits of config.toml (settings-GUI dependency). |
+| `NSScreenProvider` (ScreenProvider) | **Read-only** NSScreen/CGDisplay enumeration; stable UUIDs; top-left CG frames + visible insets. |
+| `AXWindowSystem` (enumeration) | **Read-only** CGWindowList z-order/bounds (no permission); AX setFrame (move) validated separately. |
+| `AudioDevices` | **Read-only** CoreAudio output-device enumeration + current default. |
+| `zt-probe` CLI | Dumps screens/windows/audio — observes only, drives nothing. |
 
 External dep: **TOMLKit** (toml++-backed) for config parsing — chosen over a hand-rolled
 parser. `Package.resolved` is committed.
@@ -209,10 +222,13 @@ parser. `Package.resolved` is committed.
 post-move **AX frame readback** (`kAXPosition`/`kAXSize`) equal to the target within
 tolerance — exactly what `zt-axspike` reports. Screenshots are the human-eye pass.
 
-### Remaining — UI-dependent, validated per the visual-validation rule
+### Remaining — UI-dependent only, validated per the visual-validation rule
 
-Carbon global hotkeys (+ resize-mode modal), NSScreen/CGDisplay stable UUIDs, robust
-CGWindowID↔AXUIElement matching (`_AXUIElementGetWindow`), the full `WindowSystem` protocol
-impl, overlays (grid/alert/Pomodoro bar), CoreAudio, NSStatusItem menubar, NSWorkspace app
-launching, NSWorkspace window create/destroy/focus notifications, config file-watch; plus
-the `ZTUI` SwiftUI settings GUI. `swift test` currently: 33 tests green.
+Everything left drives the UI or grabs input, deferred until the UI is free: Carbon global
+hotkeys (+ resize modal), AX **setFrame** wiring (the mover is proven; the `WindowSystem`
+protocol + `TilerCoordinator` move-to-zone glue land here, alongside CGWindowID↔AXUIElement
+matching), NSWorkspace window create/destroy/focus notifications + app launch/hide,
+overlays (grid/alert/Pomodoro bar drawing), setting the audio default, NSStatusItem
+menubar, config file-watch reload; plus the `ZTUI` SwiftUI settings GUI. Each visual piece
+runs through the visual-validation rule. `swift test` currently: **70 tests green**; all
+six differential harnesses green; Lua runner 4/4.
