@@ -177,9 +177,13 @@ monitor (no crash). **Live multi-display validation still owed when a 2nd displa
 
 ## Config-feature gaps (from a settings audit)
 
-The settings panel now exposes every config feature the v2 agent actually consumes
-(General gained Pomodoro / Audio / Window-memory / Advanced solver-weights sections +
-working-set staleness, center-zones, margins screen-edge — commit 8553d40).
+The settings panel exposes every config feature the v2 agent actually consumes, organized
+(0e6b68d) into 6 coherent tabs (Rams/Kare — consolidate, don't shatter into single-purpose
+tabs): **General** (config, tiling, keyboard layout, margins, audio) · **Keys** (zone/focus
+modifiers + tiling/system actions) · **Apps** (launcher keyboard) · **Layouts** (monitors→grid→
+zones + default-zone-per-app) · **Pomodoro** (settings + its own keys) · **Advanced** (window
+memory + exclusions + solver weights + learned-placements data). Each feature's keybindings live
+with the feature; the reusable HotkeyRowView makes that possible.
 
 **Decoded but NOT yet wired in the agent** (so deliberately not exposed — wire the behavior
 first, then add UI): `window_memory.default_zone`, `window_memory.auto_tile_fallback`,
