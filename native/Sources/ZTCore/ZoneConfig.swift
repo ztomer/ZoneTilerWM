@@ -15,6 +15,13 @@ public struct Margins: Codable, Equatable {
     public init(enabled: Bool, size: Double, screen_edge: Bool) {
         self.enabled = enabled; self.size = size; self.screen_edge = screen_edge
     }
+    enum CodingKeys: String, CodingKey { case enabled, size, screen_edge }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decode(Bool.self, forKey: .enabled)
+        size = try c.decodeFlexDouble(.size)   // TOML stores `size = 5` as an integer
+        screen_edge = try c.decode(Bool.self, forKey: .screen_edge)
+    }
 }
 
 public struct CustomScreen: Codable, Equatable {

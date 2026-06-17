@@ -14,7 +14,7 @@ import Foundation
 /// form. Legacy window_positions.json files store monitor ids (and occasionally other
 /// fields) as numbers; the native model keys everything by String.
 extension KeyedDecodingContainer {
-    func decodeStringy(_ key: Key) throws -> String {
+    public func decodeStringy(_ key: Key) throws -> String {
         if let s = try? decode(String.self, forKey: key) { return s }
         if let i = try? decode(Int.self, forKey: key) { return String(i) }
         if let d = try? decode(Double.self, forKey: key) {
@@ -23,6 +23,21 @@ extension KeyedDecodingContainer {
         throw DecodingError.dataCorruptedError(
             forKey: key, in: self,
             debugDescription: "expected String, Int, or Double for \(key.stringValue)")
+    }
+
+    /// Decodes a number that may be an Int or a Double, returning Double. TOML distinguishes
+    /// integer/float literals, so config values like `size = 5` (Int) must coerce.
+    public func decodeFlexDouble(_ key: Key) throws -> Double {
+        if let d = try? decode(Double.self, forKey: key) { return d }
+        if let i = try? decode(Int.self, forKey: key) { return Double(i) }
+        throw DecodingError.dataCorruptedError(
+            forKey: key, in: self,
+            debugDescription: "expected Int or Double for \(key.stringValue)")
+    }
+
+    public func decodeFlexDoubleIfPresent(_ key: Key) throws -> Double? {
+        guard contains(key) else { return nil }
+        return try decodeFlexDouble(key)
     }
 }
 
