@@ -104,6 +104,14 @@ public final class SettingsModel: ObservableObject {
         persist(edited)
     }
 
+    // Startup: launch-at-login (SMAppService; not config-backed — it's a system login item).
+    public var launchAtLoginAvailable: Bool { LoginItem.isAvailable }
+    public var launchAtLogin: Bool { LoginItem.isEnabled }
+    public func setLaunchAtLogin(_ on: Bool) {
+        do { try LoginItem.setEnabled(on) } catch { NSLog("ZoneTilerWM: launch-at-login toggle failed: \(error)") }
+        objectWillChange.send()
+    }
+
     // Advanced: auto-tiler solver weights (integers; negative = reward).
     public func setSolverWeight(_ key: String, _ v: Int) { setOrAppend(section: "tiler.solver_weights", key: key, rawValue: "\(v)") }
 
@@ -294,6 +302,16 @@ public struct SettingsView: View {
 
     private var general: some View {
         Form {
+            Section("Startup") {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { model.launchAtLogin },
+                    set: { model.setLaunchAtLogin($0) }))
+                    .disabled(!model.launchAtLoginAvailable)
+                if !model.launchAtLoginAvailable {
+                    Text("Available when running the installed ZoneTilerWM.app (not the dev binary).")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
             Section("Config") {
                 LabeledContent("File") {
                     HStack(spacing: 8) {

@@ -601,5 +601,11 @@ controller.setupScreenWatch()
 controller.setupFocusTracking()
 controller.bindAllHotkeys()
 controller.setupConfigWatch()
+// Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
+switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
+case "analytics": DispatchQueue.main.async { controller.openAnalytics() }
+case "settings":  DispatchQueue.main.async { controller.openSettings() }
+default: break
+}
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")
 app.run()
