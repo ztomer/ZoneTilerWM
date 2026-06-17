@@ -34,6 +34,8 @@ public enum ConfigLoader {
         public var placementStrategy: String
         public var windowMemory: WindowMemorySettings
         public var aliases: [String: [String]]
+        public var tilerModifier: [String]   // resolved (e.g. mash -> [ctrl, cmd])
+        public var focusModifier: [String]
     }
 
     // MARK: - TOML decode model (only the sections the ported core needs)
@@ -68,6 +70,8 @@ public enum ConfigLoader {
         var auto_tiling_mode: String?
         var working_set: RawWorkingSet?
         var placement_strategy: String?
+        var modifier: String?
+        var focus_modifier: String?
     }
 
     private struct RawWindowMemory: Decodable {
@@ -123,6 +127,12 @@ public enum ConfigLoader {
             appZones: wm?.app_zones ?? [:],
             autoTileFallback: wm?.auto_tile_fallback ?? false)
 
+        let aliases = raw.aliases ?? [:]
+        func resolveMod(_ name: String?) -> [String] {
+            guard let name else { return [] }
+            return aliases[name] ?? [name]
+        }
+
         return LoadedConfig(
             version: raw.version ?? "Unknown",
             zoneConfig: zoneConfig,
@@ -133,7 +143,9 @@ public enum ConfigLoader {
             workingSetMaxCapacity: t.working_set?.max_capacity ?? 6,
             placementStrategy: t.placement_strategy ?? "rotate",
             windowMemory: windowMemory,
-            aliases: raw.aliases ?? [:])
+            aliases: aliases,
+            tilerModifier: resolveMod(t.modifier),
+            focusModifier: resolveMod(t.focus_modifier))
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {
