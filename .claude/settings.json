@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Read(//Users/ztomer/.hammerspoon/modules/**)",
-      "Read(//Users/ztomer/Projects/ZoneTilerWM/modules/**)"
+      "Read(//Users/ztomer/Projects/ZoneTilerWM/modules/**)",
+      "Bash(swift build:*)",
+      "Bash(swift test:*)",
+      "Bash(swift run:*)",
+      "Bash(swift package:*)",
+      "Bash(lua:*)",
+      "Bash(make:*)",
+      "Bash(tools/verify.sh:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
     ]
   }
 }

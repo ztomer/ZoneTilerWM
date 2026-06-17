@@ -55,8 +55,14 @@ public struct MemoryPref: Codable, Equatable {
     }
 }
 
-/// A window as the algorithms see it. Only `w`/`h` matter to the solver's cost function
-/// (it reads `window:frame()` which the Lua mock returns as {w,h}).
+/// A window as the **solver** sees it. `id` is an opaque label used only to map results
+/// back to the caller's windows — it is NOT a live window id. (The solver corpus uses
+/// app-name-ish labels like "WideApp"; the live layer stringifies its CGWindowID into this
+/// field when invoking the solver.) Only `w`/`h` + `memory` feed the cost function.
+///
+/// Window-value-type model (intentionally two types, do not merge):
+///   - `WindowSnapshot` — solver input, label-keyed (this type).
+///   - `AutoTiler.Window` / live enumeration — keyed by the real Int CGWindowID.
 public struct WindowSnapshot: Codable, Equatable {
     public var id: String
     public var w: Double

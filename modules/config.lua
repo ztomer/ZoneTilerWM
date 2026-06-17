@@ -20,7 +20,8 @@ local function load_config()
     local config_file = hs.configdir .. '/config.toml'
     local file, err = io.open(config_file, 'r')
     if not file then
-        print('Error: Could not open config file: ' .. config_file .. ' Error: ' .. tostring(err))
+        -- stderr so headless tooling (oracles) keep stdout clean for JSON
+        io.stderr:write('Error: Could not open config file: ' .. config_file .. ' Error: ' .. tostring(err) .. '\n')
         return nil
     end
 
@@ -83,7 +84,7 @@ if not config then
     return {}
 end
 
--- Print version
-print('Loaded ZoneTilerWM Configuration Version: ' .. (config.version or 'Unknown'))
+-- Version banner to stderr (keeps stdout clean for headless tooling / oracles)
+io.stderr:write('Loaded ZoneTilerWM Configuration Version: ' .. (config.version or 'Unknown') .. '\n')
 
 return config

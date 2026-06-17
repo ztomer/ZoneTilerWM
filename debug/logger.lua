@@ -112,7 +112,7 @@ function logger.new(module_name, enabled, level)
             return
         end
         local Msg = format_message(nil, ...)
-        print(Msg)
+        io.stderr:write(Msg .. "\n")
         write_to_file(Msg)
     end
 
@@ -130,7 +130,7 @@ function logger.new(module_name, enabled, level)
             return
         end
         local Msg = format_message("INFO", ...)
-        print(Msg)
+        io.stderr:write(Msg .. "\n")
         write_to_file(Msg)
     end
 
@@ -141,7 +141,7 @@ function logger.new(module_name, enabled, level)
             return
         end
         local Msg = format_message("WARN", ...)
-        print(Msg)
+        io.stderr:write(Msg .. "\n")
         write_to_file(Msg)
     end
 
@@ -152,7 +152,7 @@ function logger.new(module_name, enabled, level)
             return
         end
         local Msg = format_message("ERROR", ...)
-        print(Msg)
+        io.stderr:write(Msg .. "\n")
         write_to_file(Msg)
     end
 
