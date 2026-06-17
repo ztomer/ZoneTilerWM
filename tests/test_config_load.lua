@@ -24,7 +24,15 @@ end
 assert_eq(config.version, '1.0.0', 'Config version check')
 
 -- Test Nested Table (Tiler Keys)
-assert_eq(config.tiler.hotkeys.placement_mode.key, 'p', 'Tiler placement mode key')
+-- Hotkeys are stored as raw arrays: [1] = modifier, [2] = key.
+-- Consumers (modules/tiler.lua, init.lua) read them via hk[1]/hk[2], so the
+-- test asserts against that array shape rather than a {mods, key} struct.
+-- The "mash" modifier alias is resolved to its array form during config load.
+assert_eq(config.tiler.hotkeys.placement_mode[2], 'p', 'Tiler placement mode key')
+local pm_mods = config.tiler.hotkeys.placement_mode[1]
+assert_eq(type(pm_mods), 'table', 'Tiler placement mode modifier resolved to array')
+assert_eq(pm_mods[1], 'ctrl', 'Tiler placement mode modifier (mash -> ctrl)')
+assert_eq(pm_mods[2], 'cmd', 'Tiler placement mode modifier (mash -> cmd)')
 
 -- Test Colors (Green)
 local green = config.pomodoro.color_time_remaining
