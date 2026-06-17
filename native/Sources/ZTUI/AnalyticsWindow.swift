@@ -71,7 +71,7 @@ public struct AnalyticsView: View {
             Text("Detail — \(filtered.count) learned placements\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
             Table(filtered) {
                 TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
-                TableColumn("Monitor") { Text($0.monitor) }.width(min: 56, ideal: 64, max: 80)
+                TableColumn("Monitor") { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
                 TableColumn("Zone") { Text($0.zone) }.width(min: 44, ideal: 52, max: 70)
                 TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 64)
                 TableColumn("Count") { Text("\($0.count)") }.width(min: 56, ideal: 70, max: 90)
@@ -80,7 +80,7 @@ public struct AnalyticsView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .frame(minWidth: 600, minHeight: 640)
+        .frame(minWidth: 600, idealWidth: 660, minHeight: 640, idealHeight: 720)   // ideal matches the window default
         .onAppear { if grid.isEmpty { grid = gridNames.last ?? "" } }   // default to the richest grid
     }
 
