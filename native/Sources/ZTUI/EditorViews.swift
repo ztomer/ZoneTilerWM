@@ -289,6 +289,10 @@ struct AppShortcutsView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Match the inset the grouped-Form tabs (General/Keys/Pomodoro/Advanced) and the Layouts
+        // cards land their content at (~46pt from the window edge). This view only got the shared
+        // 16pt container padding, so its content sat ~30pt further left than every other tab.
+        .padding(.horizontal, 30)
         .padding(.vertical, 4)
     }
 
