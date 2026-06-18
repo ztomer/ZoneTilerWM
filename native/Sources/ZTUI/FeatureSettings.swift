@@ -8,39 +8,90 @@ import ZTCore
 
 private let colorNames = ["green", "red", "blue", "yellow", "orange", "purple", "white", "black", "gray"]
 
+private let swatchColor: [String: Color] = [
+    "green": .green, "red": .red, "blue": .blue, "yellow": .yellow, "orange": .orange,
+    "purple": .purple, "white": .white, "black": .black, "gray": .gray,
+]
+
+/// Label + editable number field + stepper: type a precise value OR nudge it. Replaces the
+/// stepper-only rows so a value can be entered directly. Trailing-aligned to match the grouped
+/// Form's native two-column rhythm (label left, control right).
+private struct NumberRow: View {
+    let label: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    var step: Int = 1
+    var suffix: String = ""
+
+    var body: some View {
+        LabeledContent(label) {
+            HStack(spacing: 4) {
+                TextField("", value: Binding(
+                    get: { value },
+                    set: { value = min(max($0, range.lowerBound), range.upperBound) }), format: .number)
+                    .labelsHidden().textFieldStyle(.roundedBorder)
+                    .frame(width: 48).multilineTextAlignment(.trailing)
+                if !suffix.isEmpty { Text(suffix).foregroundColor(.secondary) }
+                Stepper("", value: $value, in: range, step: step).labelsHidden()
+            }
+        }
+    }
+}
+
+/// Label + a row of tappable colour swatches (the nine config colour names). Replaces a
+/// name-dropdown so the choice is visual and direct (the selected swatch is ringed).
+private struct ColorSwatchRow: View {
+    let label: String
+    let selected: String
+    let set: (String) -> Void
+
+    var body: some View {
+        LabeledContent(label) {
+            HStack(spacing: 6) {
+                ForEach(colorNames, id: \.self) { name in
+                    Circle().fill(swatchColor[name] ?? .gray)
+                        .frame(width: 18, height: 18)
+                        .overlay(Circle().stroke(Color.primary.opacity(0.15), lineWidth: 0.5))   // edge for white/black
+                        .overlay(Circle().stroke(Color.accentColor, lineWidth: name == selected ? 2.5 : 0))
+                        .contentShape(Circle())
+                        .onTapGesture { set(name) }
+                        .help(name)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Pomodoro
 
 struct PomodoroSettings: View {
     @ObservedObject var model: SettingsModel
-    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
 
     var body: some View {
         Section("Pomodoro") {
-            Stepper("Work: \(model.config.pomodoroWorkSec / 60) min",
-                    value: Binding(get: { model.config.pomodoroWorkSec / 60 },
-                                   set: { model.setPomodoroWorkMinutes($0) }), in: 1...120)
-            Stepper("Rest: \(model.config.pomodoroRestSec / 60) min",
-                    value: Binding(get: { model.config.pomodoroRestSec / 60 },
-                                   set: { model.setPomodoroRestMinutes($0) }), in: 1...60)
+            NumberRow(label: "Work", value: Binding(
+                get: { model.config.pomodoroWorkSec / 60 },
+                set: { model.setPomodoroWorkMinutes($0) }), range: 1...120, suffix: "min")
+            NumberRow(label: "Rest", value: Binding(
+                get: { model.config.pomodoroRestSec / 60 },
+                set: { model.setPomodoroRestMinutes($0) }), range: 1...60, suffix: "min")
             Toggle("Show color bar", isOn: Binding(
                 get: { model.config.pomodoroEnableColorBar },
                 set: { model.setPomodoroColorBar($0) }))
-            Stepper("Bar height: \(Int(model.config.pomodoroIndicatorHeight * 100))%",
-                    value: Binding(get: { model.config.pomodoroIndicatorHeight },
-                                   set: { model.setPomodoroIndicatorHeight($0) }), in: 0.05...1.0, step: 0.05)
+            NumberRow(label: "Bar height", value: Binding(
+                get: { Int((model.config.pomodoroIndicatorHeight * 100).rounded()) },
+                set: { model.setPomodoroIndicatorHeight(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
                 .disabled(!model.config.pomodoroEnableColorBar)
-            Stepper("Bar opacity: \(Int(model.config.pomodoroIndicatorAlpha * 100))%",
-                    value: Binding(get: { model.config.pomodoroIndicatorAlpha },
-                                   set: { model.setPomodoroIndicatorAlpha($0) }), in: 0.05...1.0, step: 0.05)
+            NumberRow(label: "Bar opacity", value: Binding(
+                get: { Int((model.config.pomodoroIndicatorAlpha * 100).rounded()) },
+                set: { model.setPomodoroIndicatorAlpha(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
                 .disabled(!model.config.pomodoroEnableColorBar)
-            colorPicker("Remaining color", value: model.config.pomodoroColorRemaining) { model.setPomodoroColor(remaining: true, $0) }
-            colorPicker("Used color", value: model.config.pomodoroColorUsed) { model.setPomodoroColor(remaining: false, $0) }
-        }
-    }
-
-    private func colorPicker(_ label: String, value: String, _ set: @escaping (String) -> Void) -> some View {
-        Picker(label, selection: Binding(get: { value }, set: set)) {
-            ForEach(colorNames, id: \.self) { Text($0).tag($0) }
+            ColorSwatchRow(label: "Remaining color", selected: model.config.pomodoroColorRemaining) {
+                model.setPomodoroColor(remaining: true, $0)
+            }
+            ColorSwatchRow(label: "Used color", selected: model.config.pomodoroColorUsed) {
+                model.setPomodoroColor(remaining: false, $0)
+            }
         }
     }
 }

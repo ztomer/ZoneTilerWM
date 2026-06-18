@@ -112,8 +112,9 @@ struct ConflictBanner: View {
     }
 }
 
-/// Shared column widths so every hotkey/modifier row on a tab lines up vertically (the
-/// label column right-aligns to the same x, and the alias pickers share one width).
+/// Shared column widths so every hotkey/modifier row on a tab lines up: labels left-align in a
+/// fixed column, a Spacer pushes the controls to a common right edge, and the alias pickers
+/// share one width — the same two-column rhythm the grouped Form tabs use.
 enum KeyRowMetrics {
     static let label: CGFloat = 170
     static let picker: CGFloat = 150
@@ -138,7 +139,8 @@ struct HotkeyRowView: View {
         let keyName = v.count > 1 ? v[1] : ""
         let recording = recorder.recordingKey == key
         return HStack(spacing: 8) {
-            Text(label).frame(width: labelWidth, alignment: .trailing)
+            Text(label).frame(width: labelWidth, alignment: .leading)
+            Spacer(minLength: 12)
             Picker("", selection: Binding(
                 get: { alias },
                 set: { model.setHotkey(section: section, key: key, alias: $0, keyName: keyName) })) {
@@ -148,7 +150,6 @@ struct HotkeyRowView: View {
             Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
                 recorder.start(id: key)
             }.frame(width: 84)
-            Spacer()
         }
         .onAppear {
             recorder.onCapture = { _, k in
@@ -180,39 +181,32 @@ struct KeybindEditorView: View {
     private func defaultAlias() -> String { aliasNames.first ?? "mash" }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ConflictBanner(conflicts: model.config.hotkeyConflicts())
-                ModifierLegend(aliases: model.config.aliases)
-                groupBox("Modifiers") {
-                    modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
-                    modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
-                }
-                groupBox("Actions") {
-                    ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
-                }
+        let conflicts = model.config.hotkeyConflicts()
+        return Form {
+            if !conflicts.isEmpty {
+                Section { ConflictBanner(conflicts: conflicts) }
             }
-            .padding(.vertical, 4)
+            Section { ModifierLegend(aliases: model.config.aliases) }
+            Section("Modifiers") {
+                modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
+                modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
+            }
+            Section("Actions") {
+                ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    @ViewBuilder private func groupBox<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
-            content()
-        }
+        .formStyle(.grouped)
     }
 
     private func modifierRow(_ label: String, key: String, current: [String]) -> some View {
         HStack(spacing: 8) {
-            Text(label).frame(width: KeyRowMetrics.label, alignment: .trailing)
+            Text(label).frame(width: KeyRowMetrics.label, alignment: .leading)
+            Spacer(minLength: 12)
             Picker("", selection: Binding(
                 get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias() },
                 set: { model.setModifierAlias(key: key, alias: $0) })) {
                 ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
             }.labelsHidden().frame(width: KeyRowMetrics.picker)
-            Spacer()
         }
     }
 }

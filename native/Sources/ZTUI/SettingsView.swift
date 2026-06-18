@@ -291,10 +291,14 @@ public final class SettingsModel: ObservableObject {
 
 public struct SettingsView: View {
     @ObservedObject var model: SettingsModel
-    @State private var tab = "general"
+    @State private var tab: String
     private let tabs = [("general", "General"), ("keys", "Keys"), ("apps", "Apps"),
                         ("layouts", "Layouts"), ("pomodoro", "Pomodoro"), ("advanced", "Advanced")]
-    public init(model: SettingsModel) { self.model = model }
+    public init(model: SettingsModel) {
+        self.model = model
+        // QA hook: ZT_SETTINGS_TAB opens a specific tab directly (for screenshot review).
+        _tab = State(initialValue: ProcessInfo.processInfo.environment["ZT_SETTINGS_TAB"] ?? "general")
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
