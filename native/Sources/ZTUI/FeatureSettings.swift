@@ -170,7 +170,7 @@ struct AudioSettings: View {
                 Picker("", selection: Binding(
                     get: { Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER") },
                     set: { model.setAudioHotkey(alias: $0, key: model.config.audioHotkeyKey ?? "'") })) {
-                    ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+                    ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
                 }.labelsHidden().fixedSize()
                 Text("+").foregroundColor(.secondary)
                 TextField("", text: Binding(
