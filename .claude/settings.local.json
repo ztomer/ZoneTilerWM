@@ -10,7 +10,8 @@
       "Bash(xargs:*)",
       "Bash(wc:*)",
       "Bash(luacheck modules/window_cache.lua modules/window_actions.lua modules/tiler.lua modules/focus_manager.lua modules/smart_placer.lua modules/window_memory.lua)",
-      "Bash(luacheck --no-config modules/window_cache.lua modules/window_actions.lua modules/tiler.lua modules/focus_manager.lua modules/smart_placer.lua modules/window_memory.lua)"
+      "Bash(luacheck --no-config modules/window_cache.lua modules/window_actions.lua modules/tiler.lua modules/focus_manager.lua modules/smart_placer.lua modules/window_memory.lua)",
+      "Bash(echo \"=== hs.* namespaces used \\(count\\) ===\" && grep -rhoE 'hs\\\\.[a-zA-Z]+\\(\\\\.[a-zA-Z]+\\)?' --include='*.lua' modules init.lua | sort | uniq -c | sort -rn && echo \"\" && echo \"=== persistence/storage formats ===\" && ls -la ~/.config/ZoneTilerWM/ 2>/dev/null; grep -rl \"json\" modules/*.lua | head)"
     ],
     "deny": [],
     "ask": []
