@@ -30,7 +30,7 @@ let package = Package(
     targets: [
         .target(name: "ZTCore"),
         .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"]),
-        .target(name: "ZTUI", dependencies: ["ZTCore", "ZTSystem"]),
+        .target(name: "ZTUI", dependencies: ["ZTCore", "ZTSystem"], resources: [.process("Resources")]),
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),
         .executableTarget(name: "zt-axspike", dependencies: ["ZTSystem"]),
         .executableTarget(name: "zt-probe", dependencies: ["ZTSystem"]),
