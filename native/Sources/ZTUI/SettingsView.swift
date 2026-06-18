@@ -285,19 +285,38 @@ public final class SettingsModel: ObservableObject {
 
 public struct SettingsView: View {
     @ObservedObject var model: SettingsModel
+    @State private var tab = "general"
+    private let tabs = [("general", "General"), ("keys", "Keys"), ("apps", "Apps"),
+                        ("layouts", "Layouts"), ("pomodoro", "Pomodoro"), ("advanced", "Advanced")]
     public init(model: SettingsModel) { self.model = model }
 
     public var body: some View {
-        TabView {
-            general.tabItem { Text("General") }
-            KeybindEditorView(model: model).tabItem { Text("Keys") }
-            AppShortcutsView(model: model).tabItem { Text("Apps") }
-            LayoutEditorView(model: model).tabItem { Text("Layouts") }
-            PomodoroTab(model: model).tabItem { Text("Pomodoro") }
-            AdvancedTab(model: model).tabItem { Text("Advanced") }
+        VStack(spacing: 0) {
+            // The tab bar lives in the (transparent, button-stripped) titlebar — the close
+            // button floats at the left; the segmented tabs are centered. See SettingsWindow.
+            Picker("", selection: $tab) {
+                ForEach(tabs, id: \.0) { Text($0.1).tag($0.0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .frame(maxWidth: 480)
+            .padding(.leading, 72)     // clear the traffic-light close button
+            .padding(.trailing, 16)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity)
+            Divider()
+            Group {
+                switch tab {
+                case "keys": KeybindEditorView(model: model)
+                case "apps": AppShortcutsView(model: model)
+                case "layouts": LayoutEditorView(model: model)
+                case "pomodoro": PomodoroTab(model: model)
+                case "advanced": AdvancedTab(model: model)
+                default: general
+                }
+            }
+            .padding(.horizontal, 16).padding(.bottom, 16)
         }
         .frame(width: 760)        // fixed width; height follows each tab's content (window auto-sizes)
-        .padding()
     }
 
     private var general: some View {

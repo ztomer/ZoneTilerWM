@@ -29,6 +29,7 @@ public struct AnalyticsView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Header sits in the transparent titlebar; leading pad clears the close button.
             HStack {
                 Text("Placement analytics").font(.headline)
                 Spacer()
@@ -43,6 +44,7 @@ public struct AnalyticsView: View {
                     }.labelsHidden().frame(width: 110)
                 }
             }
+            .padding(.leading, 64)
             summary
             HStack {
                 Picker("", selection: $mode) {
@@ -229,7 +231,13 @@ public final class AnalyticsWindowController {
         let hosting = NSHostingController(rootView: AnalyticsView(model: model))
         let w = NSWindow(contentViewController: hosting)
         w.title = "ZoneTilerWM Analytics"
-        w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        // Same unified "appbar" chrome as Settings: transparent full-size titlebar, no title
+        // text, close button only. The header row sits in the titlebar (see AnalyticsView).
+        w.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        w.titlebarAppearsTransparent = true
+        w.titleVisibility = .hidden
+        w.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        w.standardWindowButton(.zoomButton)?.isHidden = true
         w.setContentSize(NSSize(width: 660, height: 720))
         w.isReleasedWhenClosed = false
         w.center()

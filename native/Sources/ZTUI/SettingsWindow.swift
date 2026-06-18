@@ -23,7 +23,13 @@ public final class SettingsWindowController {
         hosting.sizingOptions = [.preferredContentSize]
         let w = NSWindow(contentViewController: hosting)
         w.title = "ZoneTilerWM Settings"
-        w.styleMask = [.titled, .closable, .miniaturizable]
+        // Unified "appbar": the tab bar (in the SwiftUI content) sits in a transparent,
+        // full-size titlebar with no title text and only the close button.
+        w.styleMask = [.titled, .closable, .fullSizeContentView]
+        w.titlebarAppearsTransparent = true
+        w.titleVisibility = .hidden
+        w.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        w.standardWindowButton(.zoomButton)?.isHidden = true
         let maxH = (NSScreen.main?.visibleFrame.height ?? 1000) - 40
         w.contentMinSize = NSSize(width: 760, height: 320)
         w.contentMaxSize = NSSize(width: 760, height: maxH)
