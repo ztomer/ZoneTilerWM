@@ -124,6 +124,7 @@ final class AgentController: NSObject {
     private var configWatcher: ConfigWatcher?
     private var settings: SettingsWindowController?
     private var analytics: AnalyticsWindowController?
+    private var about: AboutWindowController?
 
     init(config: ConfigLoader.LoadedConfig, configURL: URL) {
         let screens = NSScreenProvider()
@@ -559,6 +560,9 @@ final class AgentController: NSObject {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "ZoneTilerWM — v2 agent", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
+        let aboutItem = NSMenuItem(title: "About ZoneTilerWM", action: #selector(openAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -588,6 +592,11 @@ final class AgentController: NSObject {
         }
         settings?.show()
     }
+
+    @objc func openAbout() {
+        if about == nil { about = AboutWindowController() }
+        about?.show()
+    }
 }
 
 let app = NSApplication.shared
@@ -605,6 +614,7 @@ controller.setupConfigWatch()
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
 case "analytics": DispatchQueue.main.async { controller.openAnalytics() }
 case "settings":  DispatchQueue.main.async { controller.openSettings() }
+case "about":     DispatchQueue.main.async { controller.openAbout() }
 default: break
 }
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")
