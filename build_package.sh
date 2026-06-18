@@ -27,7 +27,9 @@ command -v xcodegen >/dev/null || { echo "error: xcodegen not found (brew instal
 # grant survives rebuilds. Falls back to ad-hoc on a machine/CI that lacks the cert.
 # (Create it once — see docs/DEV_SIGNING.md.)
 SIGN_ID="${ZT_SIGN_ID:-ZoneTilerWM Dev}"
-if security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
+if [ "$SIGN_ID" = "-" ]; then
+  echo "==> Signing ad-hoc (distributable build — see build_dist.sh)"
+elif security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
   echo "==> Signing with stable identity: $SIGN_ID"
 else
   echo "==> Identity '$SIGN_ID' not found — falling back to ad-hoc (grant resets on rebuild)"

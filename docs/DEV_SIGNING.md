@@ -65,6 +65,15 @@ open /Applications/ZoneTilerWM.app
 Then grant once in **System Settings → Privacy & Security → Accessibility**. From now on
 rebuilding + reinstalling keeps the grant — no re-granting.
 
+## Sharing a build with someone else
+
+Do **not** hand out a build signed with `ZoneTilerWM Dev` — that certificate lives only in your
+keychain, so on another Mac the signature is unknown and the Accessibility grant can misbehave.
+Use `./build_dist.sh`, which forces ad-hoc signing (no certificate dependency; ad-hoc TCC grants
+work on any Mac). It prints the recipient's setup steps and leaves your local install untouched.
+The build is not notarized, so the recipient clears Gatekeeper quarantine once
+(`xattr -dr com.apple.quarantine /Applications/ZoneTilerWM.app`). It is also arm64-only.
+
 ## If the grant is misbehaving
 
 Stale entries from earlier ad-hoc builds can shadow the real one. Wipe all entries for the

@@ -25,8 +25,15 @@ Develop, test, and build:
 ./build.sh         # build the native package (pass-through flags, e.g. ./build.sh -c release)
 ./run.sh           # build and launch the agent in the foreground (Ctrl-C to quit)
 make verify        # swift unit + golden tests
-make app           # build ZoneTilerWM.app (Release, ad-hoc signed) via xcodegen + xcodebuild
+make app           # build ZoneTilerWM.app (Release) via xcodegen + xcodebuild
+./build_package.sh # build + zip the .app (signs with the local "ZoneTilerWM Dev" cert if present)
+./build_dist.sh    # build an AD-HOC .app + zip to hand to someone on another Mac
 ```
+
+> **Signing:** local builds (`make app`, `build_package.sh`) sign with a stable self-signed
+> `ZoneTilerWM Dev` identity when it exists in the keychain, so the Accessibility (TCC) grant
+> survives rebuilds — see [docs/DEV_SIGNING.md](docs/DEV_SIGNING.md). `build_dist.sh` forces
+> ad-hoc signing for builds you share (that cert is yours alone; ad-hoc grants work on any Mac).
 
 Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic core (`ZTCore`). The OS-adapter/UI layers are validated via live screenshot QA + the post-move AX frame readback rather than unit tests — see [native/REVIEW.md](native/REVIEW.md).
 
