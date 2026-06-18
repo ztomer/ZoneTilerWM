@@ -115,6 +115,13 @@ final class AgentController: NSObject {
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
     private var appSwitcher: AppSwitcher.Config
+    // The single source of truth for executing actions. Every hotkey (and the MCP server)
+    // routes through this. Built after super.init (its hooks reference self).
+    private var dispatcher: ActionDispatcher!
+    // Read-only resource provider (CGWindowList + config + learned store; 0 AX) and the IPC
+    // socket the zt-mcp shim forwards to.
+    private var arrangementQuery: ArrangementQuery!
+    private var socketServer: AgentSocketServer?
     private let pomodoro: Pomodoro
     private var statusItem: NSStatusItem?
     private var pomodoroItem: NSStatusItem?
@@ -191,6 +198,38 @@ final class AgentController: NSObject {
         windowHints = WindowHintsController(
             binder: binder, screens: screens, windowSystem: windowSystem,
             keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" })
+        // The action dispatcher: hooks read live state via `unowned self` (the dispatcher is owned
+        // by self and never outlives it). The coordinator/config getters are closures so a live
+        // reload is picked up automatically. The pomodoro hook also refreshes the menubar UI, so
+        // an MCP/URL-triggered pomodoro command updates the pill immediately, not on the next tick.
+        dispatcher = ActionDispatcher(hooks: .init(
+            coordinator: { [unowned self] in self.coordinator },
+            autoTilerConfig: { [unowned self] in self.autoTilerConfig },
+            appSwitcherConfig: { [unowned self] in self.appSwitcher },
+            audioDevices: { [unowned self] in self.config.audioDevices },
+            audioShortcut: { [unowned self] in self.config.audioShortcutCallback },
+            now: { Int(Date().timeIntervalSince1970) },
+            pomodoro: { [unowned self] cmd in
+                switch cmd {
+                case .enable: self.pomodoro.enable()
+                case .disable: _ = self.pomodoro.disable()
+                case .reset: self.pomodoro.resetWork()
+                }
+                self.refreshPomodoro()
+                return .pomodoroUpdated(active: self.pomodoro.isActive,
+                                        phase: self.pomodoro.phase.rawValue,
+                                        timeLeftSec: self.pomodoro.timeLeft)
+            },
+            toggleResizeMode: { [unowned self] in self.resizeMode.toggle() },
+            toggleWindowHints: { [unowned self] in self.windowHints.toggle() },
+            reloadConfig: { [unowned self] in self.reloadFromDisk() }))
+        // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
+        // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
+        arrangementQuery = ArrangementQuery(
+            windowSystem: windowSystem, screenProvider: screens, monitorManager: monitorManager,
+            zoneConfig: { [unowned self] in self.config.zoneConfig },
+            offset: { [weak resizeManager] m, a, i in resizeManager?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
+            memory: { [unowned self] in self.learnedMemory })
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
         applyBorders(config)
     }
@@ -237,8 +276,9 @@ final class AgentController: NSObject {
         var bound = 0
         for (key, app) in group.apps {
             guard let code = KeyMap.keyCode(for: key) else { continue }
-            let cfg = appSwitcher
-            if binder.bind(keyCode: code, modifiers: mask, action: { AppController.toggle(app: app, config: cfg) }) {
+            if binder.bind(keyCode: code, modifiers: mask, action: { [weak self] in
+                self?.dispatcher.perform(.appToggle(app: app))
+            }) {
                 bound += 1
             }
         }
@@ -250,9 +290,9 @@ final class AgentController: NSObject {
         let mask = KeyMap.modifierMask(for: modifier)
         let ok = binder.bind(keyCode: code, modifiers: mask) { [weak self] in
             guard let self else { return }
-            let now = Int(Date().timeIntervalSince1970)
-            let moves = self.coordinator.autoTileScreen(autoTilerConfig: self.autoTilerConfig, memory: [:], now: now)
-            log("zt-agent: auto-tile -> \(moves.count) moves")
+            if case .autoTiled(let moves) = self.dispatcher.perform(.autoTileScreen) {
+                log("zt-agent: auto-tile -> \(moves.count) moves")
+            }
         }
         if !ok { log("zt-agent: auto-tile hotkey \(modifier)+\(key) -> FAILED") }
     }
@@ -265,11 +305,12 @@ final class AgentController: NSObject {
             guard let code = KeyMap.keyCode(for: zoneKey) else { continue }
             let ok = binder.bind(keyCode: code, modifiers: mask) { [weak self] in
                 guard let self else { return }
-                switch self.coordinator.moveFocusedToZone(zoneKey) {
-                case .success(let o):
-                    log("zt-agent: '\(zoneKey)' -> tile \(o.tileIndex) applied=\(o.applied)")
-                    self.flash.flash(o.target)
-                case .failure(let e): log("zt-agent: '\(zoneKey)' -> \(e)")
+                switch self.dispatcher.perform(.tileFocusedToZone(zone: zoneKey)) {
+                case .tiled(_, _, let tileIndex, let target, let applied):
+                    log("zt-agent: '\(zoneKey)' -> tile \(tileIndex) applied=\(applied)")
+                    self.flash.flash(target)
+                case .failed(let reason): log("zt-agent: '\(zoneKey)' -> \(reason)")
+                default: break
                 }
             }
             if ok { bound += 1 } else { log("zt-agent: hotkey for '\(zoneKey)' FAILED to register (taken by another app?)") }
@@ -285,7 +326,8 @@ final class AgentController: NSObject {
             guard let code = KeyMap.keyCode(for: zoneKey) else { continue }
             if binder.bind(keyCode: code, modifiers: mask, action: { [weak self] in
                 guard let self else { return }
-                if self.coordinator.cycleFocus(zoneKey) != nil, let f = self.windowSystem.focusedWindow()?.frame {
+                if case .focusCycled(let id) = self.dispatcher.perform(.cycleFocus(zone: zoneKey)),
+                   id != nil, let f = self.windowSystem.focusedWindow()?.frame {
                     self.flash.flash(f)
                 }
             }) { bound += 1 }
@@ -293,17 +335,16 @@ final class AgentController: NSObject {
         log("zt-agent: bound \(bound)/\(zoneKeys.count) focus-cycle hotkeys with modifier \(modifier)")
     }
 
+    /// `devices` is used only to decide whether the hotkey is worth binding (need ≥2 to cycle);
+    /// the actual device list + shortcut are read live by the dispatcher from config.
     func bindAudioHotkey(modifier: [String], key: String, devices: [String], shortcut: String?) {
         guard devices.count >= 2, let code = KeyMap.keyCode(for: key) else { return }
         let mask = KeyMap.modifierMask(for: modifier)
         guard mask != 0 else { return }
-        let ok = binder.bind(keyCode: code, modifiers: mask) {
-            let current = AudioDevices.defaultOutputName()
-            guard let next = AudioSwitcher.nextDevice(configured: devices, currentName: current) else { return }
-            if AudioDevices.setDefaultOutput(named: next) {
-                log("zt-agent: audio -> \(next)")
-                if let shortcut, !shortcut.isEmpty { AudioDevices.runShortcut(shortcut) }
-            }
+        let ok = binder.bind(keyCode: code, modifiers: mask) { [weak self] in
+            guard let self else { return }
+            if case .audioSwitched(let name) = self.dispatcher.perform(.switchAudio(device: .next)),
+               let name { log("zt-agent: audio -> \(name)") }
         }
         if !ok { log("zt-agent: audio hotkey \(modifier)+\(key) -> FAILED") }
     }
@@ -357,14 +398,15 @@ final class AgentController: NSObject {
     }
 
     private func bindPomodoroHotkeys() {
+        // The pomodoro dispatcher hook mutates the state machine AND refreshes the menubar UI.
         bindAction(config.resolvedHotkey("enable", in: config.pomodoroHotkeys), label: "pomodoro.enable") { [weak self] in
-            self?.pomodoro.enable(); self?.refreshPomodoro()
+            self?.dispatcher.perform(.pomodoro(.enable))
         }
         bindAction(config.resolvedHotkey("disable", in: config.pomodoroHotkeys), label: "pomodoro.disable") { [weak self] in
-            _ = self?.pomodoro.disable(); self?.refreshPomodoro()
+            self?.dispatcher.perform(.pomodoro(.disable))
         }
         bindAction(config.resolvedHotkey("reset", in: config.pomodoroHotkeys), label: "pomodoro.reset") { [weak self] in
-            self?.pomodoro.resetWork(); self?.refreshPomodoro()
+            self?.dispatcher.perform(.pomodoro(.reset))
         }
     }
 
@@ -406,6 +448,21 @@ final class AgentController: NSObject {
         configWatcher?.start()
     }
 
+    /// Start the Unix-domain socket the zt-mcp shim forwards to. Actions route through the same
+    /// dispatcher the hotkeys use; queries through the read-only (0-AX) arrangement provider. The
+    /// handler runs on the main queue (AgentSocketServer's accept source), so touching the
+    /// coordinator/config here is on-main like every other callback.
+    func setupIPCServer() {
+        socketServer = AgentSocketServer(path: AgentSocket.defaultPath()) { [weak self] request in
+            guard let self else { return .error("agent shutting down") }
+            switch request {
+            case .action(let action): return .action(self.dispatcher.perform(action))
+            case .query(let query):   return .query(self.arrangementQuery.answer(query))
+            }
+        }
+        socketServer?.start()
+    }
+
     // MARK: - Display arrangement
 
     /// Register every connected screen in enumeration order so logical monitor ids match the
@@ -437,18 +494,20 @@ final class AgentController: NSObject {
         }
     }
 
-    private func reloadFromDisk() {
+    @discardableResult
+    private func reloadFromDisk() -> Bool {
         guard let newConfig = try? ConfigLoader.load(contentsOf: configURL) else {
             log("zt-agent: config reload skipped — could not parse \(configURL.lastPathComponent)")
-            return
+            return false
         }
         let problems = ConfigValidator.validate(newConfig)
         guard problems.isEmpty else {
             log("zt-agent: config reload skipped — invalid: \(problems.joined(separator: "; "))")
-            return   // keep the running config
+            return false   // keep the running config
         }
         applyConfig(newConfig)
         log("zt-agent: config reloaded from \(configURL.lastPathComponent)")
+        return true
     }
 
     /// Apply a validated config in place: rebuild config-derived state, then rebind hotkeys.
@@ -501,37 +560,36 @@ final class AgentController: NSObject {
     func bindMiscHotkeys(_ config: ConfigLoader.LoadedConfig) {
         // Zen mode (minimize other windows on the focused screen).
         bindAction(config.resolvedHotkey("zen_mode", in: config.tilerHotkeys), label: "zen_mode") { [weak self] in
-            self?.coordinator.toggleZen()
+            self?.dispatcher.perform(.toggleZen)
         }
         // System: toggle Activity Monitor.
-        let cfg = appSwitcher
-        bindAction(config.resolvedHotkey("activity_monitor", in: config.systemHotkeys), label: "activity_monitor") {
-            AppController.toggle(app: "Activity Monitor", config: cfg)
+        bindAction(config.resolvedHotkey("activity_monitor", in: config.systemHotkeys), label: "activity_monitor") { [weak self] in
+            self?.dispatcher.perform(.appToggle(app: "Activity Monitor"))
         }
         // Resize mode: toggle the grid-line adjustment modal.
         bindAction(config.resolvedHotkey("resize_mode", in: config.tilerHotkeys), label: "resize_mode") { [weak self] in
-            self?.resizeMode.toggle()
+            self?.dispatcher.perform(.toggleResizeMode)
         }
         // Multi-monitor: move focused window to next/previous monitor (placement_mode/zone_info),
         // and focus next/previous screen. No-ops on a single display.
         bindAction(config.resolvedHotkey("placement_mode", in: config.tilerHotkeys), label: "move_to_next_monitor") { [weak self] in
-            _ = self?.coordinator.moveFocusedToMonitor(.next)
+            self?.dispatcher.perform(.moveFocusedToMonitor(direction: .next))
         }
         bindAction(config.resolvedHotkey("zone_info", in: config.tilerHotkeys), label: "move_to_prev_monitor") { [weak self] in
-            _ = self?.coordinator.moveFocusedToMonitor(.previous)
+            self?.dispatcher.perform(.moveFocusedToMonitor(direction: .previous))
         }
         bindAction(config.resolvedHotkey("focus_next_screen", in: config.tilerHotkeys), label: "focus_next_screen") { [weak self] in
-            self?.coordinator.focusScreen(.next)
+            self?.dispatcher.perform(.focusScreen(direction: .next))
         }
         bindAction(config.resolvedHotkey("focus_prev_screen", in: config.tilerHotkeys), label: "focus_prev_screen") { [weak self] in
-            self?.coordinator.focusScreen(.previous)
+            self?.dispatcher.perform(.focusScreen(direction: .previous))
         }
         // System: window hints (label each window, type to focus) + config reload hotkey.
         bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
-            self?.windowHints.toggle()
+            self?.dispatcher.perform(.toggleWindowHints)
         }
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
-            self?.reloadFromDisk()
+            self?.dispatcher.perform(.reloadConfig)
         }
     }
 
@@ -652,6 +710,7 @@ controller.setupScreenWatch()
 controller.setupFocusTracking()
 controller.bindAllHotkeys()
 controller.setupConfigWatch()
+controller.setupIPCServer()        // MCP shim talks to the agent over this socket
 controller.showOnboardingIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
