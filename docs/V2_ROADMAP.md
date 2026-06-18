@@ -48,18 +48,31 @@ Layout snapshots are the connective tissue both pillars want.
 - **URL scheme + small CLI** (S–M · low · ~0 AX). `zonetiler://tile?zone=j&monitor=1`, `ztwm tile j`
   — the same action set for shell/automation tools.
 - **Window rules engine** (L · low–med · event-gated AX). Declarative match → action, e.g.
-  `app == Arc && title ~ "Meet" → zone K on monitor 2, float`. Generalises today's per-app default
-  zones into rules with triggers (on-open, on-display-change, on-focus). Pure logic → `ZTCore`,
-  TDD-friendly; only acts on events, so AX cost is bounded.
+  `app == Arc → zone K on monitor 2, float`. Generalises today's per-app default zones into rules
+  with triggers (on-open, on-display-change, on-focus). Pure logic → `ZTCore`, TDD-friendly; only
+  acts on events, so AX cost is bounded.
+  - **Match on app / bundle-ID by default — NOT window title.** `CGWindowListCopyWindowInfo`
+    returns `kCGWindowName` (titles) as empty for *other* apps' windows on macOS Catalina+ unless we
+    hold Screen Recording permission. So a `title ~ "..."` rule would either fail silently or force a
+    Screen-Recording grant (a scary prompt that itself triggers EDR auditing) — or fall back to AX
+    reads, busting the budget on every window event. Owner/app name *is* available zero-AX, so
+    bundle-ID/app matching is the safe default. Title matching, if ever added, is an explicit opt-in
+    that documents the Screen-Recording prerequisite. (Plan review, extended-thinking pass.)
 
 ### B. Discoverability — the on-brand "kinesthetic" pillar
 - **Modifier-held zone HUD** (M · low · ~0 AX). Hold the tiling modifier → a translucent overlay
   shows the live zone keymap on screen; the keypress lands the window. Overlay + `flagsChanged`
   monitor, reuses `ZTCore` keymap + `GridLines`. **Must be toggleable — see design note below.**
-- **Mouse drag-to-snap** (L · med · AX only on drop). Drag a window toward an edge/corner → live
-  zone preview overlay → drop to tile (Rectangle/Magnet-style). `CGEventTap` for the drag + overlay
-  preview + a single AX `setFrame` on drop. Opens the app to mouse-first users without abandoning
-  keyboard-first. The global event tap is the fiddly/risky part.
+- **Mouse drag-to-snap** (L · med · bounded AX: 1 read + 1 write per drag). Drag a window toward an
+  edge/corner → live zone preview overlay → drop to tile (Rectangle/Magnet-style).
+  - **Bounded-AX interaction (important):** you *cannot* continuously track a foreign window's frame
+    mid-drag without AX/SkyLight — `CGWindowList` frames only commit at drag end, and live hit-testing
+    via `AXUIElementCopyElementAtPosition` on every move is a continuous AX stream (severe EDR signal,
+    busts the budget). So the design is: **one** AX read on `mouseDown` to grab the dragged window's
+    ref, then track only the **cursor** via the `CGEventTap` (zero AX) to drive the live zone preview,
+    then **one** AX `setFrame` write on `mouseUp`. 1 read + 1 write per drag, not a stream.
+  - The global event tap is the fiddly/risky part; and an `LSUIElement` holding a `CGEventTap` is
+    itself EDR-sensitive (see risk register). (Plan review, extended-thinking pass.)
 - **Command palette** (M · low). Fuzzy search over all actions.
 
 ### C. Tiling depth
@@ -171,6 +184,36 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
   shouldn't wait on it. Until v2.3 lands, builds stay ad-hoc-signed and shared via the current
   `build_dist.sh` flow (the bundled `INSTALL.txt` + stale-TCC remove/re-add steps). Universal-binary
   (Intel) also rides here.
+  - **Decision (deliberate): notarization is deferred until feature-complete** so the
+    distribution/signing approach can be chosen with the full feature set known — accepting the
+    caveat below rather than front-loading it.
+  - **Caveat to honour at v2.3:** ad-hoc signing *masks* production TCC/EDR behaviour — a
+    hardened-runtime, notarized bundle in `/Applications` behaves differently from an ad-hoc build.
+    So the EDR-sensitive features (the MCP shim doing IPC, the drag-snap `CGEventTap`) must be
+    **re-validated under a notarized build before being considered done**; their ad-hoc behaviour is
+    not authoritative. (Plan review flagged production-first; we keep it last by choice + this gate.)
+
+## Risk register (from the extended-thinking plan review)
+
+Validated macOS/EDR traps to design around — not blockers, but each kills a naïve implementation:
+
+- **`kCGWindowName` needs Screen Recording.** Other apps' window titles read empty from
+  `CGWindowListCopyWindowInfo` unless `CGPreflightScreenCaptureAccess()` is granted. → rules engine
+  matches app/bundle-ID by default (see theme A).
+- **Foreign-window live drag tracking is architecturally impossible** without AX/SkyLight polling
+  (WindowServer commits frames only at drag end). → drag-snap uses the bounded 1-read/1-write design
+  + cursor tracking (see theme B).
+- **EDR profile of the agent.** An un-notarized `LSUIElement` that (a) holds a global `CGEventTap`
+  and (b) accepts IPC/XPC from an IDE-spawned MCP shim matches Process-Injection / C2 / priv-esc
+  heuristics; SentinelOne flags on process ancestry + IPC context. → notarized + hardened runtime is
+  the mitigation, and these features get re-validated under a notarized build (see v2.3 caveat).
+- **Ad-hoc signing masks production behaviour.** TCC/EDR outcomes differ between an ad-hoc
+  `build_dist.sh` binary and a notarized bundle in `/Applications` — don't trust ad-hoc results for
+  the security-sensitive features.
+- **Layout-snapshot restore is unreliable for multi-window / Electron apps** (Slack, Discord, Adobe,
+  CAD): restoring requires re-identifying and mutating non-owned sub-windows whose identity isn't
+  stable across launches. → scope snapshots to single-main-window apps first; treat multi-window
+  restore as best-effort.
 
 ## Non-goals (and why)
 
