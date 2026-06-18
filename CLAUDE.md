@@ -71,6 +71,7 @@ quick operational guide.
 ## Dev: accessibility
 
 Moving other apps' windows needs Accessibility (TCC) permission for the running process;
-it's granted on this machine. Re-signing/rebuilding can reset the grant — re-add the binary
-in System Settings → Privacy & Security → Accessibility. Use a stable signing identity to
-minimize churn.
+it's granted on this machine. macOS keys the grant to the app's *code signature*, so ad-hoc
+signing resets it on every rebuild. The build signs with a stable self-signed `ZoneTilerWM Dev`
+identity when present (falls back to ad-hoc), keeping the grant across rebuilds — see
+`docs/DEV_SIGNING.md` for the one-time cert setup and the `tccutil reset` recovery step.

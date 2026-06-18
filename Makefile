@@ -19,10 +19,16 @@ build:
 
 # Generate the Xcode project from project.yml and build the .app bundle. Needs xcodegen
 # (brew install xcodegen). Artifacts go to /tmp/ZoneTilerWM (out of the project tree).
+# Signs with the stable "ZoneTilerWM Dev" identity if present (keeps the Accessibility grant
+# across rebuilds — see docs/DEV_SIGNING.md), else ad-hoc. Override with ZT_SIGN_ID=...
 app:
 	@PATH="/opt/homebrew/bin:$$PATH" xcodegen generate
-	@xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
-		-configuration Release -derivedDataPath /tmp/ZoneTilerWM/DerivedData build
+	@SIGN_ID="$${ZT_SIGN_ID:-ZoneTilerWM Dev}"; \
+		security find-identity -v -p codesigning 2>/dev/null | grep -q "$$SIGN_ID" || SIGN_ID="-"; \
+		echo "signing with: $$SIGN_ID"; \
+		xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
+			-configuration Release -derivedDataPath /tmp/ZoneTilerWM/DerivedData \
+			CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$$SIGN_ID" build
 	@echo "built: /tmp/ZoneTilerWM/DerivedData/Build/Products/Release/ZoneTilerWM.app"
 
 probe: build
