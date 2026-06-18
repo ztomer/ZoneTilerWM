@@ -66,8 +66,9 @@ public final class TutorialWindowController {
     public func show() {
         if let window { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
         let hosting = NSHostingController(rootView: TutorialView())
-        hosting.sizingOptions = [.preferredContentSize]
         let w = NSWindow(contentViewController: hosting)
+        // One-shot fit — see AccessibilityOnboarding for why NOT preferredContentSize.
+        w.setContentSize(hosting.view.fittingSize)
         w.title = "ZoneTilerWM Tutorial"
         w.styleMask = [.titled, .closable, .fullSizeContentView]
         w.titlebarAppearsTransparent = true

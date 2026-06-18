@@ -68,8 +68,13 @@ public final class AccessibilityOnboardingController {
             onGranted()
             self?.window?.close()
         }))
-        hosting.sizingOptions = [.preferredContentSize]
         let w = NSWindow(contentViewController: hosting)
+        // One-shot fit. NOT sizingOptions = [.preferredContentSize]: that installs a
+        // resize-during-layout observer that reentrantly mutates the window frame inside the
+        // CATransaction commit cycle and aborts (SIGABRT, _postWindowNeedsUpdateConstraints) —
+        // same trap removed from SettingsWindow. As the LSUIElement .app's launch-time window
+        // (shown until Accessibility is granted) it crashed every fresh /Applications launch.
+        w.setContentSize(hosting.view.fittingSize)
         w.title = "Welcome to ZoneTilerWM"
         w.styleMask = [.titled, .closable, .fullSizeContentView]
         w.titlebarAppearsTransparent = true

@@ -64,8 +64,9 @@ public final class AboutWindowController {
             window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return
         }
         let hosting = NSHostingController(rootView: AboutView())
-        hosting.sizingOptions = [.preferredContentSize]
         let w = NSWindow(contentViewController: hosting)
+        // One-shot fit — see AccessibilityOnboarding for why NOT preferredContentSize.
+        w.setContentSize(hosting.view.fittingSize)
         w.title = "About ZoneTilerWM"
         // Unified appbar chrome: transparent full-size titlebar, no title text, close only.
         w.styleMask = [.titled, .closable, .fullSizeContentView]
