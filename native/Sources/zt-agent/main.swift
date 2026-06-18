@@ -569,7 +569,7 @@ final class AgentController: NSObject {
             self, selector: #selector(updateMenubarGlyph),
             name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "ZoneTilerWM — v2 agent", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "ZoneTilerWM", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
         let aboutItem = NSMenuItem(title: "About ZoneTilerWM", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
