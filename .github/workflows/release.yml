@@ -1,8 +1,15 @@
 name: Release
 
-# On a v* tag: build the Release .app (ad-hoc signed), zip it, and attach it to a GitHub
-# Release. Self-hosted macOS runner. No signing secrets needed yet (ad-hoc); when a Developer
-# ID is available, add an import-cert + notarytool + stapler step before the zip.
+# On a v* tag: build the Release .app, zip it, and attach it to a GitHub Release. Self-hosted
+# macOS runner.
+#
+# Signing is automatic based on secrets: with none set the build is ad-hoc (users right-click →
+# Open). Set these repo secrets to produce a Developer ID-signed + notarized build instead:
+#   MACOS_CERT_P12        base64 of the Developer ID Application .p12
+#   MACOS_CERT_PASSWORD   its export password
+#   KEYCHAIN_PASSWORD     any throwaway password for the temp keychain
+#   DEVELOPER_ID_IDENTITY e.g. "Developer ID Application: Tomer Zaidenstein (TEAMID)"
+#   AC_API_KEY_ID / AC_API_ISSUER_ID / AC_API_KEY_P8 (base64 .p8)  — App Store Connect API key
 
 on:
   push:
@@ -30,14 +37,62 @@ jobs:
       - name: Test
         run: make verify
 
+      # Developer ID signing is enabled only when the signing secrets exist; otherwise the build
+      # stays ad-hoc (the `signed` output drives the later notarize/release-notes branches).
+      - name: Detect signing secrets
+        id: sign
+        env:
+          CERT: ${{ secrets.MACOS_CERT_P12 }}
+        run: |
+          if [ -n "$CERT" ]; then echo "signed=true" >> "$GITHUB_OUTPUT"; else echo "signed=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Import Developer ID certificate
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}            # base64 of the .p12
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
       - name: Build Release .app
         run: |
           export PATH="/opt/homebrew/bin:$PATH"
           xcodegen generate
-          xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
-            -configuration Release -derivedDataPath build/dd \
-            MARKETING_VERSION="${{ steps.ver.outputs.version }}" \
-            build
+          if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
+            # Developer ID + hardened runtime (required for notarization).
+            xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
+              -configuration Release -derivedDataPath build/dd \
+              MARKETING_VERSION="${{ steps.ver.outputs.version }}" \
+              CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="${{ secrets.DEVELOPER_ID_IDENTITY }}" \
+              CODE_SIGNING_REQUIRED=YES ENABLE_HARDENED_RUNTIME=YES OTHER_CODE_SIGN_FLAGS="--timestamp" \
+              build
+          else
+            xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
+              -configuration Release -derivedDataPath build/dd \
+              MARKETING_VERSION="${{ steps.ver.outputs.version }}" build
+          fi
+
+      - name: Notarize + staple
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+          AC_API_KEY_P8: ${{ secrets.AC_API_KEY_P8 }}             # base64 of the App Store Connect .p8
+        run: |
+          APP="build/dd/Build/Products/Release/ZoneTilerWM.app"
+          echo "$AC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/ac_key.p8"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --key "$RUNNER_TEMP/ac_key.p8" --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" --wait
+          xcrun stapler staple "$APP"
 
       - name: Package ZoneTilerWM.zip
         run: |
@@ -48,8 +103,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
+            NOTES="Developer ID signed + notarized. Download, unzip, and move ZoneTilerWM.app to /Applications; on first launch grant Accessibility in System Settings → Privacy & Security → Accessibility."
+          else
+            NOTES="Ad-hoc signed build. On first launch: right-click the app → Open (unsigned-app Gatekeeper prompt), then grant Accessibility in System Settings → Privacy & Security → Accessibility."
+          fi
           gh release create "${{ github.ref_name }}" \
             "ZoneTilerWM-${{ steps.ver.outputs.version }}.zip" \
             --title "ZoneTilerWM ${{ steps.ver.outputs.version }}" \
             --generate-notes \
-            --notes "Ad-hoc signed build. On first launch: right-click the app → Open (unsigned-app Gatekeeper prompt), then grant Accessibility in System Settings → Privacy & Security → Accessibility."
+            --notes "$NOTES"
