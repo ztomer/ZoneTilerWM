@@ -207,6 +207,9 @@ struct KeybindEditorView: View {
                 set: { model.setModifierAlias(key: key, alias: $0) })) {
                 ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
             }.labelsHidden().frame(width: KeyRowMetrics.picker)
+            // Reserve the action rows' "+ key" trailing columns so every picker shares one right edge.
+            Text("+").hidden()
+            Color.clear.frame(width: 84, height: 1)
         }
     }
 }

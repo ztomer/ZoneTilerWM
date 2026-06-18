@@ -369,12 +369,12 @@ public struct SettingsView: View {
                     Text("usage").tag("usage")
                     Text("session").tag("session")
                 }
-                Stepper("Working-set capacity: \(model.config.workingSetMaxCapacity)",
-                        value: Binding(get: { model.config.workingSetMaxCapacity },
-                                       set: { model.setWorkingSetCapacity($0) }), in: 1...12)
-                Stepper("Working-set staleness: \(model.config.workingSetTimeLimit / 60) min",
-                        value: Binding(get: { model.config.workingSetTimeLimit / 60 },
-                                       set: { model.setWorkingSetMinutes($0) }), in: 1...240)
+                NumberRow(label: "Working-set capacity", value: Binding(
+                    get: { model.config.workingSetMaxCapacity },
+                    set: { model.setWorkingSetCapacity($0) }), range: 1...12)
+                NumberRow(label: "Working-set staleness", value: Binding(
+                    get: { model.config.workingSetTimeLimit / 60 },
+                    set: { model.setWorkingSetMinutes($0) }), range: 1...240, suffix: "min")
                 LabeledContent("Auto-tile center zones") {
                     HStack {
                         TextField("e.g. j, center, 0", text: $centerZonesEdit).textFieldStyle(.roundedBorder)
@@ -397,9 +397,9 @@ public struct SettingsView: View {
                 Toggle("Enable margins", isOn: Binding(
                     get: { model.config.zoneConfig.margins?.enabled ?? false },
                     set: { model.setMarginsEnabled($0) }))
-                Stepper("Size: \(Int(model.config.zoneConfig.margins?.size ?? 0)) px",
-                        value: Binding(get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
-                                       set: { model.setMarginsSize($0) }), in: 0...40)
+                NumberRow(label: "Size", value: Binding(
+                    get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
+                    set: { model.setMarginsSize($0) }), range: 0...40, suffix: "px")
                     .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
                 Toggle("Apply margin at screen edges", isOn: Binding(
                     get: { model.config.zoneConfig.margins?.screen_edge ?? false },

@@ -15,8 +15,8 @@ private let swatchColor: [String: Color] = [
 
 /// Label + editable number field + stepper: type a precise value OR nudge it. Replaces the
 /// stepper-only rows so a value can be entered directly. Trailing-aligned to match the grouped
-/// Form's native two-column rhythm (label left, control right).
-private struct NumberRow: View {
+/// Form's native two-column rhythm (label left, control right). Shared across the settings tabs.
+struct NumberRow: View {
     let label: String
     @Binding var value: Int
     let range: ClosedRange<Int>
@@ -53,6 +53,10 @@ private struct ColorSwatchRow: View {
                         .frame(width: 18, height: 18)
                         .overlay(Circle().stroke(Color.primary.opacity(0.15), lineWidth: 0.5))   // edge for white/black
                         .overlay(Circle().stroke(Color.accentColor, lineWidth: name == selected ? 2.5 : 0))
+                        .overlay(name == selected   // checkmark so selection reads without relying on the ring color
+                                 ? Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
+                                     .foregroundColor(["white", "yellow", "gray"].contains(name) ? .black : .white)
+                                 : nil)
                         .contentShape(Circle())
                         .onTapGesture { set(name) }
                         .help(name)
