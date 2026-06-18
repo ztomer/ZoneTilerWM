@@ -199,10 +199,12 @@ final class AgentController: NSObject {
     /// ZT_BORDERS=1 force-enables it for QA regardless of the config toggle.
     private func applyBorders(_ cfg: ConfigLoader.LoadedConfig) {
         let b = cfg.borders
-        let forced = ProcessInfo.processInfo.environment["ZT_BORDERS"] == "1"
+        let env = ProcessInfo.processInfo.environment
+        let forced = env["ZT_BORDERS"] == "1"
+        let backendName = env["ZT_BORDERS_BACKEND"] ?? b.backend   // QA override
         focusBorder.apply(
             enabled: b.enabled || forced,
-            backend: BorderBackend(rawValue: b.backend) ?? .overlay,
+            backend: BorderBackend(rawValue: backendName) ?? .overlay,
             style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0),
             prediction: b.prediction)
     }
