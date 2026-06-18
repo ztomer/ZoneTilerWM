@@ -292,7 +292,7 @@ public enum ConfigLoader {
                 color: raw.borders?.color ?? "blue",
                 width: Double(raw.borders?.width ?? 4),
                 cornerRadius: Double(raw.borders?.corner_radius ?? 9),
-                prediction: raw.borders?.prediction ?? true))
+                prediction: raw.borders?.prediction ?? false))   // default off: raw 1:1 tracking
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

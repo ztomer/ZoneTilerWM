@@ -80,26 +80,26 @@ struct OneEuroFilter {
     }
 }
 
-/// Smooths a polled window frame into a jitter-free border frame, with an optional small velocity
-/// lead to compensate the sampling+render lag (the "motion prediction" toggle). One Euro filter
-/// per component (x/y/w/h). Pure value type, deterministic in `(samples, dt)` — the caller passes
-/// the inter-sample interval, keeping ZTCore framework-free and fully unit-testable.
+/// Maps a polled window frame to the border frame to draw. The **position passes through raw**
+/// (1:1, no low-pass): a window frame is a precise, discrete signal, so low-passing it only adds
+/// group-delay "float" (the border drifting/settling behind the window) without removing real
+/// noise. The One Euro filters are kept solely to produce a *smoothed velocity* for an optional
+/// `lead` (the "motion prediction" toggle), so a nonzero lead compensates poll lag on steady
+/// drags without the jitter a raw finite-difference would add. `lead == 0` → exact 1:1 mirror.
 ///
-/// Replaces the earlier raw velocity-extrapolation predictor, which amplified the quantized
-/// polling noise into visible jumps (validated offscreen: ~20px frame-to-frame jitter + large
-/// overshoot vs. ~4px and minimal overshoot for this filter).
+/// Pure value type, deterministic in `(samples, dt)`; the caller passes the inter-sample interval.
+/// (The residual trailing during fast drags is polling/IPC latency — only an event-driven source,
+/// e.g. window-server move notifications, removes that; see ARCHITECTURE.)
 public struct FrameMotionPredictor {
-    /// Seconds of velocity lead applied to the smoothed frame (0 = pure smoothing, no lead).
+    /// Seconds of velocity lead. 0 = raw 1:1 mirror (no float); >0 leads by smoothed velocity.
     public var lead: Double
     private var fx, fy, fw, fh: OneEuroFilter
     private var lastOut: ZTRect?
     private var hasSample = false
 
-    /// Defaults tuned offscreen against realistic polled trajectories incl. fast + jerky motion.
-    /// `beta` is the speed-coupling term: higher = cutoff rises faster with mouse speed, so fast/
-    /// jerky moves track tightly (low lag) while a near-still window stays heavily smoothed.
-    /// `lead` ~ one frame of velocity compensation.
-    public init(lead: Double = 0.012, minCutoff: Double = 1.2, beta: Double = 1.0, dCutoff: Double = 1.0) {
+    /// `beta` is the velocity smoothing's speed-coupling term (used only for the lead's velocity).
+    /// Default `lead` 0 → raw 1:1; the controller raises it when motion prediction is enabled.
+    public init(lead: Double = 0, minCutoff: Double = 1.2, beta: Double = 1.0, dCutoff: Double = 1.0) {
         self.lead = lead
         fx = OneEuroFilter(minCutoff: minCutoff, beta: beta, dCutoff: dCutoff)
         fy = OneEuroFilter(minCutoff: minCutoff, beta: beta, dCutoff: dCutoff)
@@ -114,15 +114,19 @@ public struct FrameMotionPredictor {
 
     public var lastFrame: ZTRect? { lastOut }
 
-    /// Feed an observed frame sampled `dt` seconds after the previous; returns the smoothed,
-    /// lead-compensated frame to draw.
+    /// Feed an observed frame sampled `dt` seconds after the previous; returns the frame to draw
+    /// (raw position, plus a smoothed-velocity lead when `lead > 0`).
     public mutating func process(_ frame: ZTRect, dt: Double) -> ZTRect {
         hasSample = true
-        let (x, vx) = fx.filter(frame.x, dt: dt)
-        let (y, vy) = fy.filter(frame.y, dt: dt)
-        let (w, vw) = fw.filter(frame.w, dt: dt)
-        let (h, vh) = fh.filter(frame.h, dt: dt)
-        let out = ZTRect(x: x + vx * lead, y: y + vy * lead, w: w + vw * lead, h: h + vh * lead)
+        // Always advance the velocity filters (so a later lead has warm velocity), but the
+        // POSITION we return is the raw sample — no low-pass, hence no float.
+        let vx = fx.filter(frame.x, dt: dt).velocity
+        let vy = fy.filter(frame.y, dt: dt).velocity
+        let vw = fw.filter(frame.w, dt: dt).velocity
+        let vh = fh.filter(frame.h, dt: dt).velocity
+        let out = lead == 0 ? frame
+            : ZTRect(x: frame.x + vx * lead, y: frame.y + vy * lead,
+                     w: frame.w + vw * lead, h: frame.h + vh * lead)
         lastOut = out
         return out
     }

@@ -1,7 +1,7 @@
-// FrameMotionPredictorTests — the focus-border motion filter (One Euro). The filter denoises a
-// polled, integer-quantized window frame (kills jitter at rest, low lag during motion) with an
-// optional small velocity lead. Pure value logic, so behavior is asserted deterministically; the
-// final case is the automated form of the offscreen visual-debug finding (no jumps / overshoot).
+// FrameMotionPredictorTests — the focus-border frame mapper. Position passes through raw (1:1,
+// no low-pass → no "float"); the One Euro filters supply only a smoothed velocity for the optional
+// `lead`. Pure value logic, asserted deterministically. The simulated-drag case is the automated
+// form of the offscreen finding: raw tracking is smooth (no jumps) and never overshoots.
 
 import XCTest
 @testable import ZTCore
@@ -13,91 +13,79 @@ final class FrameMotionPredictorTests: XCTestCase {
     }
     private let dt = 1.0 / 90.0
 
-    func testFirstSampleReturnsItself() {
+    func testDefaultIsExact1to1Mirror() {
+        // Default lead 0 → the drawn frame equals the sampled frame exactly (no smoothing, no float).
         var p = FrameMotionPredictor()
-        XCTAssertEqual(p.process(rect(10, 20), dt: dt), rect(10, 20))
+        XCTAssertEqual(p.process(rect(10, 20, 300, 200), dt: dt), rect(10, 20, 300, 200))
+        XCTAssertEqual(p.process(rect(55, 77, 301, 201), dt: dt), rect(55, 77, 301, 201))
     }
 
-    func testConstantInputConvergesAndHolds() {
+    func testAtRestHoldsExactly() {
         var p = FrameMotionPredictor()
         var out = rect(0)
         for _ in 0..<30 { out = p.process(rect(400), dt: dt) }
-        XCTAssertEqual(out.x, 400, accuracy: 1e-6)   // still window → exact, no drift
+        XCTAssertEqual(out.x, 400, accuracy: 1e-9)   // a still window's border never drifts
     }
 
-    func testRestJitterIsSmoothedAway() {
-        // 1px flicker (quantization) while "at rest" must not pass through to the border.
-        var p = FrameMotionPredictor()
-        var maxDev = 0.0
-        for i in 0..<60 {
-            let out = p.process(rect(400 + Double(i % 2)), dt: dt)   // 400,401,400,401…
-            if i > 10 { maxDev = max(maxDev, abs(out.x - 400.5)) }
-        }
-        XCTAssertLessThan(maxDev, 1.0)   // output sits ~mid, well under the 1px flicker
-    }
-
-    func testTracksConstantVelocityWithBoundedLag() {
-        // 5px/tick (450 px/s). After warmup the output should follow closely (small lag/lead).
-        var p = FrameMotionPredictor()   // default lead 0.012
-        var out = rect(0); var input = 0.0
+    func testZeroLeadMirrorsMotionWithNoOvershoot() {
+        // Constant velocity, lead 0: output == input every tick (perfect 1:1, no lead/lag added).
+        var p = FrameMotionPredictor(lead: 0)
+        var input = 0.0, out = rect(0)
         for _ in 0..<60 { input += 5; out = p.process(rect(input), dt: dt) }
-        XCTAssertEqual(out.x, input, accuracy: 8)        // within a few px of the true position
+        XCTAssertEqual(out.x, input, accuracy: 1e-9)
     }
 
-    func testLeadPushesAheadDuringMotion() {
-        // With a lead, the output leads the no-lead output while moving (compensates lag).
+    func testLeadLeadsDuringSteadyMotion() {
+        // With a lead, the output runs ahead of the raw sample (compensates poll lag) while moving.
         var led = FrameMotionPredictor(lead: 0.02)
-        var noLead = FrameMotionPredictor(lead: 0)
-        var a = rect(0), b = rect(0); var input = 0.0
-        for _ in 0..<40 { input += 5; a = led.process(rect(input), dt: dt); b = noLead.process(rect(input), dt: dt) }
-        XCTAssertGreaterThan(a.x, b.x)                   // led output is further along
+        var input = 0.0, out = rect(0)
+        for _ in 0..<40 { input += 5; out = p_process(&led, input) }
+        XCTAssertGreaterThan(out.x, input)             // ahead of the sample
+        XCTAssertLessThan(out.x - input, 5 * 0.02 * 90 + 2)   // but bounded (~ velocity*lead)
+    }
+    private func p_process(_ p: inout FrameMotionPredictor, _ x: Double) -> ZTRect { p.process(rect(x), dt: dt) }
+
+    func testLeadDecaysToRestAfterStop() {
+        // After motion stops, a lead must not leave the border parked ahead — velocity decays to 0.
+        var led = FrameMotionPredictor(lead: 0.02)
+        var input = 0.0
+        for _ in 0..<30 { input += 8; _ = led.process(rect(input), dt: dt) }
+        var out = rect(0)
+        for _ in 0..<120 { out = led.process(rect(input), dt: dt) }   // hold still (~1.3s)
+        XCTAssertEqual(out.x, input, accuracy: 0.5)   // settles back onto the window
     }
 
     func testReset() {
-        var p = FrameMotionPredictor()
+        var p = FrameMotionPredictor(lead: 0.02)
         var input = 0.0
         for _ in 0..<20 { input += 10; _ = p.process(rect(input), dt: dt) }
         p.reset()
         XCTAssertNil(p.lastFrame)
-        XCTAssertEqual(p.process(rect(500), dt: dt), rect(500))   // fresh start, no inherited motion
+        XCTAssertEqual(p.process(rect(500), dt: dt), rect(500))   // fresh: no inherited velocity
     }
 
-    func testAllComponentsFiltered() {
-        var p = FrameMotionPredictor(lead: 0)
-        var out = rect(0)
-        for i in 0..<40 { let v = Double(i) * 3; out = p.process(ZTRect(x: v, y: v, w: 100 + v, h: 200 + v), dt: dt) }
-        XCTAssertEqual(out.y, out.x, accuracy: 1e-6)      // x and y move identically → filtered identically
-        XCTAssertEqual(out.w - 100, out.x, accuracy: 1e-6)
-    }
-
-    /// Regression guard for the bug the offscreen debug surfaced: feed a realistic polled +
-    /// quantized drag (smoothstep accel → constant → stop) and assert the OUTPUT neither jumps
-    /// frame-to-frame nor overshoots the true path (the old extrapolator did both, badly).
-    func testSimulatedDragIsSmoothAndBounded() {
+    /// Regression guard: a realistic polled + quantized drag, mirrored 1:1 (lead 0), must be smooth
+    /// (no frame-to-frame jumps beyond pixel quantization) and never overshoot the true path — the
+    /// opposite of the old velocity-extrapolator (~20px jumps) and the low-pass filter (drift/float).
+    func testSimulatedDragIsSmoothAndNeverOvershoots() {
         func trueX(_ t: Double) -> Double {
             if t < 0.2 { return 400 }
-            if t < 0.9 { let u = (t - 0.2) / 0.7; return 400 + 360 * (u * u * (3 - 2 * u)) }   // 400→760
+            if t < 0.9 { let u = (t - 0.2) / 0.7; return 400 + 360 * (u * u * (3 - 2 * u)) }
             return 760
         }
-        var p = FrameMotionPredictor()
+        var p = FrameMotionPredictor()   // lead 0
         var outs: [Double] = [], acts: [Double] = []
         var t = 0.0
         while t < 1.2 {
             let act = trueX(t)
-            let sample = (act).rounded()                 // integer-px quantization (CGWindowList)
-            outs.append(p.process(rect(sample), dt: dt).x)
-            acts.append(act)
-            t += dt
+            outs.append(p.process(rect(act.rounded()), dt: dt).x)
+            acts.append(act); t += dt
         }
-        // No jumps: frame-to-frame output change never exceeds the true change by much.
         var maxJump = 0.0
-        for i in 1..<outs.count {
-            maxJump = max(maxJump, abs((outs[i] - outs[i-1]) - (acts[i] - acts[i-1])))
-        }
-        XCTAssertLessThan(maxJump, 8.0, "border jumps frame-to-frame (was ~20px with the old extrapolator)")
-        // Bounded overshoot: output never runs far past / behind the true path.
-        let overshoot = zip(outs, acts).map { $0 - $1 }
-        XCTAssertLessThan(overshoot.max()!, 25.0)
-        XCTAssertGreaterThan(overshoot.min()!, -25.0)
+        for i in 1..<outs.count { maxJump = max(maxJump, abs((outs[i] - outs[i-1]) - (acts[i] - acts[i-1]))) }
+        XCTAssertLessThan(maxJump, 2.0)                       // only pixel quantization, no jumps
+        let err = zip(outs, acts).map { $0 - $1 }
+        XCTAssertLessThan(err.max()!, 1.0)                    // never overshoots past the window
+        XCTAssertGreaterThan(err.min()!, -1.0)                // and never lags (1:1 with the sample)
     }
 }

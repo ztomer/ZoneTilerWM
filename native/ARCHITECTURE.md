@@ -273,7 +273,7 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 | Hotkey conflicts | startup + reload log; Keys-tab banner | unit (`HotkeyConflicts.find`, real-config) |
 | Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
 | Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
-| Focus border | click-through outline that follows the focused window; One Euro smoothed (overlay + optional SkyLight renderer) | live (both) + unit (`FrameMotionPredictor`) |
+| Focus border | click-through outline tracking the focused window 1:1 (raw frame, no float; optional velocity lead); overlay + optional SkyLight renderer | live (both) + unit (`FrameMotionPredictor`) |
 | Settings GUI | menubar → Settings… | live (General / Keys / Apps / Layouts / Pomodoro / Advanced) |
 | Analytics | menubar → Window Analytics… | live (zone/keyboard/by-app heatmaps + learned-placement table, read-only) |
 
