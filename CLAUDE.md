@@ -17,9 +17,8 @@ quick operational guide.
 
 - **All work stays on the `v2` branch**, published to the dedicated private repo
   `ZoneTilerWMv2` (remote `v2origin`), and **never** to the original `.hammerspoon` `origin`.
-  Commit only the files for the change at hand — leave unrelated working-tree changes alone
-  (notably the user's local `config.toml` edits: do not stage/commit `config.toml` unless
-  asked; never `git add -A` it in).
+  Commit only the files for the change at hand — leave unrelated working-tree changes alone;
+  never `git add -A` (it sweeps in the user's `.claude/settings.local.json` etc.).
 - **Verify with `make verify`** (= `swift test`) before considering anything done.
 - Quality bar: TDD-first; data structures over clever code; dependency-inversion only at
   the OS boundary; AX-call-count-aware in the hot path (see below).
@@ -48,9 +47,12 @@ quick operational guide.
   only inside `NSScreenProvider` if reading `NSScreen.frame`.
 - **Two window value types (don't merge):** `WindowSnapshot` (solver input, opaque String
   label id) vs `AutoTiler.Window` / live enumeration (Int CGWindowID). See Models.swift.
-- **Config:** read the existing `config.toml` (TOMLKit); edits via `TOMLEditor` (surgical,
-  comment-preserving). Existing `~/.config/ZoneTilerWM/*.json` must stay loadable (legacy
-  numeric monitor_id, bare-count prefs, etc.).
+- **Config location:** the live config is `~/.config/ZoneTilerWM/config.toml` (alongside the
+  JSON state); the agent reads/writes only that file. The repo `config.toml` is just the
+  default *template* (bundled into the .app) and the one-time migration seed — so editing/
+  committing it is fine; it is no longer the user's live config. Read it (TOMLKit); edits via
+  `TOMLEditor` (surgical, comment-preserving). Existing `~/.config/ZoneTilerWM/*.json` must
+  stay loadable (legacy numeric monitor_id, bare-count prefs, etc.).
 - **Native window moves** replicate the AX quirks: the `AXEnhancedUserInterface` toggle for
   Firefox/Zen/Electron-class apps (memoized per app), position-then-size, AppleScript
   fallback (see `AXWindowSystem`).
