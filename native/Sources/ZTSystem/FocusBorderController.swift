@@ -10,6 +10,7 @@
 // Coordinates: ZTRect is top-left CG; NSWindow frames are bottom-left global (CoordConvert).
 
 import AppKit
+import ApplicationServices
 import QuartzCore
 import ZTCore
 
@@ -99,8 +100,16 @@ public final class FocusBorderController {
     private var lastFocusedID: Int?
     private var lastRendered: ZTRect?
     private var lastTick: CFTimeInterval = 0
-    private let tickInterval = 1.0 / 90.0   // poll rate
+    private let tickInterval = 1.0 / 60.0   // fallback poll (event-driven path does the tight work)
     private let leadSeconds = 0.012         // velocity lead when prediction is on (~1 frame)
+
+    // Event-driven tracking: AX observer on the frontmost app fires on window move/resize/focus.
+    // The frame is then read from CGWindowList (zero AX) — so the only AX cost is observer setup
+    // per focus change, never per move. The fallback timer covers apps that don't post these.
+    private var axObserver: AXObserver?
+    private var observedPID: pid_t = 0
+    private var appElement: AXUIElement?
+    private var wsTokens: [NSObjectProtocol] = []
 
     public init() {}
 
@@ -136,18 +145,60 @@ public final class FocusBorderController {
         stop()
         if renderer == nil { swapRenderer() }
         predictor.reset(); lastTick = 0
-        let t = Timer(timeInterval: tickInterval, repeats: true) { [weak self] _ in self?.tick() }
+        retargetObserver()
+        // Re-target the observer when the user switches apps.
+        let nc = NSWorkspace.shared.notificationCenter
+        wsTokens.append(nc.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                                       object: nil, queue: .main) { [weak self] _ in
+            self?.retargetObserver(); self?.update()
+        })
+        // Fallback poll: covers focus changes and apps that don't post AX move/resize events.
+        let t = Timer(timeInterval: tickInterval, repeats: true) { [weak self] _ in self?.update() }
         RunLoop.main.add(t, forMode: .common)   // fire during event tracking (window drags)
         timer = t
+        update()
     }
 
     private func stop() {
         timer?.invalidate(); timer = nil
+        let nc = NSWorkspace.shared.notificationCenter
+        wsTokens.forEach { nc.removeObserver($0) }; wsTokens.removeAll()
+        teardownObserver()
         lastFocusedID = nil; lastRendered = nil
         renderer?.render(frame: nil, style: style)
     }
 
-    private func tick() {
+    private func teardownObserver() {
+        if let axObserver {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(axObserver), .defaultMode)
+        }
+        axObserver = nil; appElement = nil; observedPID = 0
+    }
+
+    /// Observe the frontmost app's window move/resize/focus notifications (all on the app element,
+    /// so we don't track per-window elements). Costs a handful of AX calls only on app switch.
+    private func retargetObserver() {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
+        if pid == observedPID, axObserver != nil { return }
+        teardownObserver()
+        observedPID = pid
+        var obs: AXObserver?
+        guard AXObserverCreate(pid, axBorderObserverCallback, &obs) == .success, let obs else { return }
+        let el = AXUIElementCreateApplication(pid)
+        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        for n in [kAXWindowMovedNotification, kAXWindowResizedNotification,
+                  kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification,
+                  kAXApplicationActivatedNotification] {
+            AXObserverAddNotification(obs, el, n as CFString, refcon)
+        }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
+        axObserver = obs; appElement = el
+    }
+
+    /// Called from both the AX event callback and the fallback timer. Reads the focused frame from
+    /// CGWindowList (zero AX) and renders it (raw 1:1, plus the optional lead). Coalesced by the
+    /// skip-when-unchanged check, so duplicate event+timer fires don't double-draw.
+    fileprivate func update() {
         guard let cur = Self.focusedWindowFrame() else {
             if lastRendered != nil { renderer?.render(frame: nil, style: style); lastRendered = nil }
             return
@@ -156,8 +207,7 @@ public final class FocusBorderController {
         if cur.id != lastFocusedID { predictor.reset(); lastFocusedID = cur.id; lastTick = 0 }
         let dt = lastTick > 0 ? (now - lastTick) : tickInterval
         lastTick = now
-        let target = predictor.process(cur.frame, dt: dt)   // smoothed; lead applied per prediction toggle
-        // Skip the redraw when nothing moved (keeps the idle case cheap).
+        let target = predictor.process(cur.frame, dt: dt)
         if let last = lastRendered, framesEqual(last, target) { return }
         renderer?.render(frame: target, style: style)
         lastRendered = target
@@ -179,4 +229,12 @@ public final class FocusBorderController {
         }
         return nil
     }
+}
+
+/// C callback for the AX observer — bridges back to the controller via the refcon pointer.
+/// Runs on the main run loop (the observer's source is added there), so it can drive AppKit.
+private func axBorderObserverCallback(_ observer: AXObserver, _ element: AXUIElement,
+                                      _ notification: CFString, _ refcon: UnsafeMutableRawPointer?) {
+    guard let refcon else { return }
+    Unmanaged<FocusBorderController>.fromOpaque(refcon).takeUnretainedValue().update()
 }
