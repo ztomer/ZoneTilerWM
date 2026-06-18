@@ -273,11 +273,15 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 | Hotkey conflicts | startup + reload log; Keys-tab banner | unit (`HotkeyConflicts.find`, real-config) |
 | Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
 | Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
+| Focus border | outline that follows the focused window (overlay + SkyLight renderers); motion-predicted | live (both backends) + unit (`FrameMotionPredictor`) |
 | Settings GUI | menubar → Settings… | live (General / Keys / Apps / Layouts / Pomodoro / Advanced) |
 | Analytics | menubar → Window Analytics… | live (zone/keyboard/by-app heatmaps + learned-placement table, read-only) |
 
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
-`AudioDevices`, `Overlay` (flash/bar/grid/hints), `ConfigWatcher` (file-watch reload),
+`AudioDevices`, `Overlay` (flash/bar/grid/hints), `FocusBorderController` (+ `OverlayBorderRenderer`
+public NSWindow / `SkyLightBorderRenderer` private window-server, behind ZTCore's `BorderRenderer`;
+focused frame sampled from CGWindowList = zero AX, lag compensated by `ZTCore.FrameMotionPredictor`),
+`ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
 Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **142 Swift tests,
 all green** (the Lua + differential harness were retired post-parity — see the banner at the
