@@ -10,7 +10,7 @@ It is a standalone native Swift app — an `LSUIElement` menubar agent in `nativ
 
 The native agent is feature-complete, including the full settings GUI. It reads the same `config.toml` and `~/.config/ZoneTilerWM/*.json` as the Lua version.
 
-Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory (with recency/time decay), audio switch, Pomodoro (glass menubar pill + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints (app icon + keyboard-half spatial assignment), hotkey-conflict detection, focus border (motion-predicted outline; overlay + window-server renderers), config live-reload, overlays, multi-monitor navigation, and the settings GUI (6 tabs: General / Keys / Apps / Layouts / Pomodoro / Advanced, a keybind editor, a visual layout editor, and a separate analytics window with learned-placement heatmaps).
+Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory (with recency/time decay), audio switch, Pomodoro (glass menubar pill + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints (app icon + keyboard-half spatial assignment), hotkey-conflict detection, focus border (motion-predicted click-through outline), config live-reload, overlays, multi-monitor navigation, and the settings GUI (6 tabs: General / Keys / Apps / Layouts / Pomodoro / Advanced, a keybind editor, a visual layout editor, and a separate analytics window with learned-placement heatmaps).
 
 Multi-monitor: logical monitor ids are seeded from the display arrangement at startup and re-registered on connect/disconnect/rearrange (`NSApplication.didChangeScreenParametersNotification`), so zone memory and resize offsets resolve to the right display after a hot-plug. Validated live on a two-display setup.
 
@@ -55,7 +55,7 @@ Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic co
 * **Audio Device Switching**: Cycle through audio devices with a hotkey.
 * **Pomodoro Timer**: A built-in Pomodoro timer to help you stay focused.
 * **Dynamic Resizing**: Adjust grid lines on the fly with visual feedback.
-* **Focus Border**: An optional colored outline around the focused window that follows it as it moves, with **motion prediction** to stay glued during drags/tile animations. Two renderers — a public `NSWindow` overlay (compatible) or a private window-server backend (faster) — selectable in Settings.
+* **Focus Border**: An optional colored outline around the focused window that follows it as it moves, with **motion prediction** to stay glued during drags/tile animations. Drawn with a click-through `NSWindow` overlay. (A private window-server renderer is in git history but disabled — it couldn't be made reliably click-through.)
 * **Auto-Tiling**: Automatically arrange all windows into optimal positions using a **Cost-Based Backtracking Solver** (CSP).
     *   **Recency-Weighted**: Prioritizes your most recently used windows for prime spots.
     *   **Coverage Maximization**: Aggressively fills available screen space.

@@ -119,12 +119,6 @@ struct BordersSettings: View {
                 get: { Int(model.config.borders.cornerRadius.rounded()) },
                 set: { model.setBordersCornerRadius($0) }), range: 0...24, suffix: "px")
                 .disabled(!model.config.borders.enabled)
-            Picker("Renderer", selection: Binding(
-                get: { model.config.borders.backend },
-                set: { model.setBordersBackend($0) })) {
-                Text("Overlay (compatible)").tag("overlay")
-                Text("Window server (faster)").tag("skylight")
-            }.disabled(!model.config.borders.enabled)
             Toggle("Motion prediction", isOn: Binding(
                 get: { model.config.borders.prediction },
                 set: { model.setBordersPrediction($0) }))
