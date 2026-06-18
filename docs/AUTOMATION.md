@@ -131,11 +131,16 @@ action = "tile"
 zone = "l"
 ```
 
-Triggers:
-- **on-open** *(wired)* — a new window of the app appears. Detected by diffing the CGWindowList
-  window-id set each focus tick (**0 AX**), baseline-seeded so pre-existing windows never fire.
-  `tile` actions target that specific window via `coordinator.moveWindow(id:toZone:)`.
-- **on-focus**, **on-display-change** — parsed and stored; agent wiring lands in a follow-up.
+Triggers (all wired):
+- **on-open** — a new window of the app appears. Detected by diffing the CGWindowList window-id
+  set each focus tick (**0 AX**), baseline-seeded so pre-existing windows never fire.
+- **on-focus** — the focused window changes to one of the app's. Fires once per focus change
+  (seed-skips the window focused at launch).
+- **on-display-change** — the display arrangement changes (dock/undock); re-places every current
+  window of a matching app.
+
+`tile` actions target the matched window directly (`coordinator.moveWindow(id:toZone:)`); other
+actions fall back to focused-window semantics.
 
 Malformed rules (unknown trigger, missing required action params) are dropped at load. Rules
 re-load live with the rest of the config.

@@ -4,23 +4,19 @@ Per the agreed cadence (build + write tests each stage; iterate/validate in a co
 phase), this tracks everything that has NOT been run or live-validated yet. Clear it in one
 focused pass and delete items as they're verified. See `docs/AUTOMATION.md` for the features.
 
-## Unit tests written but NOT YET RUN
-- `RulesEngineTests` (ZTCoreTests) — compile-checked only.
-- `RulesConfigTests` (ZTSystemTests) — compile-checked only.
-- (Earlier suites — ActionRequest/Parser/Result, MCPServer, IPCEnvelope, QueryRequest,
-  ZoneOccupancy, AgentSocket, CLIFormat, AutomationConfig — were run green at the CLI/GUI stage:
-  219 tests. Re-run to confirm nothing regressed since.)
+## Unit tests — all RUN green
+- Full suite green at **233 tests** (incl. RulesEngine, RulesConfig, moveWindow, on-display-change
+  matching). The unrun-unit-test debt is cleared; keep running `make verify` each build (headless,
+  works with no GUI).
 
-## Missing unit tests (write + run)
-- `TilerCoordinator.moveWindow(id:toZone:)` — window-targeted tile (rules-engine path). No test
-  yet; use the fake `WindowSystem`/`ScreenProvider` pattern in `TilerCoordinatorTests`. Cover:
-  window resolved across screens, places into the right zone, learns on success, nil when the
-  window/zone/tile can't be resolved.
-
-## Live / integration validation pending
+## Live / integration validation pending (needs GUI / the built .app — deferred)
 - **Rules engine (on-open)**: real new-window detection (CGWindowList id diff) fires the rule and
   the tile lands on the *newly opened* (not focused) window; baseline-seed does NOT retro-fire on
   pre-existing windows at startup or when a rule is added via live reload.
+- **Rules engine (on-focus)**: fires once when focus changes to the app's window (not every poll);
+  seed-skips the window focused at launch; tile re-applies on each focus change as documented.
+- **Rules engine (on-display-change)**: dock/undock re-places every current window of a matching
+  app (fires after monitors re-register).
 - **`zonetiler://` URL scheme**: only effective from the installed `.app`. Build it, then
   `open "zonetiler://tile?zone=h"` and confirm dispatch. (So far: swift build green + the
   generated Info.plist carries `CFBundleURLTypes(zonetiler)` — handler not exercised live.)

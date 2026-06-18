@@ -120,6 +120,8 @@ final class AgentController: NSObject {
     private var rulesEngine: RulesEngine
     private var lastWindowIds: Set<Int> = []
     private var rulesSeeded = false
+    private var lastFocusedRuleWindowId: Int?   // on-focus: fire only when the focused window changes
+    private var focusRulesSeeded = false
     // The single source of truth for executing actions. Every hotkey (and the MCP server)
     // routes through this. Built after super.init (its hooks reference self).
     private var dispatcher: ActionDispatcher!
@@ -377,6 +379,7 @@ final class AgentController: NSObject {
             guard let self else { return }
             self.coordinator.noteFocusedWindow(now: Int(Date().timeIntervalSince1970))
             self.evaluateOnOpenRules()
+            self.evaluateOnFocusRules()
         }
     }
 
@@ -401,6 +404,25 @@ final class AgentController: NSObject {
         for id in currentIds.subtracting(lastWindowIds) {
             guard let app = current[id] else { continue }
             for rule in rulesEngine.matching(app: app, trigger: .onOpen) { apply(rule, toWindow: id) }
+        }
+    }
+
+    /// Fire on-focus rules when the focused window changes (not every poll). Seed-skips the first
+    /// run so a rule never fires on whatever happened to be focused at launch.
+    private func evaluateOnFocusRules() {
+        guard rulesEngine.hasRules(for: .onFocus), let focused = windowSystem.focusedWindow() else { return }
+        guard focused.id != lastFocusedRuleWindowId else { return }
+        lastFocusedRuleWindowId = focused.id
+        guard focusRulesSeeded else { focusRulesSeeded = true; return }
+        for rule in rulesEngine.matching(app: focused.appName, trigger: .onFocus) { apply(rule, toWindow: focused.id) }
+    }
+
+    /// Fire on-display-change rules for every current window of a matching app (re-place apps on
+    /// dock/undock). Called after monitors are re-registered.
+    private func evaluateDisplayChangeRules() {
+        guard rulesEngine.hasRules(for: .onDisplayChange) else { return }
+        for (id, app) in enumerateWindows() {
+            for rule in rulesEngine.matching(app: app, trigger: .onDisplayChange) { apply(rule, toWindow: id) }
         }
     }
 
@@ -571,6 +593,7 @@ final class AgentController: NSObject {
         ) { [weak self] _ in
             log("zt-agent: display arrangement changed — re-registering monitors")
             self?.seedMonitors()
+            self?.evaluateDisplayChangeRules()
         }
     }
 

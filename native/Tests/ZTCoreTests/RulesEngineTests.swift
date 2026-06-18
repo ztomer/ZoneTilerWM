@@ -32,6 +32,15 @@ final class RulesEngineTests: XCTestCase {
         XCTAssertTrue(engine.matching(app: "Finder", trigger: .onOpen).isEmpty)
     }
 
+    func testDisplayChangeTrigger() {
+        let e = RulesEngine(rules: [
+            Rule(app: "Slack", trigger: .onDisplayChange, action: .tileFocusedToZone(zone: "l")),
+        ])
+        XCTAssertEqual(e.matching(app: "Slack", trigger: .onDisplayChange).count, 1)
+        XCTAssertTrue(e.matching(app: "Slack", trigger: .onOpen).isEmpty)
+        XCTAssertTrue(e.hasRules(for: .onDisplayChange))
+    }
+
     func testHasRulesAndIsEmpty() {
         XCTAssertTrue(engine.hasRules(for: .onOpen))
         XCTAssertTrue(engine.hasRules(for: .onFocus))

@@ -176,12 +176,13 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
   mostly testable `ZTCore`, and it makes everything else automatable (incl. agent-operable).
   - **Status (in progress):** the internal action API (`ActionRequest`/`ActionDispatcher`), the
     **MCP server** (`zt-mcp`), the **`zonetiler-cli`** companion, a Settings **Automation** pane,
-    the **rules engine** (`[[rules]]`, on-open trigger wired), the **`zonetiler://` URL scheme**,
-    and **App Intents** (Shortcuts/Spotlight/Siri) are built — so **all four planned front-ends
-    over the action API are in place**. The agent hotkeys are rewired through the dispatcher, and
-    the `.app` bundle ships the helper binaries (zt-mcp, zonetiler-cli). Remaining within v2.0:
-    the rules engine's on-focus/on-display-change triggers, and a consolidated test/validation
-    pass (tracked in `docs/V2_TEST_DEBT.md`). See `docs/AUTOMATION.md`.
+    the **rules engine** (`[[rules]]`, all three triggers wired: on-open/on-focus/on-display-change),
+    the **`zonetiler://` URL scheme**, and **App Intents** (Shortcuts/Spotlight/Siri) are built — so
+    **all four planned front-ends over the action API are in place**. The agent hotkeys are rewired
+    through the dispatcher, and the `.app` bundle ships the helper binaries (zt-mcp, zonetiler-cli).
+    Remaining within v2.0: the **live/integration validation pass** (deferred while GUI access is
+    unavailable; tracked in `docs/V2_TEST_DEBT.md`) and minor polish (wire-shape, retire legacy
+    CLIs). Unit suite green at 233. See `docs/AUTOMATION.md`.
 - **v2.1 — Kinesthetic discoverability.** Modifier-held zone HUD (with the toggle/hold-delay design
   above), then mouse drag-to-snap. Built on the existing overlay infrastructure.
 - **v2.2 — Depth & intelligence.** Layout snapshots/workspaces, window stacks, context-aware

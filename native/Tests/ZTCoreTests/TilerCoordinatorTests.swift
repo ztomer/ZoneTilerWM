@@ -58,6 +58,43 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(ws.movedTo, ZTRect(x: 0, y: 0, w: 500, h: 500))
     }
 
+    // MARK: - moveWindow(id:toZone:) — the rules-engine window-targeted path
+
+    func testMoveWindowByIdTilesSpecificWindow() {
+        let ws = FakeWindowSystem()
+        let target = LiveWindow(id: 42, appName: "Arc", frame: ZTRect(x: 200, y: 200, w: 300, h: 200), screenUUID: "M1")
+        ws.onScreen = [target]
+        // Focus is on a different window — moveWindow must not depend on focus.
+        ws.focused = LiveWindow(id: 1, appName: "Other", frame: ZTRect(x: 0, y: 0, w: 100, h: 100), screenUUID: "M1")
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+
+        let outcome = coord.moveWindow(windowId: 42, toZone: "y")   // "y" = a1 = top-left quadrant
+        XCTAssertEqual(outcome?.windowId, 42)
+        XCTAssertEqual(outcome?.zoneKey, "y")
+        XCTAssertEqual(outcome?.target, ZTRect(x: 0, y: 0, w: 500, h: 500))
+        XCTAssertEqual(outcome?.applied, true)
+        XCTAssertEqual(ws.moved.last?.id, 42)
+        XCTAssertEqual(ws.moved.last?.rect, ZTRect(x: 0, y: 0, w: 500, h: 500))
+        XCTAssertNil(ws.movedTo)   // did NOT use the focused-window path
+    }
+
+    func testMoveWindowUnknownIdReturnsNil() {
+        let ws = FakeWindowSystem()
+        ws.onScreen = []
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        XCTAssertNil(coord.moveWindow(windowId: 999, toZone: "y"))
+    }
+
+    func testMoveWindowUnknownZoneReturnsNil() {
+        let ws = FakeWindowSystem()
+        ws.onScreen = [LiveWindow(id: 42, appName: "Arc", frame: ZTRect(x: 0, y: 0, w: 100, h: 100), screenUUID: "M1")]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        XCTAssertNil(coord.moveWindow(windowId: 42, toZone: "nope"))
+    }
+
     func testManualMoveLearnsAndPersists() {
         final class MemStore: Storage {
             var blobs: [String: Data] = [:]
