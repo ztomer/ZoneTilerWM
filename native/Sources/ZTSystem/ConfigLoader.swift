@@ -172,8 +172,8 @@ public enum ConfigLoader {
         var enabled: Bool?
         var backend: String?
         var color: String?
-        var width: Double?
-        var corner_radius: Double?
+        var width: Int?            // integer px (TOMLKit is strict Int-vs-Double)
+        var corner_radius: Int?
         var prediction: Bool?
     }
 
@@ -290,8 +290,8 @@ public enum ConfigLoader {
                 enabled: raw.borders?.enabled ?? false,
                 backend: raw.borders?.backend ?? "overlay",
                 color: raw.borders?.color ?? "blue",
-                width: raw.borders?.width ?? 4,
-                cornerRadius: raw.borders?.corner_radius ?? 9,
+                width: Double(raw.borders?.width ?? 4),
+                cornerRadius: Double(raw.borders?.corner_radius ?? 9),
                 prediction: raw.borders?.prediction ?? true))
     }
 

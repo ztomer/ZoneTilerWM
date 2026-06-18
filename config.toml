@@ -12,8 +12,9 @@
 #   5. Screens, grids & layouts
 #   6. Pomodoro
 #   7. Audio switcher
-#   8. Window memory
-#   9. Legacy / not used by the native app
+#   8. Window border
+#   9. Window memory
+#  10. Legacy / not used by the native app
 # =============================================================================
 version = "1.0.0"
 
@@ -342,7 +343,20 @@ shortcut_callback = "SoundSourceSwitcherEx"
 
 
 # =============================================================================
-# 8. Window memory
+# 8. Window border
+# A colored outline around the focused window that follows it as it moves.
+# =============================================================================
+[borders]
+enabled = false              # off by default — opt-in
+color = "blue"               # green/red/blue/yellow/orange/purple/white/black/gray
+width = 4                    # stroke width, px
+corner_radius = 9            # px
+backend = "overlay"          # "overlay" (compatible) | "skylight" (window-server, faster)
+prediction = true            # lead the outline to compensate for follow-lag
+
+
+# =============================================================================
+# 9. Window memory
 # Learns and restores window positions across sessions.
 # =============================================================================
 [window_memory]
@@ -369,7 +383,7 @@ restore = ["HYPER", "0"]
 
 
 # =============================================================================
-# 9. Legacy / not used by the native app
+# 10. Legacy / not used by the native app
 # Kept for reference and Hammerspoon compatibility; the native ZoneTilerWM
 # agent does not read these sections.
 # =============================================================================

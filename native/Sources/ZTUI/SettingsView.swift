@@ -86,6 +86,14 @@ public final class SettingsModel: ObservableObject {
         setOrAppend(section: "pomodoro", key: remaining ? "color_time_remaining" : "color_time_used", rawValue: "\"\(name)\"")
     }
 
+    // Borders
+    public func setBordersEnabled(_ on: Bool) { setOrAppend(section: "borders", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setBordersBackend(_ b: String) { setOrAppend(section: "borders", key: "backend", rawValue: "\"\(b)\"") }
+    public func setBordersColor(_ name: String) { setOrAppend(section: "borders", key: "color", rawValue: "\"\(name)\"") }
+    public func setBordersWidth(_ v: Int) { setOrAppend(section: "borders", key: "width", rawValue: "\(v)") }
+    public func setBordersCornerRadius(_ v: Int) { setOrAppend(section: "borders", key: "corner_radius", rawValue: "\(v)") }
+    public func setBordersPrediction(_ on: Bool) { setOrAppend(section: "borders", key: "prediction", rawValue: on ? "true" : "false") }
+
     // Audio
     public func setAudioDevices(_ devices: [String]) { setOrAppend(section: "audio_switcher", key: "devices", rawValue: tomlArray(devices)) }
     public func setAudioHotkey(alias: String, key: String) { setOrAppend(section: "audio_switcher", key: "hotkey", rawValue: "[\"\(alias)\", \"\(key)\"]") }
@@ -406,6 +414,7 @@ public struct SettingsView: View {
                     set: { model.setMarginsScreenEdge($0) }))
                     .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
             }
+            BordersSettings(model: model)
             AudioSettings(model: model)
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }

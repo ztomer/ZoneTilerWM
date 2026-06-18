@@ -100,6 +100,42 @@ struct PomodoroSettings: View {
     }
 }
 
+// MARK: - Window border (focus outline)
+
+struct BordersSettings: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        Section("Window border") {
+            Toggle("Outline the focused window", isOn: Binding(
+                get: { model.config.borders.enabled },
+                set: { model.setBordersEnabled($0) }))
+            ColorSwatchRow(label: "Color", selected: model.config.borders.color) { model.setBordersColor($0) }
+            NumberRow(label: "Width", value: Binding(
+                get: { Int(model.config.borders.width.rounded()) },
+                set: { model.setBordersWidth($0) }), range: 1...12, suffix: "px")
+                .disabled(!model.config.borders.enabled)
+            NumberRow(label: "Corner radius", value: Binding(
+                get: { Int(model.config.borders.cornerRadius.rounded()) },
+                set: { model.setBordersCornerRadius($0) }), range: 0...24, suffix: "px")
+                .disabled(!model.config.borders.enabled)
+            Picker("Renderer", selection: Binding(
+                get: { model.config.borders.backend },
+                set: { model.setBordersBackend($0) })) {
+                Text("Overlay (compatible)").tag("overlay")
+                Text("Window server (faster)").tag("skylight")
+            }.disabled(!model.config.borders.enabled)
+            Toggle("Motion prediction", isOn: Binding(
+                get: { model.config.borders.prediction },
+                set: { model.setBordersPrediction($0) }))
+                .disabled(!model.config.borders.enabled)
+            Text("Draws a colored outline around the focused window that follows it as it moves. "
+                 + "Motion prediction leads the outline to compensate for follow-lag.")
+                .font(.caption).foregroundColor(.secondary)
+        }
+    }
+}
+
 // MARK: - Audio switcher
 
 struct AudioSettings: View {
