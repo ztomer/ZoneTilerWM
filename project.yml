@@ -47,6 +47,12 @@ targets:
         CFBundleVersion: "8"
         LSMinimumSystemVersion: "13.0"
         NSHumanReadableCopyright: "Copyright © 2026 Tomer Zaidenstein. All rights reserved."
+        # zonetiler:// URL scheme — handled by the agent's GURL Apple Event handler
+        # (ActionParser → ActionDispatcher). See docs/AUTOMATION.md.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.zaidenstein.ZoneTilerWM
+            CFBundleURLSchemes:
+              - zonetiler
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zaidenstein.ZoneTilerWM

@@ -80,7 +80,9 @@ Read-only resources (`QueryRequest`: arrangement/zones/placement-stats) are answ
 `zt-mcp`, `zonetiler-cli`. A **rules engine** (`Rule`/`RulesEngine` in `ZTCore`, `[[rules]]` in
 config) turns app+trigger events into `ActionRequest`s — on-open is wired via a CGWindowList
 window-id diff (0 AX), and tile rules target the specific window via
-`TilerCoordinator.moveWindow(id:toZone:)`. See **`docs/AUTOMATION.md`** for the full surface and
+`TilerCoordinator.moveWindow(id:toZone:)`. The bundled `.app` also registers the `zonetiler://`
+URL scheme (GURL Apple Event → `ActionParser` → dispatcher) and ships the helper binaries
+(`zt-mcp`, `zonetiler-cli`) in `Contents/MacOS`. See **`docs/AUTOMATION.md`** for the full surface and
 how to connect Claude / the CLI. Invariant: a new front-end only builds an `ActionRequest` — it
 never re-implements an action.
 

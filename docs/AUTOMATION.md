@@ -66,6 +66,23 @@ zonetiler-cli --help                 # the full catalog
 
 Exit code is non-zero on a failed action or an unreachable agent.
 
+## URL scheme (`zonetiler://`)
+
+The bundled `.app` registers the `zonetiler://` scheme (CFBundleURLTypes). macOS delivers the
+URL to the running agent as a GURL Apple Event; the agent parses it through the same
+`ActionParser` and dispatches:
+
+```
+zonetiler://tile?zone=h
+zonetiler://audio?device=next
+zonetiler://move-monitor?direction=next
+```
+
+The host is the action name; the query is the params — identical to the CLI/MCP contract.
+Scriptable from anything that can open a URL (`open`, Raycast, Stream Deck, browser, a `.command`
+file). Only effective from the installed `.app` (the bare dev binary registers no scheme); it
+acts on the focused window (no per-URL window targeting yet).
+
 ## Settings → Automation pane
 
 The agent's Settings window has an **Automation** tab that surfaces this whole feature:

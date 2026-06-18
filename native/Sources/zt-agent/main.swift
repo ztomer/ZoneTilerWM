@@ -496,6 +496,30 @@ final class AgentController: NSObject {
     /// dispatcher the hotkeys use; queries through the read-only (0-AX) arrangement provider. The
     /// handler runs on the main queue (AgentSocketServer's accept source), so touching the
     /// coordinator/config here is on-main like every other callback.
+    /// Register for `zonetiler://` URLs (declared in the .app's CFBundleURLTypes). macOS delivers
+    /// the GURL Apple Event to the running agent; we parse it through the shared ActionParser and
+    /// dispatch. Only effective from the bundled .app — the bare dev binary registers no scheme.
+    func setupURLHandler() {
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(handleGetURLEvent(_:withReplyEvent:)),
+            forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    }
+
+    @objc private func handleGetURLEvent(_ event: NSAppleEventDescriptor, withReplyEvent _: NSAppleEventDescriptor) {
+        guard let raw = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
+              let comps = URLComponents(string: raw) else { return }
+        // zonetiler://<action>?<params> — the action name is the host (fall back to the path).
+        let name = comps.host ?? String(comps.path.drop(while: { $0 == "/" }))
+        var params: [String: String] = [:]
+        for item in comps.queryItems ?? [] { params[item.name] = item.value ?? "" }
+        switch ActionParser.parse(urlPath: name, query: params) {
+        case .success(let request):
+            log("zt-agent: url \(raw) → \(dispatcher.perform(request))")
+        case .failure(let e):
+            log("zt-agent: url \(raw) rejected: \(CLIFormat.describe(e))")
+        }
+    }
+
     func setupIPCServer() { reconcileIPCServer() }
 
     /// Start/stop the IPC socket to match `[automation] enabled`. Idempotent — safe to call on
@@ -769,6 +793,7 @@ controller.setupFocusTracking()
 controller.bindAllHotkeys()
 controller.setupConfigWatch()
 controller.setupIPCServer()        // MCP shim talks to the agent over this socket
+controller.setupURLHandler()       // zonetiler:// scheme (effective in the bundled .app)
 controller.showOnboardingIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {

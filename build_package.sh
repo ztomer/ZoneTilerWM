@@ -55,6 +55,18 @@ xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
 
 [ -d "$APP" ] || { echo "error: build did not produce $APP"; exit 1; }
 
+# Bundle the automation helper tools (the MCP shim + the CLI) inside the app so they ship with
+# it and the Settings → Automation pane resolves them next to the agent (Contents/MacOS). They
+# are SwiftPM products, not built by xcodebuild, so build them here and re-sign the bundle
+# (adding files invalidates the prior signature).
+echo "==> Bundling helper tools (zt-mcp, zonetiler-cli)"
+( cd "$ROOT/native" && swift build -c release --product zt-mcp && swift build -c release --product zonetiler-cli )
+ditto "$ROOT/native/.build/release/zt-mcp" "$APP/Contents/MacOS/zt-mcp"
+ditto "$ROOT/native/.build/release/zonetiler-cli" "$APP/Contents/MacOS/zonetiler-cli"
+codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/zt-mcp"
+codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/zonetiler-cli"
+codesign --force --sign "$SIGN_ID" "$APP"   # re-sign the bundle to cover the added binaries
+
 echo "==> Staging app + INSTALL.txt"
 rm -rf "$STAGE"; mkdir -p "$STAGE" "$OUT"
 # ditto (not cp) so the bundle's symlinks / resource forks / signature stay intact.
