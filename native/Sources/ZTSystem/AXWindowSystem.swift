@@ -173,7 +173,7 @@ public final class AXWindowSystem: WindowSystem {
             let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
             var bounds = CGRect.zero
             if let boundsDict = info[kCGWindowBounds as String] as? NSDictionary {
-                CGRectMakeWithDictionaryRepresentation(boundsDict as! CFDictionary, &bounds)
+                CGRectMakeWithDictionaryRepresentation(boundsDict as CFDictionary, &bounds)
             }
             result.append(OnScreenWindow(windowID: num, pid: pid, ownerName: owner,
                                          bounds: bounds, layer: layer, zOrder: i))

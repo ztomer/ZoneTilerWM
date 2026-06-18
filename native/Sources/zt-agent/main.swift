@@ -125,6 +125,7 @@ final class AgentController: NSObject {
     private var settings: SettingsWindowController?
     private var analytics: AnalyticsWindowController?
     private var about: AboutWindowController?
+    private let onboarding = AccessibilityOnboardingController()
 
     init(config: ConfigLoader.LoadedConfig, configURL: URL) {
         let screens = NSScreenProvider()
@@ -597,6 +598,12 @@ final class AgentController: NSObject {
         if about == nil { about = AboutWindowController() }
         about?.show()
     }
+
+    /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
+    /// need it). No-op when already trusted.
+    func showOnboardingIfNeeded() {
+        onboarding.showIfNeeded { log("zt-agent: Accessibility granted — window moves enabled") }
+    }
 }
 
 let app = NSApplication.shared
@@ -610,6 +617,7 @@ controller.setupScreenWatch()
 controller.setupFocusTracking()
 controller.bindAllHotkeys()
 controller.setupConfigWatch()
+controller.showOnboardingIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
 case "analytics": DispatchQueue.main.async { controller.openAnalytics() }
