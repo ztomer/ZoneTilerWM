@@ -280,7 +280,8 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
 `AudioDevices`, `Overlay` (flash/bar/grid/hints), `FocusBorderController` (renderers behind
 ZTCore's `BorderRenderer`: `OverlayBorderRenderer` click-through NSWindow [default] +
-`SkyLightBorderRenderer` private window-server, click-through via window tags [opt-in]; focused
+`SkyLightBorderRenderer` private window-server, click-through via window tags [experimental, opt-in
+last-resort — no latency benefit, the lag is polling not drawing]; focused
 frame sampled from CGWindowList = zero AX, smoothed by `ZTCore.FrameMotionPredictor` [One Euro]),
 `ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).

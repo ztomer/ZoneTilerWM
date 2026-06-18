@@ -122,8 +122,8 @@ struct BordersSettings: View {
             Picker("Renderer", selection: Binding(
                 get: { model.config.borders.backend },
                 set: { model.setBordersBackend($0) })) {
-                Text("Overlay (compatible)").tag("overlay")
-                Text("Window server (private)").tag("skylight")
+                Text("Overlay (default)").tag("overlay")
+                Text("Window server (experimental)").tag("skylight")
             }.disabled(!model.config.borders.enabled)
             Toggle("Motion prediction", isOn: Binding(
                 get: { model.config.borders.prediction },

@@ -1,7 +1,9 @@
-// SkyLightBorderRenderer.swift — ZTSystem: the optional second border backend, drawing the
-// outline as a window created directly on the window server via private SkyLight APIs (the
-// JankyBorders technique, reimplemented clean-room — no GPL code). Lower latency / draws above
-// more layers than the public NSWindow overlay, at the cost of being private API. Off by default.
+// SkyLightBorderRenderer.swift — ZTSystem: EXPERIMENTAL, opt-in, last-resort border backend that
+// draws the outline as a window created directly on the window server via private SkyLight APIs
+// (the JankyBorders technique, reimplemented clean-room — no GPL code). Off by default; overlay is
+// the supported renderer. NOTE: this does NOT improve tracking latency — the lag is the
+// CGWindowList polling, not the drawing — it only draws above more layers / across spaces. Kept
+// purely as a fallback if the public NSWindow overlay ever misbehaves on some setup.
 //
 // Click-through: like JankyBorders, the window is a filled rect made transparent to the mouse via
 // window-server TAGS — SLSSetWindowTags with bits (1<<1)|(1<<9), the SkyLight equivalent of
