@@ -85,6 +85,24 @@ Layout snapshots are the connective tissue both pillars want.
 - **Universal binary** (S). Currently arm64-only (flagged in `build_dist.sh`).
 - **Config + memory sync across machines** (M). iCloud or file-based.
 
+### F. Fun / personality — a retro "break" theme (scoped)
+- **Retro themed personality moments** (M · low · ~0 AX). A CRT / Gameboy / TV visual treatment —
+  applied to *our own* SwiftUI surfaces only (we control those pixels; a Metal/SwiftUI effect is
+  trivial there). **Not** a global skin: see the design note below for where it may and may not go.
+  The achievable, on-brand version is a **"retro break" theme** — e.g. a Gameboy/CRT Pomodoro
+  *break* screen + an optional themed About — opt-in and off by default.
+
+  Reviewed against Rams + Kare and accepted as scoped:
+
+  | Surface | Verdict |
+  |---|---|
+  | Settings / Analytics / Advanced / zone HUD | **No shader** — read/operate surfaces; a filter is noise that degrades the function (Rams: as little design as possible, unobtrusive, understandable) |
+  | About, Pomodoro **break**, onboarding splash, empty states / celebrations | **Yes, sparingly** — personality moments with no data to read; delight that serves, never obscures (Kare) |
+
+  Guardrails: opt-in / off by default (decoration the user didn't ask for is noise — same rule as
+  the HUD); never over live data or controls; must read as a deliberate *mode*, not a random reskin
+  that fractures the app's one coherent dark visual language.
+
 ## Design note — the zone HUD is training wheels, and must come off
 
 The modifier-held HUD is a *learning aid*. Once muscle memory is established, an overlay that fires
@@ -117,6 +135,15 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
 - **macOS Spaces integration** — needs private SkyLight space APIs; fragile across OS updates and
   noisy under SentinelOne, and deliberately out of scope since the Lua original. See
   `docs/SPACES_RESEARCH.md`. Parked unless a public/robust path appears.
+- **Live per-window content shaders on *other* apps** (CRT/Gameboy/TV over arbitrary windows) — you
+  can't access another process's window surface on macOS, so it would mean continuously
+  ScreenCaptureKit-capturing each window → Metal → re-rendering in an overlay that hides the real
+  one. That needs the Screen Recording permission, adds capture→shader→draw latency that breaks
+  interaction (a shaded text editor is unusable), is GPU-heavy per window, and — worst — a process
+  continuously screen-capturing *other* apps reads to an EDR exactly like an infostealer (a hard no
+  in a SentinelOne environment). The shippable version is F above (our own surfaces only). A one-shot
+  "stylize a window screenshot" novelty is the only capture variant worth maybe revisiting (static,
+  opt-in, still needs the recording permission).
 - **Animated tiling transitions** — cosmetic, and AX `setFrame` animation was deliberately avoided
   (jank + cost).
 - **Any feature needing per-window AX reads for enumeration** — violates the AX budget. Window
