@@ -134,7 +134,7 @@ zone_info = ["mash", ";"]           # move window to previous monitor
 focus_next_screen = ["mash_shift", "p"]
 focus_prev_screen = ["mash_shift", ";"]
 zen_mode = ["HYPER", "\\"]
-resize_mode = ["HYPER", "r"]
+resize_mode = ["mash", "r"]   # not HYPER+r — that's the "r" app launcher
 auto_tile_screen = ["HYPER", "return"]
 auto_tile_global = ["HYPER", ""]
 
@@ -327,7 +327,7 @@ color_time_used = "red"
 [pomodoro.hotkeys]
 enable = ["mash", "8"]
 disable = ["mash", "9"]
-reset = ["mash_shift", "0"]
+reset = ["mash_shift", "8"]   # not mash_shift+0 — that's "focus zone 0"
 
 
 # =============================================================================

@@ -33,8 +33,10 @@ final class HotkeyConflictsTests: XCTestCase {
             .appendingPathComponent("config.toml")
         let cfg = try ConfigLoader.load(tomlString: String(contentsOf: url, encoding: .utf8),
                                         homeDirectory: "/Users/test")
-        // Sanity: bindings are produced and conflict detection runs (count may be 0+).
+        // Sanity: bindings are produced and conflict detection runs.
         XCTAssertFalse(cfg.allBindings().isEmpty)
+        // The shipped example config must be conflict-free.
+        XCTAssertEqual(cfg.hotkeyConflicts().count, 0, "example config should have no hotkey conflicts")
         // A synthetic clash injected on top of the real bindings is detected.
         var withClash = cfg.allBindings()
         withClash.append(.init(modifier: cfg.tilerModifier, key: "j", label: "Bogus duplicate"))
