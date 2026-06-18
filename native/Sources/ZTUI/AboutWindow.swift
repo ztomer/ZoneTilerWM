@@ -9,7 +9,13 @@ struct AboutView: View {
     private var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
-    private var appIcon: NSImage { NSApplication.shared.applicationIconImage }
+    // Load the real app icon from the bundled resource (works in the dev binary too, where
+    // NSApplication.applicationIconImage is just the generic executable icon).
+    private var appIcon: NSImage {
+        if let url = Bundle.module.url(forResource: "AppIcon", withExtension: "png"),
+           let img = NSImage(contentsOf: url) { return img }
+        return NSApplication.shared.applicationIconImage
+    }
 
     var body: some View {
         VStack(spacing: 10) {
