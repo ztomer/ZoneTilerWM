@@ -42,9 +42,9 @@ final class AgentSocketTests: XCTestCase {
         let zones = [ScreenZones(monitor: "1", screenName: "Main", zones: ["h", "j", "k", "l"])]
         let response = roundTrip(.query(.zones)) { req in
             guard case .query(.zones) = req else { return .error("unexpected") }
-            return .query(.zones(zones))
+            return .query(.zones(screens: zones))
         }
-        XCTAssertEqual(response, .query(.zones(zones)))
+        XCTAssertEqual(response, .query(.zones(screens: zones)))
     }
 
     func testClientUnreachableReturnsError() {

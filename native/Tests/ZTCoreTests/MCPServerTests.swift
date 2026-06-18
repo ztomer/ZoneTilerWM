@@ -14,7 +14,7 @@ final class MCPServerTests: XCTestCase {
         func context() -> MCPServer.Context {
             MCPServer.Context(serverName: "zonetiler", serverVersion: "2.0.0",
                 perform: { req in self.performed.append(req); return .zenToggled },
-                query: { q in self.queried.append(q); return .zones([]) })
+                query: { q in self.queried.append(q); return .zones(screens: []) })
         }
     }
 

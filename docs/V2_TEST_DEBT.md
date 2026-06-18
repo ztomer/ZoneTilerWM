@@ -34,7 +34,9 @@ focused pass and delete items as they're verified. See `docs/AUTOMATION.md` for 
 - Already live-validated (OK): MCP handshake/tools/resources + a real AX tile via MCP;
   `zonetiler-cli` actions + resources + exit codes.
 
-## Known polish (not bugs)
-- `ActionResult`/`QueryResult` encode with Swift's synthesized enum keys (`{"_0":…}`) in the
-  MCP/CLI-facing JSON — custom `Codable` would give cleaner payloads.
+## Known polish
+- ✅ DONE: `QueryResult` enum cases now carry labels, so the MCP/CLI JSON is self-describing
+  (`{"zones":{"screens":[…]}}`) instead of `{"_0":…}`. (`ActionResult` cases were already labeled.)
 - `placement-stats` can surface empty app names from legacy store entries (shown as "(unknown)").
+- Possible future: retire legacy `zt-tile`/`zt-autotile` — but they're standalone (own coordinator,
+  no agent needed), useful as a no-agent live AX test tool. Keep for now.

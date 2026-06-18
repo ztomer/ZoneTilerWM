@@ -74,8 +74,11 @@ public struct PlacementStat: Codable, Equatable {
 }
 
 public enum QueryResult: Codable, Equatable {
-    case arrangement([WindowInfo])
-    case zones([ScreenZones])
-    case placementStats([PlacementStat])
-    case unavailable(String)   // e.g. a query that needs a subsystem that's disabled
+    // Labeled associated values so the synthesized JSON is self-describing
+    // (`{"zones":{"screens":[…]}}`) rather than `{"zones":{"_0":[…]}}` — this is the text an MCP
+    // client / the CLI surfaces to the model.
+    case arrangement(windows: [WindowInfo])
+    case zones(screens: [ScreenZones])
+    case placementStats(stats: [PlacementStat])
+    case unavailable(reason: String)   // e.g. a query that needs a subsystem that's disabled
 }

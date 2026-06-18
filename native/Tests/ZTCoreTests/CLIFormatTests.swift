@@ -49,13 +49,13 @@ final class CLIFormatTests: XCTestCase {
     // MARK: query summaries
 
     func testQuerySummaries() {
-        XCTAssertTrue(CLIFormat.summary(.zones([ScreenZones(monitor: "1", screenName: "Main", zones: ["h", "l"])]))
+        XCTAssertTrue(CLIFormat.summary(.zones(screens: [ScreenZones(monitor: "1", screenName: "Main", zones: ["h", "l"])]))
             .contains("monitor 1"))
-        XCTAssertEqual(CLIFormat.summary(.arrangement([])), "(no windows)")
-        XCTAssertEqual(CLIFormat.summary(.placementStats([])), "(no learned placements)")
-        XCTAssertTrue(CLIFormat.summary(.unavailable("memory disabled")).contains("memory disabled"))
+        XCTAssertEqual(CLIFormat.summary(.arrangement(windows: [])), "(no windows)")
+        XCTAssertEqual(CLIFormat.summary(.placementStats(stats: [])), "(no learned placements)")
+        XCTAssertTrue(CLIFormat.summary(.unavailable(reason: "memory disabled")).contains("memory disabled"))
         // Empty app name (legacy/edge store entries) reads as (unknown), not blank.
-        XCTAssertTrue(CLIFormat.summary(.placementStats([
+        XCTAssertTrue(CLIFormat.summary(.placementStats(stats: [
             PlacementStat(app: "", monitor: "1", zone: "h", tile: .int(2), count: 5)])).contains("(unknown)"))
     }
 

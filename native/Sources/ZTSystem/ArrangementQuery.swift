@@ -32,8 +32,8 @@ public struct ArrangementQuery {
 
     public func answer(_ query: QueryRequest) -> QueryResult {
         switch query {
-        case .arrangement:    return .arrangement(arrangement())
-        case .zones:          return .zones(zoneList())
+        case .arrangement:    return .arrangement(windows: arrangement())
+        case .zones:          return .zones(screens: zoneList())
         case .placementStats: return placementStats()
         }
     }
@@ -66,12 +66,12 @@ public struct ArrangementQuery {
     // MARK: placement stats
 
     private func placementStats() -> QueryResult {
-        guard let mem = memory() else { return .unavailable("window memory disabled") }
+        guard let mem = memory() else { return .unavailable(reason: "window memory disabled") }
         let prefs = mem.save().preferences.map {
             PlacementStat(app: $0.app_name, monitor: $0.monitor_id, zone: $0.zone_key,
                           tile: $0.tile_index, count: $0.data.count)
         }
-        return .placementStats(prefs.sorted { ($0.app, $0.monitor, $0.zone) < ($1.app, $1.monitor, $1.zone) })
+        return .placementStats(stats: prefs.sorted { ($0.app, $0.monitor, $0.zone) < ($1.app, $1.monitor, $1.zone) })
     }
 
     // MARK: helpers

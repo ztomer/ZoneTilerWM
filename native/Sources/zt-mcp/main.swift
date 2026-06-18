@@ -28,8 +28,8 @@ let context = MCPServer.Context(
     query: { query in
         switch client.send(.query(query)) {
         case .query(let result): return result
-        case .error(let message): return .unavailable(message)
-        case .action:            return .unavailable("unexpected action response")
+        case .error(let message): return .unavailable(reason: message)
+        case .action:            return .unavailable(reason: "unexpected action response")
         }
     })
 

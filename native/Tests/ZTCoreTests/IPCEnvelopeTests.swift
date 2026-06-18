@@ -23,9 +23,9 @@ final class IPCEnvelopeTests: XCTestCase {
         let rect = ZTRect(x: 0, y: 0, w: 10, h: 20)
         let cases: [IPCResponse] = [
             .action(.tiled(windowId: 1, zone: "h", tileIndex: 1, target: rect, applied: true)),
-            .query(.arrangement([WindowInfo(windowId: 1, app: "Finder", frame: rect, monitor: "1", zone: "h")])),
-            .query(.zones([ScreenZones(monitor: "1", screenName: "Main", zones: ["h", "j"])])),
-            .query(.placementStats([PlacementStat(app: "Finder", monitor: "1", zone: "h", tile: .int(1), count: 3)])),
+            .query(.arrangement(windows: [WindowInfo(windowId: 1, app: "Finder", frame: rect, monitor: "1", zone: "h")])),
+            .query(.zones(screens: [ScreenZones(monitor: "1", screenName: "Main", zones: ["h", "j"])])),
+            .query(.placementStats(stats: [PlacementStat(app: "Finder", monitor: "1", zone: "h", tile: .int(1), count: 3)])),
             .error("boom"),
         ]
         for c in cases {
@@ -51,10 +51,10 @@ final class QueryRequestTests: XCTestCase {
     func testResultRoundTrip() throws {
         let rect = ZTRect(x: 1, y: 2, w: 3, h: 4)
         let cases: [QueryResult] = [
-            .arrangement([WindowInfo(windowId: 9, app: "Zen", frame: rect, monitor: "2", zone: nil)]),
-            .zones([ScreenZones(monitor: "1", screenName: "Main", zones: ["h"])]),
-            .placementStats([PlacementStat(app: "Zen", monitor: "2", zone: "k", tile: .string("4a"), count: 1)]),
-            .unavailable("memory disabled"),
+            .arrangement(windows: [WindowInfo(windowId: 9, app: "Zen", frame: rect, monitor: "2", zone: nil)]),
+            .zones(screens: [ScreenZones(monitor: "1", screenName: "Main", zones: ["h"])]),
+            .placementStats(stats: [PlacementStat(app: "Zen", monitor: "2", zone: "k", tile: .string("4a"), count: 1)]),
+            .unavailable(reason: "memory disabled"),
         ]
         for c in cases {
             let data = try JSONEncoder().encode(c)
