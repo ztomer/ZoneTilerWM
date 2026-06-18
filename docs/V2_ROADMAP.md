@@ -103,6 +103,42 @@ Layout snapshots are the connective tissue both pillars want.
   the HUD); never over live data or controls; must read as a deliberate *mode*, not a random reskin
   that fractures the app's one coherent dark visual language.
 
+### G. AI / agent integration — expose the app, don't embed a model
+Framing: a tiling WM is a near-perfect *tool surface* for an agent. The bet is to make
+ZoneTilerWM **agent-operable** without making it AI-dependent — we embed no model, key, or network
+call; the user's own LLM drives our local action surface.
+
+- **MCP server** *(headline · M · low · same AX as the equivalent manual action)*. Wrap the
+  internal action API (the same one behind App Intents / URL / CLI in theme A) as MCP so the user's
+  Claude (Desktop / Code) can operate the workspace:
+  - **Tools** (verbs we already have): `tile_window(zone, monitor)`, `auto_tile_screen()`,
+    `apply_layout(name)`, `save_layout(name)`, `switch_audio(device)`, `set_rule(match → action)`,
+    `focus_window(...)`.
+  - **Resources** (read-only; CGWindowList + the learned store): current arrangement, available
+    zones/grids, placement-preference stats.
+  - **Why it's cheap:** it's just another thin front-end over the theme-A action API — make that API
+    the single source of truth (App Intents + URL + CLI + MCP all wrap it).
+  - **Privacy-clean:** we ship no model/key/network; the user's existing client talks to the model,
+    our server only exposes local actions/data the user already controls. Important under
+    SentinelOne — shipping window titles/app names to a third party would be a real data-leak.
+  - **Transport (the one real decision):** Claude Desktop spawns its own stdio MCP process, but our
+    agent is already running. Cleanest: a **tiny stdio MCP shim** the client spawns, forwarding to
+    the running agent over a local socket / URL scheme / XPC. (Alt: agent hosts a localhost HTTP MCP
+    server — one fewer binary, but a listening port draws marginally more EDR attention.) Lean
+    stdio-shim. The `mcp-builder` skill covers the build.
+- **On-device natural language** *(optional · M · low)*. An in-app "describe your layout" box using
+  Apple's **on-device Foundation Models** (Apple Intelligence) — no key, no network, free, private;
+  maps "editor left two-thirds, terminal bottom-right" → a constrained zone/tile assignment. Gated
+  to capable Macs, so lower priority — but the *only* in-app LLM path endorsed (no embedded cloud
+  model; see non-goals).
+- **LLM-assisted suggestions** *(opt-in · M · low)*. Name discovered layouts ("your 'research'
+  setup"), suggest rules ("you always put Slack here — make a rule?"). Best served *through* the MCP
+  stats resource so the user's LLM does the reasoning and we run nothing.
+
+**Hard guardrail:** the LLM *proposes*; the **deterministic solver executes**. Never put a model in
+the hot tiling loop — tiling stays instant, deterministic, and oracle-test-covered. AI is for intent
+translation + suggestion, not per-keystroke control.
+
 ## Design note — the zone HUD is training wheels, and must come off
 
 The modifier-held HUD is a *learning aid*. Once muscle memory is established, an overlay that fires
@@ -122,9 +158,10 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
 
 ## Suggested phasing
 
-- **v2.0 — Programmable core.** App Intents + URL scheme + CLI, then the rules engine on top. Low AX,
-  high leverage, mostly testable `ZTCore`, and it makes everything else automatable. Land Developer
-  ID + notarization + auto-update here so v2 ships on a real update channel.
+- **v2.0 — Programmable core.** App Intents + URL scheme + CLI + the **MCP server** (theme G) — all
+  thin front-ends over one internal action API — then the rules engine on top. Low AX, high leverage,
+  mostly testable `ZTCore`, and it makes everything else automatable (incl. agent-operable). Land
+  Developer ID + notarization + auto-update here so v2 ships on a real update channel.
 - **v2.1 — Kinesthetic discoverability.** Modifier-held zone HUD (with the toggle/hold-delay design
   above), then mouse drag-to-snap. Built on the existing overlay infrastructure.
 - **v2.2 — Depth & intelligence.** Layout snapshots/workspaces, window stacks, context-aware
@@ -148,3 +185,8 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
   (jank + cost).
 - **Any feature needing per-window AX reads for enumeration** — violates the AX budget. Window
   state must come from CGWindowList or be strictly event-gated.
+- **An embedded cloud LLM** (our own API key, calling out to a hosted model) — cost, latency, key
+  management, and a privacy/EDR problem (window titles + app names + habits leaving the device).
+  In-app AI, if any, is **on-device only** (Apple Foundation Models); otherwise the user's own MCP
+  client supplies the model (theme G). And the LLM never drives the hot tiling loop — it proposes,
+  the deterministic solver executes.
