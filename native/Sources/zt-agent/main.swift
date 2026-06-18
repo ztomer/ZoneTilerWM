@@ -19,17 +19,26 @@ let home = FileManager.default.homeDirectoryForCurrentUser
 /// `~/.config/ZoneTilerWM/config.toml`, seeding it from the bundled default on first run so a
 /// freshly-installed app starts with a working config instead of failing to launch.
 func resolveConfigURL() -> URL {
-    if CommandLine.arguments.count > 1 { return URL(fileURLWithPath: CommandLine.arguments[1]) }
+    // The live config ALWAYS lives in the standard user location, alongside the JSON state —
+    // never the project folder or the app bundle. The agent reads/writes only this file.
+    let fm = FileManager.default
     let dir = home.appendingPathComponent(".config/ZoneTilerWM", isDirectory: true)
     let url = dir.appendingPathComponent("config.toml")
-    let fm = FileManager.default
-    if !fm.fileExists(atPath: url.path) {
-        // First run: copy the default config shipped in the app bundle's Resources.
-        if let bundled = Bundle.main.url(forResource: "config", withExtension: "toml") {
-            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-            try? fm.copyItem(at: bundled, to: url)
-            log("zt-agent: seeded default config at \(url.path)")
-        }
+    guard !fm.fileExists(atPath: url.path) else { return url }
+
+    // First run only: migrate an existing config into the canonical location, then never look
+    // elsewhere again. Source priority: an explicit path arg (dev / run.sh), the legacy
+    // Hammerspoon config, then the bundled default.
+    try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    let argPath = CommandLine.arguments.count > 1 ? URL(fileURLWithPath: CommandLine.arguments[1]) : nil
+    let legacy = home.appendingPathComponent(".hammerspoon/config.toml")
+    let sources = [argPath, legacy, Bundle.main.url(forResource: "config", withExtension: "toml")]
+        .compactMap { $0 }
+    if let source = sources.first(where: { fm.fileExists(atPath: $0.path) }) {
+        try? fm.copyItem(at: source, to: url)
+        log("zt-agent: migrated config to \(url.path) (from \(source.path))")
+    } else {
+        log("zt-agent: no config found to migrate; expected \(url.path)")
     }
     return url
 }
