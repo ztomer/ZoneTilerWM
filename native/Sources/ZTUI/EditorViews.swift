@@ -261,20 +261,31 @@ struct AppShortcutsView: View {
                     }
                 }
             }
-            Divider()
-            if let k = selectedKey {
-                HStack(spacing: 8) {
-                    Text(ModGlyph.string(currentGroup.modifier) + displayKey(k))
-                        .font(.system(.body, design: .monospaced)).frame(width: 90, alignment: .leading)
-                    TextField("app name (blank to clear)", text: $edit)
-                        .textFieldStyle(.roundedBorder).frame(width: 240).onSubmit { commit(k) }
-                    Button("Set") { commit(k) }
-                    Button("Clear") { model.removeAppShortcut(group: group, key: k); selectedKey = nil; edit = "" }
-                    Spacer()
+            // Footer panel: assign/clear the selected key's app, or a hint when none is selected.
+            // Same footprint either way, so selecting a key never shifts the layout.
+            Group {
+                if let k = selectedKey {
+                    HStack(spacing: 8) {
+                        Text(ModGlyph.string(currentGroup.modifier) + displayKey(k))
+                            .font(.system(.body, design: .monospaced)).frame(width: 90, alignment: .leading)
+                        TextField("app name (blank to clear)", text: $edit)
+                            .textFieldStyle(.roundedBorder).frame(width: 240).onSubmit { commit(k) }
+                        Button("Set") { commit(k) }
+                        Button("Clear") { model.removeAppShortcut(group: group, key: k); selectedKey = nil; edit = "" }
+                        Spacer()
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: "cursorarrow.rays").foregroundColor(.secondary)
+                        Text("Select a key above to assign or change its app.").foregroundColor(.secondary)
+                        Spacer()
+                    }
                 }
-            } else {
-                Text("No key selected.").font(.caption).foregroundColor(.secondary)
             }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -284,12 +295,13 @@ struct AppShortcutsView: View {
     private func keycap(_ key: String, app: String) -> some View {
         let mapped = !app.isEmpty
         let sel = selectedKey == key
-        return VStack(spacing: 1) {
-            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced)).foregroundColor(.secondary)
-            Text(app).font(.system(size: 8)).lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity)
+        return VStack(spacing: 2) {
+            Text(displayKey(key)).font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(mapped ? .primary : .secondary)
+            Text(app).font(.system(size: 9)).lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 2)
-        .frame(width: 58, height: 40)
+        .padding(.horizontal, 3)
+        .frame(width: 64, height: 44)
         .background(RoundedRectangle(cornerRadius: 6).fill(mapped ? Color.accentColor.opacity(0.22) : Color(NSColor.controlBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: sel ? 2 : 0.5))
         .contentShape(Rectangle())
