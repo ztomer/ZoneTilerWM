@@ -23,6 +23,16 @@ public enum ConfigLoader {
         public var autoTileFallback: Bool
     }
 
+    /// `[borders]` — the focus-follow window outline.
+    public struct Borders: Equatable {
+        public var enabled: Bool
+        public var backend: String       // "overlay" | "skylight"
+        public var color: String         // config color name
+        public var width: Double
+        public var cornerRadius: Double
+        public var prediction: Bool      // motion prediction to compensate follow-lag
+    }
+
     public struct LoadedConfig: Equatable {
         public var version: String
         public var zoneConfig: ZoneConfig
@@ -54,6 +64,7 @@ public enum ConfigLoader {
         public var tilerHotkeys: [String: [String]]      // action -> [modifierAlias, key]
         public var systemHotkeys: [String: [String]]     // action -> [modifierAlias, key]
         public var keyboardLayout: String                 // [ui] keyboard_layout: auto/qwerty/dvorak/colemak
+        public var borders: Borders
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
         public func resolvedHotkey(_ action: String, in group: [String: [String]]) -> (modifier: [String], key: String)? {
@@ -157,10 +168,20 @@ public enum ConfigLoader {
         var hotkeys: [String: [String]]?
     }
 
+    private struct RawBorders: Decodable {
+        var enabled: Bool?
+        var backend: String?
+        var color: String?
+        var width: Double?
+        var corner_radius: Double?
+        var prediction: Bool?
+    }
+
     private struct RawConfig: Decodable {
         var version: String?
         var tiler: RawTiler
         var pomodoro: RawPomodoro?
+        var borders: RawBorders?
         var window_memory: RawWindowMemory?
         var aliases: [String: [String]]?
         var app_switcher: RawAppSwitcher?
@@ -264,7 +285,14 @@ public enum ConfigLoader {
             pomodoroHotkeys: raw.pomodoro?.hotkeys ?? [:],
             tilerHotkeys: t.hotkeys ?? [:],
             systemHotkeys: raw.system_hotkeys ?? [:],
-            keyboardLayout: raw.ui?.keyboard_layout ?? "auto")
+            keyboardLayout: raw.ui?.keyboard_layout ?? "auto",
+            borders: Borders(
+                enabled: raw.borders?.enabled ?? false,
+                backend: raw.borders?.backend ?? "overlay",
+                color: raw.borders?.color ?? "blue",
+                width: raw.borders?.width ?? 4,
+                cornerRadius: raw.borders?.corner_radius ?? 9,
+                prediction: raw.borders?.prediction ?? true))
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

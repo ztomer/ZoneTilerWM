@@ -123,6 +123,7 @@ final class AgentController: NSObject {
     private var focusTimer: Timer?
     private let flash = FlashOverlay()
     private let pomodoroBar = PomodoroBar()
+    private let focusBorder = FocusBorderController()
     private var enableColorBar: Bool
     private var pomodoroIndicatorHeight: Double
     private var pomodoroIndicatorAlpha: Double
@@ -191,6 +192,19 @@ final class AgentController: NSObject {
             binder: binder, screens: screens, windowSystem: windowSystem,
             keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" })
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
+        applyBorders(config)
+    }
+
+    /// Apply the [borders] config to the focus-border controller (also on every live reload).
+    /// ZT_BORDERS=1 force-enables it for QA regardless of the config toggle.
+    private func applyBorders(_ cfg: ConfigLoader.LoadedConfig) {
+        let b = cfg.borders
+        let forced = ProcessInfo.processInfo.environment["ZT_BORDERS"] == "1"
+        focusBorder.apply(
+            enabled: b.enabled || forced,
+            backend: BorderBackend(rawValue: b.backend) ?? .overlay,
+            style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0),
+            prediction: b.prediction)
     }
 
     private static func makeCoordinator(config: ConfigLoader.LoadedConfig, windowSystem: WindowSystem,
@@ -454,6 +468,7 @@ final class AgentController: NSObject {
         pomodoroIndicatorAlpha = newConfig.pomodoroIndicatorAlpha
         pomodoroColorRemaining = PomodoroBar.color(named: newConfig.pomodoroColorRemaining)
         pomodoroColorUsed = PomodoroBar.color(named: newConfig.pomodoroColorUsed)
+        applyBorders(newConfig)
         bindAllHotkeys()
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
