@@ -54,7 +54,7 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(cfg.windowMemory.cacheDir, "/Users/test/.config/ZoneTilerWM")
         XCTAssertTrue(cfg.windowMemory.excludedApps.contains("System Settings"))
         XCTAssertEqual(cfg.windowMemory.defaultZone, "0")
-        XCTAssertEqual(cfg.windowMemory.appZones["Arc"], "k")
+        XCTAssertEqual(cfg.windowMemory.appZones["Firefox"], "k")
 
         // Aliases (raw; resolution deferred to hotkey work).
         XCTAssertEqual(cfg.aliases["mash"], ["ctrl", "cmd"])
@@ -72,8 +72,8 @@ final class ConfigLoaderTests: XCTestCase {
         let cfg = try ConfigLoader.load(tomlString: String(contentsOf: repoConfigURL(), encoding: .utf8),
                                         homeDirectory: "/Users/test")
         // app_switcher
-        XCTAssertTrue(cfg.appSwitcher.hideWorkaroundApps.contains("Arc"))
-        XCTAssertTrue(cfg.appSwitcher.ambiguousApps.contains { $0 == ["notion", "notion calendar"] })
+        XCTAssertTrue(cfg.appSwitcher.hideWorkaroundApps.contains("Firefox"))
+        XCTAssertTrue(cfg.appSwitcher.ambiguousApps.contains { $0 == ["zen", "zen browser"] })
         // appCuts: modifier alias mash_app -> [shift, ctrl]; e -> Finder.
         XCTAssertEqual(cfg.appCuts.modifier, ["shift", "ctrl"])
         XCTAssertEqual(cfg.appCuts.apps["e"], "Finder")

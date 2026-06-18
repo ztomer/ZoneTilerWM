@@ -92,7 +92,7 @@ final class TOMLEditorTests: XCTestCase {
                        edited.components(separatedBy: "\n").count)   // exactly one line removed
         let cfg = try ConfigLoader.load(tomlString: edited, homeDirectory: "/Users/test")
         XCTAssertNil(cfg.appCuts.apps["e"])
-        XCTAssertEqual(cfg.appCuts.apps["w"], "Whatsapp")   // sibling intact
+        XCTAssertEqual(cfg.appCuts.apps["w"], "Signal")   // sibling intact
     }
 
     func testRemoveKeyMissingReturnsNil() throws {

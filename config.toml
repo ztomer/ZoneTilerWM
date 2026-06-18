@@ -34,59 +34,58 @@ HYPER = ["shift", "ctrl", "alt", "cmd"]
 # Press the modifier + key to launch / focus the mapped app.
 # =============================================================================
 
-# Direct lowercase mapping (modifier = mash_app).
+# Direct lowercase mapping (modifier = mash_app). Example apps are open source.
 [appCuts]
 modifier = ["mash_app"]
-"q" = "BambuStudio"
-"w" = "Whatsapp"
+"q" = "OrcaSlicer"
+"w" = "Signal"
 "e" = "Finder"
-"r" = "ZTCronometer"
+"r" = "LibreOffice"
 "t" = "Ghostty"
-"a" = "Notion"
-"s" = "GMail"
-"d" = "Notion Calendar"
+"a" = "Logseq"
+"s" = "Thunderbird"
+"d" = "Joplin"
 "f" = "Zen"
-"g" = "Char"
-"z" = "Bloom"
-"x" = "Hyprnote Nightly"
-"c" = "Arc"
-"v" = "Antigravity"
-"b" = "Kaset"
+"g" = "GIMP"
+"z" = "Blender"
+"x" = "Inkscape"
+"c" = "Firefox"
+"v" = "Zed"
+"b" = "Audacity"
 
-# Less-frequent apps / tools (modifier = HYPER).
+# Less-frequent apps / tools (modifier = HYPER). Example apps are open source.
 [hyperAppCuts]
 modifier = ["HYPER"]
-"q" = "IBKR Desktop"
+"q" = "GnuCash"
 "w" = "Weather"
 "e" = "Clock"
-"r" = "Discord"
-"t" = "ChatGpt"
-"a" = "Obsidian"
+"r" = "Element"
+"t" = "Jan"
+"a" = "Zettlr"
 "s" = "KeePassXC"
 "d" = ""
 "f" = ""
 "g" = ""
 "z" = "OpenCode"
 "x" = ""
-"c" = "Google Chrome"
-"v" = "Visual Studio Code"
+"c" = "Chromium"
+"v" = "VSCodium"
 "b" = "Feishin"
-"F1" = "Gemini"
-"F2" = "Claude"
+"F1" = "Standard Notes"
+"F2" = "Krita"
 
 # App-switching behavior tweaks.
 [app_switcher]
-# Apps that need menu-based hiding.
-hide_workaround_apps = ["Arc"]
-# Ambiguous app pairs that should not be considered matching.
+# Apps that need menu-based hiding (example).
+hide_workaround_apps = ["Firefox"]
+# Ambiguous app pairs that should not be considered matching (example).
 ambiguous_apps = [
-    ["notion", "notion calendar"],
-    ["notion", "notion mail"]
+    ["zen", "zen browser"]
 ]
 
 [app_switcher.special_app_mappings]
-# Apps needing an exact "launch name" = "display name" mapping.
-bambustudio = "bambu studio"
+# Apps needing an exact "launch name" = "display name" mapping (example).
+vscodium = "VSCodium"
 
 
 # =============================================================================
@@ -352,7 +351,7 @@ max_preference_entries = 1000   # max unique entries to remember
 settle_delay_sec = 2.0          # wait before learning a position
 save_interval_sec = 60          # periodic save (0 = off)
 cache_dir = "~/.config/ZoneTilerWM"
-excluded_apps = ["System Settings", "System Preferences", "Activity Monitor", "Calculator", "Photo Booth", "Hammerspoon", "KeyCastr", "Installer", "SupaSidebar"]
+excluded_apps = ["System Settings", "System Preferences", "Activity Monitor", "Calculator", "Photo Booth", "KeyCastr", "Installer"]
 auto_tile_fallback = true
 default_zone = "0"
 
@@ -362,11 +361,11 @@ restore = ["HYPER", "0"]
 
 # Default zone for specific apps when no position is remembered yet.
 [window_memory.app_zones]
-"Arc" = "k"
+"Firefox" = "k"
 "Ghostty" = "h"
-"Visual Studio Code" = "h"
-"Notion" = "j"
-"YouTube Music" = "i"
+"VSCodium" = "h"
+"Logseq" = "j"
+"Feishin" = "i"
 
 
 # =============================================================================
