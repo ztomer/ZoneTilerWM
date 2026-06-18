@@ -9,12 +9,16 @@ public struct AnalyticsView: View {
     @ObservedObject var model: SettingsModel
     @State private var monitor = "all"
     @State private var app = "all"
-    @State private var mode = "screen"          // "screen" (spatial cells) | "keyboard" (zone keys) | "apps"
+    @State private var mode: String             // "screen" (spatial cells) | "keyboard" (zone keys) | "apps" | "trend"
     @State private var grid = ""
     @State private var recency = false          // weight by recency (decays stale habits)
     @State private var minCount = 1             // hide apps below this many placements (long-tail noise)
     @State private var sortOrder = [KeyPathComparator(\SettingsModel.Pref.count, order: .reverse)]
-    public init(model: SettingsModel) { self.model = model }
+    public init(model: SettingsModel) {
+        self.model = model
+        // QA hook: ZT_ANALYTICS_MODE opens a specific mode directly (for screenshot review).
+        _mode = State(initialValue: ProcessInfo.processInfo.environment["ZT_ANALYTICS_MODE"] ?? "screen")
+    }
 
     private var monitorFilter: String? { monitor == "all" ? nil : monitor }
     private var appFilter: String? { app == "all" ? nil : app }
@@ -199,18 +203,23 @@ public struct AnalyticsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("\(total.formatted()) placements over \(data.count) day\(data.count == 1 ? "" : "s")")
                         .font(.caption).foregroundColor(.secondary)
+                    // Bars cap at 36pt wide so a single day reads as one bar (not a full-width
+                    // slab); leading-aligned, so a sparse history fills from the left and a full
+                    // 30-day window shrinks to span the width.
                     HStack(alignment: .bottom, spacing: 3) {
                         ForEach(data, id: \.day) { d in
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(Color.accentColor.opacity(0.85))
                                 .frame(height: max(2, 150 * CGFloat(d.count) / CGFloat(max(maxC, 1))))
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: 36)
                                 .help("\(dayLabel(d.day)): \(d.count.formatted())")
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 150)
                     HStack {
-                        Text(dayLabel(data.first!.day)); Spacer(); Text(dayLabel(data.last!.day))
+                        Text(dayLabel(data.first!.day))
+                        if data.count > 1 { Spacer(); Text(dayLabel(data.last!.day)) }
                     }.font(.caption2).foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -309,12 +318,12 @@ public struct AnalyticsView: View {
                 HStack(spacing: 4) {
                     ForEach(model.keyboardRows[r], id: \.self) { key in
                         let count = usage[key] ?? 0
-                        VStack(spacing: 1) {
-                            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced))
+                        VStack(spacing: 2) {
+                            Text(displayKey(key)).font(.system(size: 10, weight: .semibold, design: .monospaced))
                                 .foregroundColor(count > 0 ? .primary : .secondary.opacity(0.5))
-                            Text(count > 0 ? "\(count)" : "").font(.system(size: 8)).foregroundColor(.secondary)
+                            Text(count > 0 ? "\(count)" : "").font(.system(size: 9)).foregroundColor(.secondary)
                         }
-                        .frame(width: 52, height: 38)
+                        .frame(width: 52, height: 40)
                         .background(RoundedRectangle(cornerRadius: 5).fill(intensityColor(count, maxCount)))
                         .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.secondary.opacity(0.2)))
                     }
