@@ -64,6 +64,9 @@ final class JSONFileStorageTests: XCTestCase {
                           "no real window_positions.json on this machine")
         let storage = JSONFileStorage(directory: JSONFileStorage.defaultDirectory)
         let loaded = storage.load("window_positions", as: WindowMemory.SaveData.self)
-        XCTAssertNotNil(loaded, "real window_positions.json should decode into SaveData")
+        // Assert on a Bool, not the value itself: XCTAssertNotNil reflects its argument via
+        // Mirror to build a description, which on a large decoded SaveData (thousands of
+        // preferences) allocates heavily and can trap. We only care that it decoded.
+        XCTAssertTrue(loaded != nil, "real window_positions.json should decode into SaveData")
     }
 }

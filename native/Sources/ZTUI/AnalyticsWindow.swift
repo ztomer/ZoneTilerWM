@@ -68,8 +68,9 @@ public struct AnalyticsView: View {
                     Text("Screen").tag("screen")
                     Text("Keyboard").tag("keyboard")
                     Text("By app").tag("apps")
-                }.pickerStyle(.segmented).frame(width: 230).labelsHidden()
-                if mode != "keyboard" {
+                    Text("Trend").tag("trend")
+                }.pickerStyle(.segmented).frame(width: 300).labelsHidden()
+                if mode == "screen" || mode == "apps" {
                     Text("Grid").foregroundColor(.secondary)
                     Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
                         .labelsHidden().frame(width: 90)
@@ -85,11 +86,14 @@ public struct AnalyticsView: View {
             }
             Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
                  : mode == "keyboard" ? "Which zone keys windows land in."
+                 : mode == "trend" ? "Placements per day (last 30 days)."
                  : "Each app's placement footprint — tap one to filter.")
                 .font(.caption).foregroundColor(.secondary)
             if model.preferences.isEmpty {
                 emptyState("No placements learned yet.",
                            "Tile some windows and ZoneTilerWM will start learning where you put each app.")
+            } else if mode == "trend" {
+                trendView
             } else if filtered.isEmpty {
                 emptyState("Nothing matches this filter.", "Lower “min” or clear the app/monitor filter.")
             } else {
@@ -161,6 +165,43 @@ public struct AnalyticsView: View {
             Text(detail).font(.callout).foregroundColor(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, minHeight: 240)
+    }
+
+    private func dayLabel(_ dayIndex: Int) -> String {
+        let f = DateFormatter(); f.dateFormat = "MMM d"
+        return f.string(from: Date(timeIntervalSince1970: Double(dayIndex) * 86400))
+    }
+
+    // Trend: placements per day over the last 30 day-buckets (data accrues going forward).
+    private var trendView: some View {
+        let data = Array(model.dailyPlacements().suffix(30))
+        let maxC = data.map { $0.count }.max() ?? 1
+        let total = data.reduce(0) { $0 + $1.count }
+        return Group {
+            if data.isEmpty {
+                emptyState("Collecting activity…",
+                           "The daily trend fills in as you tile windows over the coming days.")
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(total.formatted()) placements over \(data.count) day\(data.count == 1 ? "" : "s")")
+                        .font(.caption).foregroundColor(.secondary)
+                    HStack(alignment: .bottom, spacing: 3) {
+                        ForEach(data, id: \.day) { d in
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.accentColor.opacity(0.85))
+                                .frame(height: max(2, 150 * CGFloat(d.count) / CGFloat(max(maxC, 1))))
+                                .frame(maxWidth: .infinity)
+                                .help("\(dayLabel(d.day)): \(d.count.formatted())")
+                        }
+                    }
+                    .frame(height: 150)
+                    HStack {
+                        Text(dayLabel(data.first!.day)); Spacer(); Text(dayLabel(data.last!.day))
+                    }.font(.caption2).foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
     }
 
     // Spatial: the monitor's grid cells colored by occupancy.

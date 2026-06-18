@@ -284,6 +284,9 @@ public final class SettingsModel: ObservableObject {
 
     public var monitorsInData: [String] { Array(Set(preferences.map { $0.monitor })).sorted() }
     public var appsInData: [String] { Array(Set(preferences.map { $0.app }.filter { !$0.isEmpty })).sorted() }
+
+    /// Daily placement counts (dayIndex = epoch/86400, ascending) for the Analytics trend.
+    public func dailyPlacements() -> [(day: Int, count: Int)] { memory?.dailyCounts() ?? [] }
 }
 
 public struct SettingsView: View {

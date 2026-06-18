@@ -99,4 +99,30 @@ final class WindowMemoryTests: XCTestCase {
         XCTAssertEqual(restored.rememberedPosition(app: "A", monitor: "M")?.zone, "h")
         XCTAssertEqual(restored.rankedPreferences(app: "B", monitor: "M").first?.tile, .int(2))
     }
+
+    func testDailyHistogramCountsAndRoundTrips() {
+        // Two placements on day 20000 (epoch 20000*86400), one on day 20001.
+        var now = 20_000 * 86_400
+        let wm = WindowMemory(clock: { now })
+        learn(wm, id: 1, app: "A", monitor: "M", zone: "h", tile: 1, w: 800, h: 600)
+        learn(wm, id: 2, app: "B", monitor: "M", zone: "j", tile: 1, w: 800, h: 600)
+        now = 20_001 * 86_400
+        learn(wm, id: 3, app: "A", monitor: "M", zone: "k", tile: 1, w: 800, h: 600)
+
+        XCTAssertEqual(wm.dailyCounts().map { $0.count }, [2, 1])         // ascending by day
+        XCTAssertEqual(wm.dailyCounts().map { $0.day }, [20_000, 20_001])
+
+        let restored = WindowMemory()
+        restored.load(wm.save())
+        XCTAssertEqual(restored.dailyCounts().map { $0.count }, [2, 1])   // survives save/load
+    }
+
+    func testLegacyDataHasEmptyDailyHistogram() {
+        // A SaveData written before the `daily` field (decoded from JSON without it) loads fine.
+        let json = #"{"positions":[],"preferences":[]}"#.data(using: .utf8)!
+        let data = try! JSONDecoder().decode(WindowMemory.SaveData.self, from: json)
+        XCTAssertTrue(data.daily.isEmpty)
+        let wm = WindowMemory(); wm.load(data)
+        XCTAssertTrue(wm.dailyCounts().isEmpty)
+    }
 }

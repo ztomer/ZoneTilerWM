@@ -76,6 +76,11 @@ public final class WindowMemory {
     // preferences[app][monitor][zone][tile] = Stats
     private(set) var preferences: [String: [String: [String: [TileIndex: Stats]]]] = [:]
     private var pending: [Int: Pending] = [:]
+    // Daily placement histogram: dayIndex (epoch / 86400, timezone-free) -> placements that day.
+    // Powers the Analytics trend. Empty under the default {0} clock (tests/oracle) and for
+    // legacy on-disk data. Capped on save.
+    private var daily: [Int: Int] = [:]
+    private static let dailyRetentionDays = 180
 
     private let excluded: Set<String>
     private let settleEnabled: Bool
@@ -136,8 +141,14 @@ public final class WindowMemory {
         stats.meanArea = ((stats.meanArea * n) + newAreaRatio) / (n + 1)
         stats.count += 1
         stats.lastSeen = clock()   // 0 under the default clock (oracle/tests); real epoch live
+        daily[clock() / 86400, default: 0] += 1   // one placement on this day-bucket
 
         preferences[p.app, default: [:]][p.monitor, default: [:]][p.zone, default: [:]][p.tile] = stats
+    }
+
+    /// Daily placement counts, ascending by day-bucket (epoch / 86400). For the Analytics trend.
+    public func dailyCounts() -> [(day: Int, count: Int)] {
+        daily.sorted { $0.key < $1.key }.map { (day: $0.key, count: $0.value) }
     }
 
     // MARK: - Queries
@@ -289,6 +300,19 @@ public final class WindowMemory {
 
         public var positions: [PositionEntry]
         public var preferences: [PreferenceEntry]
+        public var daily: [String: Int]   // dayIndex (epoch/86400) string -> count; empty for legacy
+
+        public init(positions: [PositionEntry], preferences: [PreferenceEntry], daily: [String: Int] = [:]) {
+            self.positions = positions; self.preferences = preferences; self.daily = daily
+        }
+        enum CodingKeys: String, CodingKey { case positions, preferences, daily }
+        // Tolerant decode so files written before the `daily` field still load.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            positions = (try? c.decode([PositionEntry].self, forKey: .positions)) ?? []
+            preferences = (try? c.decode([PreferenceEntry].self, forKey: .preferences)) ?? []
+            daily = (try? c.decode([String: Int].self, forKey: .daily)) ?? [:]
+        }
     }
 
     /// Serialize current state to the on-disk array form. Arrays are sorted for
@@ -319,7 +343,14 @@ public final class WindowMemory {
             ($0.app_name, $0.monitor_id, $0.zone_key, $0.tile_index.sortKey)
                 < ($1.app_name, $1.monitor_id, $1.zone_key, $1.tile_index.sortKey)
         }
-        return SaveData(positions: pos, preferences: prefs)
+        // Keep only the most recent retention window so the histogram can't grow unbounded.
+        var trimmed = daily
+        if let newest = daily.keys.max() {
+            let cutoff = newest - Self.dailyRetentionDays
+            trimmed = daily.filter { $0.key > cutoff }
+        }
+        let dailyOut = Dictionary(uniqueKeysWithValues: trimmed.map { (String($0.key), $0.value) })
+        return SaveData(positions: pos, preferences: prefs, daily: dailyOut)
     }
 
     /// Load state from the on-disk array form (inverse of `save`).
@@ -332,5 +363,6 @@ public final class WindowMemory {
                 = Stats(count: pref.data.count, meanAR: pref.data.mean_ar, meanArea: pref.data.mean_area,
                         lastSeen: pref.data.last_seen)
         }
+        for (k, v) in data.daily { if let day = Int(k) { daily[day] = v } }
     }
 }
