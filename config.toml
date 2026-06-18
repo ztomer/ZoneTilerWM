@@ -1,7 +1,26 @@
+# =============================================================================
+# ZoneTilerWM configuration
+# =============================================================================
+# Edits are applied live (the agent watches this file). The Settings window
+# (menubar -> Settings) edits the same keys and preserves these comments.
+#
+# Contents:
+#   1. Modifier aliases
+#   2. App launchers          (appCuts, hyperAppCuts, app_switcher)
+#   3. System hotkeys
+#   4. Tiling                 (modifiers, auto-tiler, hotkeys, margins, weights, working set)
+#   5. Screens, grids & layouts
+#   6. Pomodoro
+#   7. Audio switcher
+#   8. Window memory
+#   9. Legacy / not used by the native app
+# =============================================================================
 version = "1.0.0"
 
+
 # =============================================================================
-# Key Combinations
+# 1. Modifier aliases
+# Named modifier combos referenced by the keybindings below.
 # =============================================================================
 [aliases]
 mash = ["ctrl", "cmd"]
@@ -11,38 +30,11 @@ HYPER = ["shift", "ctrl", "alt", "cmd"]
 
 
 # =============================================================================
-# Audio Switcher
+# 2. App launchers
+# Press the modifier + key to launch / focus the mapped app.
 # =============================================================================
-[audio_switcher]
-devices = ["Audioengine 2+", "Bose QC35 II", "WH-1000XM6"]
-hotkey = ["HYPER", "'"]
-# Name of the macOS Shortcut to run when the default audio device changes.
-# The shortcut should contain its own logic to detect the device and act accordingly.
-# An empty string "" will disable the callback.
-shortcut_callback = "SoundSourceSwitcherEx"
 
-# =============================================================================
-# Application Switcher
-# =============================================================================
-[app_switcher]
-# Apps that need menu-based hiding
-hide_workaround_apps = ["Arc"]
-
-# Ambiguous app pairs that should not be considered matching
-ambiguous_apps = [
-    ["notion", "notion calendar"],
-    ["notion", "notion mail"]
-]
-
-[app_switcher.special_app_mappings]
-# Apps that require exact mapping between launch name and display name
-# Format: "launch name" = "display name"
-bambustudio = "bambu studio"
-
-# =============================================================================
-# Application Shortcuts
-# Direct lowercase mapping for app switching
-# =============================================================================
+# Direct lowercase mapping (modifier = mash_app).
 [appCuts]
 modifier = ["mash_app"]
 "q" = "BambuStudio"
@@ -59,12 +51,9 @@ modifier = ["mash_app"]
 "x" = "Hyprnote Nightly"
 "c" = "Arc"
 "v" = "Antigravity"
-"b" = "Apple Music"
+"b" = "Kaset"
 
-# =============================================================================
-# Hyper Application Shortcuts
-# Typically used for less frequent apps or specific tools
-# =============================================================================
+# Less-frequent apps / tools (modifier = HYPER).
 [hyperAppCuts]
 modifier = ["HYPER"]
 "q" = "IBKR Desktop"
@@ -85,171 +74,148 @@ modifier = ["HYPER"]
 "F1" = "Gemini"
 "F2" = "Claude"
 
+# App-switching behavior tweaks.
+[app_switcher]
+# Apps that need menu-based hiding.
+hide_workaround_apps = ["Arc"]
+# Ambiguous app pairs that should not be considered matching.
+ambiguous_apps = [
+    ["notion", "notion calendar"],
+    ["notion", "notion mail"]
+]
+
+[app_switcher.special_app_mappings]
+# Apps needing an exact "launch name" = "display name" mapping.
+bambustudio = "bambu studio"
+
+
 # =============================================================================
-# System Hotkeys
-# Window hints, reload, activity monitor, etc.
+# 3. System hotkeys
+# Window hints, reload, activity monitor.
 # =============================================================================
 [system_hotkeys]
 window_hints = ["HYPER", "-"]
 activity_monitor = ["HYPER", "="]
 reload = ["mash_shift", "R"]
 
-# =============================================================================
-# Pomodoro Timer
-# =============================================================================
-[pomodoro]
-enable_color_bar = true
-work_period_sec = 3120 # 52 minutes (52 * 60)
-rest_period_sec = 1020 # 17 minutes (17 * 60)
-indicator_height = 0.2 # ratio from the height of the menubar (0..1)
-indicator_alpha = 0.3
-indicator_in_all_spaces = true
-# Colors (converted to hs.drawing.color in loader)
-color_time_remaining = "green"
-color_time_used = "red"
-
-[pomodoro.hotkeys]
-enable = ["mash", "9"]
-disable = ["mash", "0"]
-reset = ["mash_shift", "0"]
 
 # =============================================================================
-# Tiler Settings
+# 4. Tiling
 # =============================================================================
 [tiler]
+modifier = "mash"               # modifier for tile-to-zone (mash + zone key)
+focus_modifier = "mash_shift"   # modifier for focus-cycle within a zone
 
-reposition_on_screen_change = true # Reposition windows when screen configuration changes
-center_modals = true # Automatically center modal dialogs
-modifier = "mash"
-focus_modifier = "mash_shift"
-
-# =============================================================================
-# Auto-Tiler Settings
-# =============================================================================
-# Mode for auto-tiling sort order: "usage" (Maker workflow) or "session" (Manager workflow)
-# - "usage": Prioritizes historical frequency (muscle memory). Z-order is the tie-breaker.
-# - "session": Prioritizes recent use (Z-order). Historical frequency is the tie-breaker.
+# Auto-tiler sort order: "usage" (muscle memory; z-order tie-break) or
+# "session" (recent use first; frequency tie-break).
 auto_tiling_mode = "usage"
 
-# Zones to EXCLUDE from geometric deduction.
-# Default includes "0" to prevent the catch-all zone from hijacking the primary focus.
+# Zones EXCLUDED from geometric deduction (keeps the "0" catch-all from
+# hijacking the primary focus).
 auto_tile_deduction_excludes = ["0"]
 
-# Priority zones for the focused window during Auto-Tile.
-# The focused window will be placed in the first available zone from this list (Tile 1).
-auto_tile_center_zones = ["j", "center", "0"] # Priority zones for focused window (auto-tile)
+# Priority zones for the focused window during auto-tile (first available wins).
+auto_tile_center_zones = ["j", "center", "0"]
 
-
-
-# Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'
+# Placement strategy: 'rotate', 'largest_free_space', or 'hybrid'.
 placement_strategy = "largest_free_space"
-# Time to wait before learning a window position (set to 0 to disable learning)
-settle_delay_sec = 0
 
-# Focus cycling settings
-flash_on_focus = true # Visual feedback when cycling focus
-overlap_threshold = 0.5 # Minimum overlap to consider window in zone (50%)
-focus_cycle_all_tiles = false # If true, cycle all tiles in zone, not just current tile
+# Focus cycling.
+overlap_threshold = 0.5         # min overlap to consider a window "in" a zone (50%)
+flash_on_focus = true           # visual flash when cycling focus
+focus_cycle_all_tiles = false   # cycle all tiles in a zone, not just the current one
 
-# Solver Weights (Tuning)
-# These control the Auto-Tiler's decision making.
-# Higher = Stronger penalty/reward. Negative = Reward (Good). Positive = Penalty (Bad).
-[tiler.solver_weights]
-memory_exact = -2000  # Bonus for exact memory match (ID + Monitor + Zone + Tile)
-memory_zone  = -500   # Bonus for correct zone, but wrong tile
-coverage     = -2000  # Reward for maximizing screen real estate (Base value, scales with Recency)
-aspect_ratio = 300    # Penalty for mismatching aspect ratio (Square window in Tall slot)
-area_ratio   = 200    # Penalty for mismatching area size (Small window in Big slot)
-moved_dist   = 1      # Cost per pixel of movement (Keep close to original)
-skip_window  = 5000   # Cost to leave a window unassigned (High = Force placement)
+settle_delay_sec = 0            # delay before learning a position (0 = off)
+reposition_on_screen_change = true # Reposition windows when screen configuration changes
+center_modals = true
 
 [tiler.hotkeys]
-placement_mode = ["mash", "p"]
-zone_info = ["mash", ";"]
+placement_mode = ["mash", "p"]      # move window to next monitor
+zone_info = ["mash", ";"]           # move window to previous monitor
+focus_next_screen = ["mash_shift", "p"]
+focus_prev_screen = ["mash_shift", ";"]
 zen_mode = ["HYPER", "\\"]
 resize_mode = ["HYPER", "r"]
 auto_tile_screen = ["HYPER", "return"]
 auto_tile_global = ["HYPER", ""]
-focus_next_screen = ["mash_shift", "p"]
-focus_prev_screen = ["mash_shift", ";"]
 
 [tiler.margins]
 enabled = true
 size = 5
 screen_edge = true
 
+# Auto-tiler cost weights. Higher magnitude = stronger; negative = reward.
+[tiler.solver_weights]
+memory_exact = -2000  # exact memory match (ID + monitor + zone + tile)
+memory_zone  = -500   # correct zone, wrong tile
+coverage     = -2000  # reward for maximizing screen real estate (scales with recency)
+aspect_ratio = 300    # penalty for aspect-ratio mismatch
+area_ratio   = 200    # penalty for area-size mismatch
+moved_dist   = 1      # cost per pixel moved
+skip_window  = 5000   # cost to leave a window unassigned
+
+[tiler.working_set]
+time_limit_sec = 1800   # seconds before an unfocused window is "stale" -> limbo (30 min)
+max_capacity = 6        # max background windows tiled at once
+
+
 # =============================================================================
-# Screen Detection
-# Mappings for specific monitor names and sizes to layouts
+# 5. Screens, grids & layouts
 # =============================================================================
+
+# -- Screen detection: map monitor names / sizes / orientation to a grid --
 [tiler.screen_detection.patterns]
-# Special screen name patterns and corresponding layout type
-"DELL.*U32" = "4x3" # Dell 32-inch monitors
-"DELL U3223QE" = "4x3" # Exact match
-"LG.*QHD" = "1x3" # LG QHD in portrait mode
-"Built[-]?in" = "2x2" # MacBook built-in displays
-"Color LCD" = "2x2" # MacBook displays
-"internal" = "2x2" # Internal displays
-"MacBook" = "2x2" # MacBook displays
+"DELL.*U32" = "4x3"      # Dell 32-inch
+"DELL U3223QE" = "4x3"   # exact match
+"LG.*QHD" = "1x3"        # LG QHD in portrait
+"Built[-]?in" = "2x2"    # MacBook built-in
+"Color LCD" = "2x2"
+"internal" = "2x2"
+"MacBook" = "2x2"
 
 [tiler.screen_detection.sizes.large]
 min = 27
-layout = "4x3" # 27" and larger
-
+layout = "4x3"           # 27" and larger
 [tiler.screen_detection.sizes.medium]
 min = 24
 max = 26.9
-layout = "3x3" # 24-26"
-
+layout = "3x3"           # 24-26"
 [tiler.screen_detection.sizes.standard]
 min = 20
 max = 23.9
-layout = "3x2" # 20-23"
-
+layout = "3x2"           # 20-23"
 [tiler.screen_detection.sizes.small]
 max = 19.9
-layout = "2x2" # Under 20"
+layout = "2x2"           # under 20"
 
 [tiler.screen_detection.portrait.large]
 min = 23
-layout = "1x3" # 23" and larger in portrait
-
+layout = "1x3"           # 23"+ portrait
 [tiler.screen_detection.portrait.small]
 max = 22.9
-layout = "1x2" # Under 23" in portrait
+layout = "1x2"           # under 23" portrait
 
-# =============================================================================
-# Grid Specifications
-# Definitions of grid dimensions (cols x rows)
-# =============================================================================
+# -- Grid dimensions (cols x rows) --
 [tiler.grids."4x3"]
 cols = 4
 rows = 3
-
 [tiler.grids."3x3"]
 cols = 3
 rows = 3
-
 [tiler.grids."3x2"]
 cols = 3
 rows = 2
-
 [tiler.grids."2x2"]
 cols = 2
 rows = 2
-
 [tiler.grids."1x3"]
 cols = 1
 rows = 3
-
 [tiler.grids."1x2"]
 cols = 1
 rows = 2
 
-# =============================================================================
-# Custom Screen Overrides
-# specific grid/layout overrides by exact screen name
-# =============================================================================
+# -- Per-monitor grid/layout override by exact screen name --
 [tiler.custom_screens."DELL U3223QE"]
 layout = "4x3"
 [tiler.custom_screens."DELL U3223QE".grid]
@@ -262,12 +228,10 @@ layout = "1x3"
 cols = 1
 rows = 3
 
-# =============================================================================
-# Layout Configurations
-# Mappings of zone keys to tile definitions (e.g. "a1:b2")
-# =============================================================================
+# -- Zone -> tile-cycle definitions per layout (e.g. "a1:b2"). Each zone key
+#    cycles through its tile list on repeated presses. --
 
-# -- 4x3 Layout (Large Displays) --
+# 4x3 (large displays)
 [tiler.layouts."4x3"]
 "y" = ["a1:a2", "a1", "a1:b2"]
 "h" = ["a1:b3", "a1:a3", "a1:c3", "a2"]
@@ -283,20 +247,20 @@ rows = 3
 "." = ["d3", "d2:d3", "c3:d3"]
 "0" = ["b2:c2", "a1:d3", "center"]
 
-# -- 2x2 Layout (Small Displays / Laptops) --
+# 2x2 (small displays / laptops)
 [tiler.layouts."2x2"]
-"y" = ["a1", "a1:a2", "a1:b1"] # Top-left
+"y" = ["a1", "a1:a2", "a1:b1"] # top-left
 "h" = ["a1:a2"] # Left tile
-"n" = ["a2", "a2:b2"] # Bottom-left
-"u" = ["a1:b1", "b1"] # Top tile
-"j" = ["a1:b2"] # Center (full screen)
-"m" = ["a2:b2", "b2"] # Bottom tile
-"i" = ["b1", "a1:b1"] # Top-right
-"k" = ["b1:b2", "b2"] # Right tile
-"," = ["b2", "a2:b2"] # Bottom-right
+"n" = ["a2", "a2:b2"]          # bottom-left
+"u" = ["a1:b1", "b1"]          # top
+"j" = ["a1:b2"]                # center (full screen)
+"m" = ["a2:b2", "b2"]          # bottom
+"i" = ["b1", "a1:b1"]          # top-right
+"k" = ["b1:b2", "b2"]          # right
+"," = ["b2", "a2:b2"]          # bottom-right
 "0" = ["center", "a1:b2", "a1:b1"]
 
-# -- 3x2 Layout --
+# 3x2
 [tiler.layouts."3x2"]
 "y" = ["a1", "a1:a2"]
 "h" = ["a1:a2", "a1:b2"]
@@ -309,7 +273,7 @@ rows = 3
 "," = ["c2", "c1:c2"]
 "0" = ["center", "b1:b2", "a1:c2"]
 
-# -- 3x3 Layout --
+# 3x3
 [tiler.layouts."3x3"]
 "y" = ["a1", "a1:a2", "a1:b1"]
 "h" = ["a1:a3", "a1:a2", "a2"]
@@ -322,7 +286,7 @@ rows = 3
 "," = ["c3", "c2:c3", "b3:c3"]
 "0" = ["b2", "center", "a1:c3"]
 
-# -- Portrait Layouts --
+# Portrait
 [tiler.layouts."1x3"]
 "y" = ["a1", "a1:a2"]
 "h" = ["a2", "a1:a3"]
@@ -334,7 +298,7 @@ rows = 3
 "h" = ["a2", "a1:a2"]
 "0" = ["a1:a2", "center"]
 
-# -- Default Fallback Layout --
+# Default fallback (named regions)
 [tiler.layouts.default]
 "y" = ["top-half"]
 "h" = ["left-half"]
@@ -347,61 +311,46 @@ rows = 3
 "," = ["bottom-half"]
 "0" = ["center", "full"]
 
-# =============================================================================
-# Advanced Settings
-# =============================================================================
-[tiler.advanced]
-# Use AppleScript via System Events for window manipulation instead of direct AXUI APIs.
-# Note: Try this if setFrame is slow due to SentinelOne
-# Default: false
-use_applescript_window_movement = false
-# Enable window caching for enterprise performance (avoids allWindows() queries)
-use_window_cache = true
-# Disable AXEnhancedUI for faster window moves on enterprise machines (SentinelOne, etc)
-enterprise_mode = false  # Set to true to enable AXEnhancedUI workaround
-# Enable verbose debug logging (performance impact - only for debugging)
-debug_logging = false
 
 # =============================================================================
-# Delays & Timing
-# In seconds
+# 6. Pomodoro
 # =============================================================================
-[tiler.delays]
-screen_change_reposition_sec = 0.1 # Delay before repositioning windows after screen change
-new_window_initial_sec = 0.05 # Initial delay after a window is created before processing
-new_window_placement_sec = 0.1 # Secondary delay before final placement of a new window
-smart_placement_reposition_sec = 0.1 # Delay for smart placement during repositioning events
-flash_on_focus_duration_sec = 0.2 # Duration of the visual flash when cycling focus
+[pomodoro]
+enable_color_bar = true
+work_period_sec = 3120          # 52 min
+rest_period_sec = 1020          # 17 min
+indicator_height = 0.2          # ratio of the menubar height (0..1)
+indicator_alpha = 0.3
+indicator_in_all_spaces = true
+color_time_remaining = "green"
+color_time_used = "red"
+
+[pomodoro.hotkeys]
+enable = ["mash", "8"]
+disable = ["mash", "9"]
+reset = ["mash_shift", "0"]
+
 
 # =============================================================================
-# Cache Settings
+# 7. Audio switcher
+# Cycle the default output device with the hotkey.
 # =============================================================================
-[tiler.cache_size]
-positions = 500 # Window position cache size
-window_info = 200 # Window info cache size
+[audio_switcher]
+devices = ["Audioengine 2+", "Bose QC35 II", "WH-1000XM6"]
+hotkey = ["HYPER", "'"]
+# macOS Shortcut to run when the default device changes ("" disables).
+shortcut_callback = "SoundSourceSwitcherEx"
 
-[tiler.working_set]
-# Time in seconds before an unfocused window is considered "Stale" and sent to Limbo
-time_limit_sec = 1800 # 30 minutes
-
-# The maximum number of background windows allowed on screen at once
-max_capacity = 6
 
 # =============================================================================
-# Window Handling
-# =============================================================================
-[window_handling]
-modal_dialog_behavior = "ignore" # "center", "tile", or "ignore"
-
-# =============================================================================
-# Window Memory
-# Persists window positions across sessions
+# 8. Window memory
+# Learns and restores window positions across sessions.
 # =============================================================================
 [window_memory]
-enabled = true # Enable/disable window memory
-max_preference_entries = 1000 # Max unique entries to remember
-settle_delay_sec = 2.0 # Time to wait before learning a position
-save_interval_sec = 60 # Periodic save interval (0 to disable)
+enabled = true
+max_preference_entries = 1000   # max unique entries to remember
+settle_delay_sec = 2.0          # wait before learning a position
+save_interval_sec = 60          # periodic save (0 = off)
 cache_dir = "~/.config/ZoneTilerWM"
 excluded_apps = ["System Settings", "System Preferences", "Activity Monitor", "Calculator", "Photo Booth", "Hammerspoon", "KeyCastr", "Installer", "SupaSidebar"]
 auto_tile_fallback = true
@@ -411,13 +360,39 @@ default_zone = "0"
 capture = ["HYPER", "9"]
 restore = ["HYPER", "0"]
 
+# Default zone for specific apps when no position is remembered yet.
 [window_memory.app_zones]
-# Default zones for specific apps if no position is remembered
 "Arc" = "k"
 "Ghostty" = "h"
 "Visual Studio Code" = "h"
 "Notion" = "j"
 "YouTube Music" = "i"
+
+
+# =============================================================================
+# 9. Legacy / not used by the native app
+# Kept for reference and Hammerspoon compatibility; the native ZoneTilerWM
+# agent does not read these sections.
+# =============================================================================
+[tiler.advanced]
+use_applescript_window_movement = false   # AppleScript moves instead of AX (SentinelOne escape hatch)
+use_window_cache = true                   # cache window data to avoid allWindows() queries
+enterprise_mode = false                   # AXEnhancedUI workaround for hooked machines
+debug_logging = false
+
+[tiler.delays]
+screen_change_reposition_sec = 0.1
+new_window_initial_sec = 0.05
+new_window_placement_sec = 0.1
+smart_placement_reposition_sec = 0.1
+flash_on_focus_duration_sec = 0.2
+
+[tiler.cache_size]
+positions = 500
+window_info = 200
+
+[window_handling]
+modal_dialog_behavior = "ignore"   # "center", "tile", or "ignore"
 
 [layout_manager]
 enabled = true
