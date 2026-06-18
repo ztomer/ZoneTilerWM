@@ -124,9 +124,13 @@ public struct AnalyticsView: View {
                             TableColumn("Monitor", value: \.monitor) { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
                             TableColumn("Zone", value: \.zone) { Text(displayKey($0.zone)) }.width(min: 44, ideal: 52, max: 70)
                             TableColumn("Tile", value: \.tile) { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
-                            TableColumn("Shape", value: \.meanAR) { Text($0.meanAR > 0 ? String(format: "%.2f", $0.meanAR) : "—") }
-                                .width(min: 50, ideal: 58, max: 72)
-                            TableColumn("Count", value: \.count) { Text($0.count.formatted()) }.width(min: 60, ideal: 76, max: 96)
+                            TableColumn("Shape", value: \.meanAR) {
+                                Text($0.meanAR > 0 ? String(format: "%.2f", $0.meanAR) : "—")
+                                    .monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
+                            }.width(min: 50, ideal: 58, max: 72)
+                            TableColumn("Count", value: \.count) {
+                                Text($0.count.formatted()).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
+                            }.width(min: 60, ideal: 76, max: 96)
                         }
                         .frame(minHeight: 200)
                     }
@@ -206,16 +210,21 @@ public struct AnalyticsView: View {
                     // Bars cap at 36pt wide so a single day reads as one bar (not a full-width
                     // slab); leading-aligned, so a sparse history fills from the left and a full
                     // 30-day window shrinks to span the width.
-                    HStack(alignment: .bottom, spacing: 3) {
-                        ForEach(data, id: \.day) { d in
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.accentColor.opacity(0.85))
-                                .frame(height: max(2, 150 * CGFloat(d.count) / CGFloat(max(maxC, 1))))
-                                .frame(maxWidth: 36)
-                                .help("\(dayLabel(d.day)): \(d.count.formatted())")
+                    HStack(alignment: .bottom, spacing: 8) {
+                        VStack(alignment: .trailing) {            // y-axis scale (peak … 0)
+                            Text("\(maxC)"); Spacer(); Text("0")
+                        }.font(.caption2).foregroundColor(.secondary).frame(height: 150)
+                        HStack(alignment: .bottom, spacing: 3) {
+                            ForEach(data, id: \.day) { d in
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.accentColor.opacity(0.85))
+                                    .frame(height: max(2, 150 * CGFloat(d.count) / CGFloat(max(maxC, 1))))
+                                    .frame(maxWidth: 36)
+                                    .help("\(dayLabel(d.day)): \(d.count.formatted())")
+                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 150)
                     HStack {
                         Text(dayLabel(data.first!.day))
@@ -320,7 +329,7 @@ public struct AnalyticsView: View {
                         let count = usage[key] ?? 0
                         VStack(spacing: 2) {
                             Text(displayKey(key)).font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                .foregroundColor(count > 0 ? .primary : .secondary.opacity(0.5))
+                                .foregroundColor(count > 0 ? .primary : .secondary)   // legible legends on unused keys
                             Text(count > 0 ? "\(count)" : "").font(.system(size: 9)).foregroundColor(.secondary)
                         }
                         .frame(width: 52, height: 40)

@@ -298,7 +298,8 @@ struct AppShortcutsView: View {
         return VStack(spacing: 2) {
             Text(displayKey(key)).font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundColor(mapped ? .primary : .secondary)
-            Text(app).font(.system(size: 9)).lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity)
+            Text(app).font(.system(size: 9)).lineLimit(1).minimumScaleFactor(0.7)   // shrink long names instead of truncating
+                .truncationMode(.tail).frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 3)
         .frame(width: 64, height: 44)
@@ -463,25 +464,38 @@ struct LayoutEditorView: View {
             .onTapGesture { tap(c: c, r: r) }
     }
 
+    // The tile editor as one self-contained card (Gemini: consolidate the cycle list + CRUD so
+    // the buttons share a baseline and don't stack erratically beside the grid).
     private var tileList: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Tiles (cycle order)").font(.subheadline).bold()
-            ForEach(tiles.indices, id: \.self) { i in
-                HStack {
-                    Image(systemName: selectedTile == i ? "largecircle.fill.circle" : "circle")
-                        .foregroundColor(.accentColor)
-                    Text(tiles[i]).font(.system(.body, design: .monospaced))
-                    Spacer()
+            if tiles.isEmpty {
+                Text("None yet — select cells on the grid, then Add.")
+                    .font(.caption).foregroundColor(.secondary)
+            } else {
+                ForEach(tiles.indices, id: \.self) { i in
+                    HStack(spacing: 6) {
+                        Image(systemName: selectedTile == i ? "largecircle.fill.circle" : "circle")
+                            .foregroundColor(.accentColor)
+                        Text(tiles[i]).font(.system(.body, design: .monospaced))
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { selectedTile = i }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { selectedTile = i }
             }
+            Divider().padding(.vertical, 2)
             HStack(spacing: 8) {
                 Button("Add") { addPending() }.disabled(pending == nil)
                 Button("Remove") { removeSelected() }.disabled(selectedTile == nil)
-                Button("Save") { save() }
-            }.padding(.top, 4)
-        }.frame(width: 200, alignment: .leading)
+                Spacer()
+                Button("Save") { save() }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(12)
+        .frame(width: 220, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
     }
 
     // MARK: helpers

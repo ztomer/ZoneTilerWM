@@ -25,6 +25,7 @@ struct AboutView: View {
                 .resizable().interpolation(.high)
                 .frame(width: 96, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
+                .padding(.bottom, 6)        // separate the icon from the name header
                 .accessibilityHidden(true)
 
             Text("ZoneTilerWM")
