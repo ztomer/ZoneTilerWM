@@ -4,7 +4,7 @@
 #
 #   ./build_package.sh [version]
 #
-# version defaults to the MARKETING_VERSION in project.yml (1.3.0). Build artifacts + the zip
+# version defaults to the MARKETING_VERSION in project.yml (1.3.1). Build artifacts + the zip
 # go to /tmp/ZoneTilerWM (kept out of the project tree). Requires xcodegen + Xcode.
 set -euo pipefail
 
@@ -12,11 +12,15 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 export PATH="/opt/homebrew/bin:$PATH"
 
-VERSION="${1:-1.2.0}"
+# Default to the MARKETING_VERSION declared in project.yml (single source of truth), so this
+# never goes stale when the version is bumped. Override by passing a version argument.
+DEFAULT_VERSION="$(awk -F'"' '/MARKETING_VERSION:/{print $2; exit}' project.yml)"
+VERSION="${1:-${DEFAULT_VERSION:-1.3.1}}"
 BUILD_ROOT="/tmp/ZoneTilerWM"
 DERIVED="$BUILD_ROOT/DerivedData"
 APP="$DERIVED/Build/Products/Release/ZoneTilerWM.app"
 OUT="$BUILD_ROOT/dist"
+STAGE="$BUILD_ROOT/stage/ZoneTilerWM-$VERSION"
 ZIP="$OUT/ZoneTilerWM-$VERSION.zip"
 
 command -v xcodegen >/dev/null || { echo "error: xcodegen not found (brew install xcodegen)"; exit 1; }
@@ -51,11 +55,50 @@ xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
 
 [ -d "$APP" ] || { echo "error: build did not produce $APP"; exit 1; }
 
+echo "==> Staging app + INSTALL.txt"
+rm -rf "$STAGE"; mkdir -p "$STAGE" "$OUT"
+# ditto (not cp) so the bundle's symlinks / resource forks / signature stay intact.
+ditto "$APP" "$STAGE/ZoneTilerWM.app"
+cat > "$STAGE/INSTALL.txt" <<EOF
+ZoneTilerWM $VERSION — Installation
+$(printf '=%.0s' {1..40})
+
+ZoneTilerWM is a menu-bar tiling window manager for macOS (Apple Silicon,
+macOS 13 Ventura or newer). It has no Dock icon and no main window — once
+running it lives in the menu bar.
+
+Install
+-------
+1. Unzip this archive (done — that's how you're reading this).
+2. Drag ZoneTilerWM.app into /Applications.
+3. This build is not notarized by Apple, so clear the Gatekeeper quarantine
+   once. In Terminal:
+       xattr -dr com.apple.quarantine /Applications/ZoneTilerWM.app
+   (Or: double-click the app, let macOS block it, then open
+    System Settings -> Privacy & Security and click "Open Anyway".)
+4. Launch ZoneTilerWM from /Applications — look for its icon in the menu bar.
+5. Grant Accessibility when prompted (needed to move other apps' windows):
+   "Open System Settings" -> Privacy & Security -> Accessibility -> toggle
+   ZoneTilerWM on. If the prompt doesn't close after granting, quit it from
+   the menu bar and relaunch once.
+
+Using it
+--------
+- <modifier>+<zone key> tiles the focused window into a zone.
+- HYPER+Return auto-tiles the whole screen.
+- Open Settings from the menu-bar icon to view and customize zones, keys, and
+  the learned per-app layout memory. Edits to the config live-reload.
+
+Uninstall
+---------
+Quit from the menu bar, then drag /Applications/ZoneTilerWM.app to the Trash.
+EOF
+
 echo "==> Packaging $ZIP"
-mkdir -p "$OUT"
 rm -f "$ZIP"
-# ditto preserves the bundle's symlinks / resource forks / signature (a plain zip can corrupt it).
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+# Zip the staging folder (app + INSTALL.txt). --keepParent puts everything under one
+# ZoneTilerWM-$VERSION/ directory; ditto preserves the bundle's signature/symlinks.
+ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$ZIP"
 
 echo "==> Done"
 echo "    app: $APP"

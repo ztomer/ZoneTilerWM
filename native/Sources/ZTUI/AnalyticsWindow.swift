@@ -142,7 +142,10 @@ public struct AnalyticsView: View {
             }
             .padding(.horizontal, 16).padding(.bottom, 16)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // .topLEADING (not .top): pin content to the left edge so the header/summary don't
+        // re-center horizontally when a mode's body has a different intrinsic width (the By-app
+        // ScrollView is greedy; .top alone let the whole column shift left on that tab).
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .frame(minWidth: 620, idealWidth: 680, minHeight: 640)
         .ignoresSafeArea(.container, edges: .top)   // draw the header into the titlebar band
         .onAppear { if grid.isEmpty { grid = gridNames.last ?? "" } }   // default to the richest grid
@@ -272,8 +275,12 @@ public struct AnalyticsView: View {
     }
 
     private var smallMultiples: some View {
-        // Fixed-width columns (not adaptive) so every card is identical and the grid is regular.
-        let columns = Array(repeating: GridItem(.fixed(150), spacing: 12), count: 4)
+        // Flexible (not fixed-width) columns: 4 equal columns that fill the available width. Fixed
+        // 150pt columns made the grid demand a 636pt intrinsic width — wider than the other modes'
+        // bodies — which inflated the window's fitting size and re-centered the whole column, nudging
+        // the header/summary ~2.5pt left on this tab only. Flexible columns adapt, so every mode's
+        // body reports the same width and the header stays put. Cards stay uniform (equal columns).
+        let columns = Array(repeating: GridItem(.flexible(minimum: 120, maximum: 180), spacing: 12), count: 4)
         return ScrollView {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(topApps, id: \.app) { item in
@@ -288,7 +295,7 @@ public struct AnalyticsView: View {
                             }
                         }.font(.caption2).foregroundColor(.secondary)
                     }
-                    .frame(width: 150, height: 138)
+                    .frame(maxWidth: .infinity).frame(height: 138)
                     .background(RoundedRectangle(cornerRadius: 8)
                         .fill(selected ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor).opacity(0.5)))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2)))

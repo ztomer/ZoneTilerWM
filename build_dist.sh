@@ -22,7 +22,8 @@ ZT_SIGN_ID=- "$ROOT/build_package.sh" "$@"
 cat <<'EOF'
 
 ────────────────────────────────────────────────────────────────────────────
-Distributable (ad-hoc) build ready — send the zip above.
+Distributable (ad-hoc) build ready — send the zip above. The same steps below
+are bundled inside the zip as INSTALL.txt for the recipient.
 
 Recipient requirements:
   • Apple Silicon Mac  (this build is arm64-only; rebuild universal for Intel)
