@@ -37,6 +37,14 @@ enum ModGlyph {
         let key = value.count > 1 ? value[1].uppercased() : ""
         return string(mods) + key
     }
+
+    /// A self-documenting picker option: the alias name (primary) followed by its modifier
+    /// glyphs (muted). Inlining the glyphs at the point of choice is what lets us drop the
+    /// separate, inconsistently-placed ModifierLegend entirely (Rams: make it unnecessary).
+    static func aliasLabel(_ alias: String, aliases: [String: [String]]) -> Text {
+        let g = string(aliases[alias] ?? [])
+        return g.isEmpty ? Text(alias) : Text(alias) + Text("  \(g)").foregroundColor(.secondary)
+    }
 }
 
 // MARK: - Chord recorder (captures the next key chord via a local event monitor)
@@ -68,26 +76,6 @@ final class ChordRecorder: ObservableObject {
 }
 
 // MARK: - Keybind editor
-
-/// A one-line key explaining what each modifier alias expands to, so individual rows can show
-/// just the alias name instead of repeating the glyphs everywhere.
-struct ModifierLegend: View {
-    let aliases: [String: [String]]
-    var body: some View {
-        let names = aliases.keys.sorted()
-        return HStack(spacing: 14) {
-            ForEach(names, id: \.self) { n in
-                HStack(spacing: 4) {
-                    Text(n).font(.caption).fontWeight(.semibold)
-                    Text(ModGlyph.string(aliases[n] ?? [])).font(.caption)
-                }
-            }
-            Spacer()
-        }
-        .foregroundColor(.secondary)
-        .padding(.bottom, 2)
-    }
-}
 
 /// Non-blocking warning shown atop the Keys tab when one combo drives more than one action
 /// (e.g. ⇧⌃⌘0 bound to both Pomodoro reset and Focus-zone-0). Hidden entirely when clean.
@@ -144,7 +132,7 @@ struct HotkeyRowView: View {
             Picker("", selection: Binding(
                 get: { alias },
                 set: { model.setHotkey(section: section, key: key, alias: $0, keyName: keyName) })) {
-                ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+                ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
             }.labelsHidden().frame(width: KeyRowMetrics.picker)
             Text("+").foregroundColor(.secondary)
             Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
@@ -186,7 +174,6 @@ struct KeybindEditorView: View {
             if !conflicts.isEmpty {
                 Section { ConflictBanner(conflicts: conflicts) }
             }
-            Section { ModifierLegend(aliases: model.config.aliases) }
             Section("Modifiers") {
                 modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
                 modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
@@ -205,7 +192,7 @@ struct KeybindEditorView: View {
             Picker("", selection: Binding(
                 get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias() },
                 set: { model.setModifierAlias(key: key, alias: $0) })) {
-                ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+                ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
             }.labelsHidden().frame(width: KeyRowMetrics.picker)
             // Reserve the action rows' "+ key" trailing columns so every picker shares one right edge.
             Text("+").hidden()
@@ -243,11 +230,10 @@ struct AppShortcutsView: View {
                 Picker("", selection: Binding(
                     get: { Keybinding.alias(forModifiers: currentGroup.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash") },
                     set: { model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]") })) {
-                    ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
-                }.labelsHidden().frame(width: 130)
+                    ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
+                }.labelsHidden().frame(width: 150)
                 Spacer()
             }
-            ModifierLegend(aliases: model.config.aliases)
             Text("Each key shows the app it launches with the selected modifier. Click a key to edit.")
                 .font(.caption).foregroundColor(.secondary)
             // Wide keyboard rows (a 10–13 key qwerty row is ~600px+) scroll horizontally

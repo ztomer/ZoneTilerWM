@@ -281,7 +281,6 @@ struct PomodoroTab: View {
                 HotkeyRowView(model: model, label: "Start", section: "pomodoro.hotkeys", key: "enable", labelWidth: 120)
                 HotkeyRowView(model: model, label: "Pause / reset", section: "pomodoro.hotkeys", key: "disable", labelWidth: 120)
                 HotkeyRowView(model: model, label: "Reset count", section: "pomodoro.hotkeys", key: "reset", labelWidth: 120)
-                ModifierLegend(aliases: model.config.aliases)
             }
         }
         .formStyle(.grouped)
