@@ -83,6 +83,15 @@ Scriptable from anything that can open a URL (`open`, Raycast, Stream Deck, brow
 file). Only effective from the installed `.app` (the bare dev binary registers no scheme); it
 acts on the focused window (no per-URL window targeting yet).
 
+## App Intents (Shortcuts / Spotlight / Siri)
+
+The bundled `.app` exposes typed **App Intents** — Tile Focused Window, Auto-Tile Screen, Switch
+Audio Output, Toggle Application, Toggle Zen Mode, Focus Screen — usable in the Shortcuts editor
+and (for a couple) by voice via App Shortcuts. Each intent forwards its `ActionRequest` to the
+running agent over the same socket (so it works regardless of which process runs the intent, as
+long as the agent is up). Defined in `native/Sources/zt-agent/Intents.swift`; discovered via the
+App Intents metadata the Xcode build extracts.
+
 ## Settings → Automation pane
 
 The agent's Settings window has an **Automation** tab that surfaces this whole feature:
