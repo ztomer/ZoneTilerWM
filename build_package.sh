@@ -4,8 +4,8 @@
 #
 #   ./build_package.sh [version]
 #
-# version defaults to the MARKETING_VERSION in project.yml (1.0.0). Output lands in dist/.
-# Requires xcodegen (brew install xcodegen) and Xcode.
+# version defaults to the MARKETING_VERSION in project.yml (1.0.0). Build artifacts + the zip
+# go to /tmp/ZoneTilerWM (kept out of the project tree). Requires xcodegen + Xcode.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -13,9 +13,10 @@ cd "$ROOT"
 export PATH="/opt/homebrew/bin:$PATH"
 
 VERSION="${1:-1.0.0}"
-DERIVED="build/dd"
+BUILD_ROOT="/tmp/ZoneTilerWM"
+DERIVED="$BUILD_ROOT/DerivedData"
 APP="$DERIVED/Build/Products/Release/ZoneTilerWM.app"
-OUT="dist"
+OUT="$BUILD_ROOT/dist"
 ZIP="$OUT/ZoneTilerWM-$VERSION.zip"
 
 command -v xcodegen >/dev/null || { echo "error: xcodegen not found (brew install xcodegen)"; exit 1; }

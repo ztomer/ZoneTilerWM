@@ -18,12 +18,12 @@ build:
 	@cd native && swift build
 
 # Generate the Xcode project from project.yml and build the .app bundle. Needs xcodegen
-# (brew install xcodegen). Output: build/dd/Build/Products/Release/ZoneTilerWM.app
+# (brew install xcodegen). Artifacts go to /tmp/ZoneTilerWM (out of the project tree).
 app:
 	@PATH="/opt/homebrew/bin:$$PATH" xcodegen generate
 	@xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
-		-configuration Release -derivedDataPath build/dd build
-	@echo "built: build/dd/Build/Products/Release/ZoneTilerWM.app"
+		-configuration Release -derivedDataPath /tmp/ZoneTilerWM/DerivedData build
+	@echo "built: /tmp/ZoneTilerWM/DerivedData/Build/Products/Release/ZoneTilerWM.app"
 
 probe: build
 	@native/.build/debug/zt-probe

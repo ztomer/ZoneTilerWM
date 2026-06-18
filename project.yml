@@ -35,7 +35,9 @@ targets:
       - package: ZoneTilerWM
         product: ZTSystem
     info:
-      path: build/ZoneTilerWM-Info.plist
+      # Generated plist lives in /tmp (out of the repo tree); xcodegen creates the dir and
+      # rewrites it on every `xcodegen generate`, which always runs before xcodebuild.
+      path: /tmp/ZoneTilerWM/ZoneTilerWM-Info.plist
       properties:
         # Menubar agent: no Dock icon, no main window — a proper LSUIElement from launch
         # (replaces the runtime setActivationPolicy(.accessory)).
