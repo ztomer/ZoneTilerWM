@@ -296,7 +296,7 @@ public struct SettingsView: View {
             PomodoroTab(model: model).tabItem { Text("Pomodoro") }
             AdvancedTab(model: model).tabItem { Text("Advanced") }
         }
-        .frame(minWidth: 720, idealWidth: 760, minHeight: 600, idealHeight: 1080)
+        .frame(width: 760)        // fixed width; height follows each tab's content (window auto-sizes)
         .padding()
     }
 

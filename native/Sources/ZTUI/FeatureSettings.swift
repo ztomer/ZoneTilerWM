@@ -66,27 +66,31 @@ struct AudioSettings: View {
                 Spacer()
                 Button("Save devices") { model.setAudioDevices(devices.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }) }
             }
-            LabeledContent("Switch hotkey") {
-                HStack(spacing: 6) {
-                    Picker("", selection: Binding(
-                        get: { Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER") },
-                        set: { model.setAudioHotkey(alias: $0, key: model.config.audioHotkeyKey ?? "'") })) {
-                        ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
-                    }.labelsHidden().frame(width: 120)
-                    Text("+").foregroundColor(.secondary)
-                    TextField("key", text: Binding(
-                        get: { model.config.audioHotkeyKey ?? "" },
-                        set: { model.setAudioHotkey(alias: Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER"), key: $0) }))
-                        .textFieldStyle(.roundedBorder).frame(width: 50)
-                }
+            // Explicit label + Spacer + fixed-width controls (LabeledContent compressed these
+            // until "key" wrapped vertically and the helper text spilled).
+            HStack(spacing: 6) {
+                Text("Switch hotkey")
+                Spacer(minLength: 12)
+                Picker("", selection: Binding(
+                    get: { Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER") },
+                    set: { model.setAudioHotkey(alias: $0, key: model.config.audioHotkeyKey ?? "'") })) {
+                    ForEach(aliasNames, id: \.self) { Text($0).tag($0) }
+                }.labelsHidden().fixedSize()
+                Text("+").foregroundColor(.secondary)
+                TextField("", text: Binding(
+                    get: { model.config.audioHotkeyKey ?? "" },
+                    set: { model.setAudioHotkey(alias: Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER"), key: $0) }))
+                    .textFieldStyle(.roundedBorder).frame(width: 56).multilineTextAlignment(.center)
             }
-            LabeledContent("Shortcut on change") {
-                HStack {
-                    TextField("macOS Shortcut name (blank = none)", text: $shortcutEdit).textFieldStyle(.roundedBorder)
-                        .onSubmit { model.setAudioShortcut(shortcutEdit) }
-                    Button("Save") { model.setAudioShortcut(shortcutEdit) }
-                }
+            HStack(spacing: 8) {
+                Text("Run Shortcut on change")
+                Spacer(minLength: 12)
+                TextField("Shortcut name", text: $shortcutEdit).textFieldStyle(.roundedBorder).frame(width: 200)
+                    .onSubmit { model.setAudioShortcut(shortcutEdit) }
+                Button("Save") { model.setAudioShortcut(shortcutEdit) }
             }
+            Text("Runs a macOS Shortcut by name when the output device changes (blank = none).")
+                .font(.caption).foregroundColor(.secondary)
         }
         .onAppear {
             if !loaded { devices = model.config.audioDevices; shortcutEdit = model.config.audioShortcutCallback ?? ""; loaded = true }

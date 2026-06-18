@@ -16,13 +16,17 @@ public final class SettingsWindowController {
             return
         }
         let hosting = NSHostingController(rootView: SettingsView(model: model))
+        // Size the window to the SELECTED tab's content (like System Settings) — no scroll on
+        // tall tabs, no empty void on short ones. Width is fixed (760 in the view); height
+        // follows content, capped to the screen so a tall tab still fits a laptop (Form scrolls
+        // beyond the cap).
+        hosting.sizingOptions = [.preferredContentSize]
         let w = NSWindow(contentViewController: hosting)
         w.title = "ZoneTilerWM Settings"
-        w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        // Open tall enough that the longest tab (General) doesn't scroll, but never taller
-        // than the screen's visible area (so it stays usable on a laptop display). Resizable.
+        w.styleMask = [.titled, .closable, .miniaturizable]
         let maxH = (NSScreen.main?.visibleFrame.height ?? 1000) - 40
-        w.setContentSize(NSSize(width: 760, height: min(1080, maxH)))
+        w.contentMinSize = NSSize(width: 760, height: 320)
+        w.contentMaxSize = NSSize(width: 760, height: maxH)
         w.isReleasedWhenClosed = false
         w.center()
         window = w
