@@ -72,13 +72,18 @@ struct PomodoroSettings: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Section("Pomodoro") {
+        // Split into two semantic sections (Timer vs Color bar) instead of one dense 7-row block,
+        // so the durations and the bar appearance read as distinct groups — and the tab gains the
+        // same sectioned rhythm as the Keys tab (Modifiers / Actions).
+        Section("Timer") {
             NumberRow(label: "Work", value: Binding(
                 get: { model.config.pomodoroWorkSec / 60 },
                 set: { model.setPomodoroWorkMinutes($0) }), range: 1...120, suffix: "min")
             NumberRow(label: "Rest", value: Binding(
                 get: { model.config.pomodoroRestSec / 60 },
                 set: { model.setPomodoroRestMinutes($0) }), range: 1...60, suffix: "min")
+        }
+        Section("Color bar") {
             Toggle("Show color bar", isOn: Binding(
                 get: { model.config.pomodoroEnableColorBar },
                 set: { model.setPomodoroColorBar($0) }))
