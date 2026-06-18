@@ -160,12 +160,17 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
 
 - **v2.0 — Programmable core.** App Intents + URL scheme + CLI + the **MCP server** (theme G) — all
   thin front-ends over one internal action API — then the rules engine on top. Low AX, high leverage,
-  mostly testable `ZTCore`, and it makes everything else automatable (incl. agent-operable). Land
-  Developer ID + notarization + auto-update here so v2 ships on a real update channel.
+  mostly testable `ZTCore`, and it makes everything else automatable (incl. agent-operable).
 - **v2.1 — Kinesthetic discoverability.** Modifier-held zone HUD (with the toggle/hold-delay design
   above), then mouse drag-to-snap. Built on the existing overlay infrastructure.
 - **v2.2 — Depth & intelligence.** Layout snapshots/workspaces, window stacks, context-aware
   placement + suggestions.
+- **v2.3 — Distribution maturity.** Developer ID + notarization + Sparkle auto-update (theme E), so
+  v2 ships on a real update channel. Pushed to last because it's the one phase gated by an external
+  dependency (Apple enrollment + notarization round-trips), not by build effort, and the feature work
+  shouldn't wait on it. Until v2.3 lands, builds stay ad-hoc-signed and shared via the current
+  `build_dist.sh` flow (the bundled `INSTALL.txt` + stale-TCC remove/re-add steps). Universal-binary
+  (Intel) also rides here.
 
 ## Non-goals (and why)
 
