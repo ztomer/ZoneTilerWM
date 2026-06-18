@@ -44,6 +44,16 @@ ported module is checked for behavioral parity against it (see Differential Test
   to the AX-call gate above.)
 - **Less but better (UI)** — overlays are unobtrusive and disappear when idle; the few
   shipped pixels (menubar glyph, indicators) are crisp and legible.
+- **Single-threaded on main (concurrency)** — every agent callback is dispatched to the main
+  thread, so there is no shared mutable state crossing threads and nothing to lock: the config
+  file-watch `DispatchSource` is created with `queue: .main` (and its debounce uses
+  `DispatchQueue.main.asyncAfter`); the focus + Pomodoro `Timer`s run on the main run loop; the
+  `didChangeScreenParametersNotification` observer is registered with `queue: .main`; and the
+  Carbon hotkey handler (plus the AX `enhancedUICache` it mutates) fires on the main run loop.
+  There are no background queues, detached threads, or CoreAudio listener blocks. Keep it that
+  way — new event sources must hop to main before touching `config`/`coordinator`/AppKit.
+  `make verify` plus `swift test --sanitize=address` and `--sanitize=thread` (CI: the
+  `Sanitizers` workflow) all run clean.
 
 ---
 

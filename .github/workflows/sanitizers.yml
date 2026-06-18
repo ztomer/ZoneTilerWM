@@ -1,0 +1,33 @@
+name: Sanitizers
+
+# AddressSanitizer + ThreadSanitizer over the test suite. Not run on every push (each
+# rebuilds the suite instrumented, ~1-2 min) — nightly + on demand. Self-hosted macOS runner.
+#
+# Note: GitHub runs `schedule` triggers only from the repository's DEFAULT branch, so the
+# nightly run requires the default branch to be the one carrying this workflow. Use the manual
+# "Run workflow" button (workflow_dispatch) to run it from any branch.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"   # ~07:00 UTC nightly
+  workflow_dispatch:
+
+concurrency:
+  group: sanitizers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ASan and TSan can't be combined, so run them as two jobs.
+  address:
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v4
+      - name: AddressSanitizer
+        run: cd native && swift test --sanitize=address
+
+  thread:
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v4
+      - name: ThreadSanitizer
+        run: cd native && swift test --sanitize=thread
