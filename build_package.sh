@@ -4,7 +4,7 @@
 #
 #   ./build_package.sh [version]
 #
-# version defaults to the MARKETING_VERSION in project.yml (1.3.2). Build artifacts + the zip
+# version defaults to the MARKETING_VERSION in project.yml (1.3.3). Build artifacts + the zip
 # go to /tmp/ZoneTilerWM (kept out of the project tree). Requires xcodegen + Xcode.
 set -euo pipefail
 
