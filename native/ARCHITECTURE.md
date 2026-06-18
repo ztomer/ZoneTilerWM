@@ -69,6 +69,18 @@ ZTUI     — SwiftUI settings (General, keybind editor, visual layout editor, me
 app      — LSUIElement agent; AppDelegate is the composition root (replaces init.lua).
 ```
 
+### Automation surface (v2.0) — action API, MCP, CLI
+
+v2.0 adds a **programmable layer**: one action vocabulary (`ActionRequest`/`ActionResult`/
+`ActionParser` in `ZTCore`) executed by one `ActionDispatcher` (`ZTSystem`), wrapped by every
+front-end — global hotkeys, the **MCP server** (`zt-mcp` stdio shim ⇄ Unix-domain socket ⇄
+agent, via `AgentSocketServer`/`AgentSocketClient` + the pure `MCPServer`), and **`zonetiler-cli`**.
+Read-only resources (`QueryRequest`: arrangement/zones/placement-stats) are answered from
+`CGWindowList` + config + the learned store — **zero AX**, no window titles. New executables:
+`zt-mcp`, `zonetiler-cli`. See **`docs/AUTOMATION.md`** for the full surface and how to connect
+Claude / the CLI. Invariant: a new front-end only builds an `ActionRequest` — it never
+re-implements an action.
+
 ### The value-snapshot vs. mutation-protocol split
 
 Two distinct kinds of types — do not conflate:

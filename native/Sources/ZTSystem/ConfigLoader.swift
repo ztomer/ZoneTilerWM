@@ -65,6 +65,7 @@ public enum ConfigLoader {
         public var systemHotkeys: [String: [String]]     // action -> [modifierAlias, key]
         public var keyboardLayout: String                 // [ui] keyboard_layout: auto/qwerty/dvorak/colemak
         public var borders: Borders
+        public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
         public func resolvedHotkey(_ action: String, in group: [String: [String]]) -> (modifier: [String], key: String)? {
@@ -190,9 +191,12 @@ public enum ConfigLoader {
         var audio_switcher: RawAudio?
         var system_hotkeys: [String: [String]]?
         var ui: RawUI?
+        var automation: RawAutomation?
     }
 
     private struct RawUI: Decodable { var keyboard_layout: String? }
+
+    private struct RawAutomation: Decodable { var enabled: Bool? }
 
     /// A resolved app-shortcut group: the actual modifier names + key->app entries.
     public struct AppHotkeyGroup: Equatable {
@@ -292,7 +296,8 @@ public enum ConfigLoader {
                 color: raw.borders?.color ?? "blue",
                 width: Double(raw.borders?.width ?? 4),
                 cornerRadius: Double(raw.borders?.corner_radius ?? 9),
-                prediction: raw.borders?.prediction ?? false))   // default off: raw 1:1 tracking
+                prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
+            automationEnabled: raw.automation?.enabled ?? true)  // on by default; the local socket is low-risk
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

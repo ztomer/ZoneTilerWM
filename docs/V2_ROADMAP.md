@@ -174,6 +174,11 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
 - **v2.0 — Programmable core.** App Intents + URL scheme + CLI + the **MCP server** (theme G) — all
   thin front-ends over one internal action API — then the rules engine on top. Low AX, high leverage,
   mostly testable `ZTCore`, and it makes everything else automatable (incl. agent-operable).
+  - **Status (in progress):** the internal action API (`ActionRequest`/`ActionDispatcher`), the
+    **MCP server** (`zt-mcp`), and the **`zonetiler-cli`** companion are built + the agent hotkeys
+    are rewired through the dispatcher; a Settings **Automation** pane exposes the surface. Still
+    deferred within v2.0: **App Intents**, **URL scheme** wiring, and the **rules engine**. See
+    `docs/AUTOMATION.md`.
 - **v2.1 — Kinesthetic discoverability.** Modifier-held zone HUD (with the toggle/hold-delay design
   above), then mouse drag-to-snap. Built on the existing overlay infrastructure.
 - **v2.2 — Depth & intelligence.** Layout snapshots/workspaces, window stacks, context-aware

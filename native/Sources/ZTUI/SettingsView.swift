@@ -94,6 +94,17 @@ public final class SettingsModel: ObservableObject {
     public func setBordersCornerRadius(_ v: Int) { setOrAppend(section: "borders", key: "corner_radius", rawValue: "\(v)") }
     public func setBordersPrediction(_ on: Bool) { setOrAppend(section: "borders", key: "prediction", rawValue: on ? "true" : "false") }
 
+    // Automation (MCP server + zonetiler-cli, over the local socket)
+    public var automationEnabled: Bool { config.automationEnabled }
+    public func setAutomationEnabled(_ on: Bool) { setOrAppend(section: "automation", key: "enabled", rawValue: on ? "true" : "false") }
+    public var agentSocketPath: String { AgentSocket.defaultPath() }
+    /// Whether the agent is currently serving on the socket (the file exists while bound).
+    public var automationListening: Bool { FileManager.default.fileExists(atPath: agentSocketPath) }
+    private func agentBinDir() -> URL { URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent() }
+    public var mcpBinaryPath: String { agentBinDir().appendingPathComponent("zt-mcp").path }
+    public var cliBinaryPath: String { agentBinDir().appendingPathComponent("zonetiler-cli").path }
+    public var mcpRegisterCommand: String { "claude mcp add zonetiler -- \(mcpBinaryPath)" }
+
     // Audio
     public func setAudioDevices(_ devices: [String]) { setOrAppend(section: "audio_switcher", key: "devices", rawValue: tomlArray(devices)) }
     public func setAudioHotkey(alias: String, key: String) { setOrAppend(section: "audio_switcher", key: "hotkey", rawValue: "[\"\(alias)\", \"\(key)\"]") }
@@ -301,7 +312,8 @@ public struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     @State private var tab: String
     private let tabs = [("general", "General"), ("keys", "Keys"), ("apps", "Apps"),
-                        ("layouts", "Layouts"), ("pomodoro", "Pomodoro"), ("advanced", "Advanced")]
+                        ("layouts", "Layouts"), ("pomodoro", "Pomodoro"),
+                        ("automation", "Automation"), ("advanced", "Advanced")]
     public init(model: SettingsModel) {
         self.model = model
         // QA hook: ZT_SETTINGS_TAB opens a specific tab directly (for screenshot review).
@@ -329,6 +341,7 @@ public struct SettingsView: View {
                 case "apps": AppShortcutsView(model: model)
                 case "layouts": LayoutEditorView(model: model)
                 case "pomodoro": PomodoroTab(model: model)
+                case "automation": AutomationTab(model: model)
                 case "advanced": AdvancedTab(model: model)
                 default: general
                 }

@@ -356,6 +356,15 @@ prediction = true            # lead the outline to compensate for follow-lag
 
 
 # =============================================================================
+# 8b. Automation (MCP server + zonetiler-cli)
+# Lets your Claude (Desktop/Code) and the zonetiler-cli control the window manager
+# over a local Unix socket. Enabled by default; uncomment to opt out. See docs/AUTOMATION.md.
+# =============================================================================
+# [automation]
+# enabled = true             # set false to disable the MCP/CLI control socket entirely
+
+
+# =============================================================================
 # 9. Window memory
 # Learns and restores window positions across sessions.
 # =============================================================================

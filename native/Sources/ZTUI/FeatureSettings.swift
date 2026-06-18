@@ -4,6 +4,7 @@
 // go through the model's surgical TOML setters (and trip the live reload).
 
 import SwiftUI
+import AppKit
 import ZTCore
 
 private let colorNames = ["green", "red", "blue", "yellow", "orange", "purple", "white", "black", "gray"]
@@ -300,6 +301,91 @@ struct AdvancedTab: View {
         Form {
             WindowMemorySection(model: model)
             AdvancedSettings(model: model)
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Automation (MCP server + zonetiler-cli)
+
+/// Exposes the programmable surface: a master enable toggle, the live socket status, copy-paste
+/// snippets to connect Claude (MCP) and the CLI, and the full action/resource catalog so every
+/// exposed verb is discoverable. All capability data is read from the shared ActionParser
+/// catalog + QueryRequest, so this pane can never drift from what the agent actually supports.
+struct AutomationTab: View {
+    @ObservedObject var model: SettingsModel
+
+    private func copy(_ s: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(s, forType: .string)
+    }
+
+    var body: some View {
+        Form {
+            Section("Automation") {
+                Toggle("Enable automation surface (MCP + CLI)", isOn: Binding(
+                    get: { model.automationEnabled },
+                    set: { model.setAutomationEnabled($0) }))
+                Text("Lets your Claude (Desktop/Code) and zonetiler-cli control the window manager over a local Unix socket. No model, key, or network is bundled — only local actions you already control.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+
+            Section("Status") {
+                LabeledContent("Socket") {
+                    Text(model.agentSocketPath).foregroundColor(.secondary)
+                        .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                }
+                LabeledContent("State") {
+                    if model.automationEnabled {
+                        Label(model.automationListening ? "Listening" : "Starting…",
+                              systemImage: model.automationListening ? "dot.radiowaves.left.and.right" : "clock")
+                            .foregroundColor(model.automationListening ? .green : .orange)
+                    } else {
+                        Label("Disabled", systemImage: "xmark.circle").foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Section("Connect Claude (MCP)") {
+                Text("Run once, with the agent running, to let Claude operate ZoneTilerWM:")
+                    .font(.caption).foregroundColor(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(model.mcpRegisterCommand).font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled).lineLimit(3).truncationMode(.middle)
+                    Spacer()
+                    Button("Copy") { copy(model.mcpRegisterCommand) }
+                }
+            }
+
+            Section("Command line") {
+                LabeledContent("Binary") {
+                    HStack {
+                        Text(model.cliBinaryPath).font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                        Button("Copy") { copy(model.cliBinaryPath) }
+                    }
+                }
+                Text("e.g.  zonetiler-cli tile --zone h   ·   zonetiler-cli get arrangement   ·   zonetiler-cli --help")
+                    .font(.caption).foregroundColor(.secondary).textSelection(.enabled)
+            }
+
+            Section("Capabilities — actions") {
+                ForEach(ActionParser.catalog, id: \.name) { spec in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(spec.name).font(.system(.body, design: .monospaced))
+                        Text(spec.description).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            Section("Capabilities — resources") {
+                ForEach(QueryRequest.allCases, id: \.self) { q in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(CLIFormat.cliName(q)).font(.system(.body, design: .monospaced))
+                        Text(q.description).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
     }

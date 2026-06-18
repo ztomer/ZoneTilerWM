@@ -23,6 +23,7 @@ let package = Package(
         .executable(name: "zt-agent", targets: ["zt-agent"]),
         .executable(name: "zt-autotile", targets: ["zt-autotile"]),
         .executable(name: "zt-mcp", targets: ["zt-mcp"]),
+        .executable(name: "zonetiler-cli", targets: ["zonetiler-cli"]),
     ],
     dependencies: [
         // Maintained TOML parser (toml++-backed, Codable support) for reading config.toml.
@@ -39,6 +40,7 @@ let package = Package(
         .executableTarget(name: "zt-agent", dependencies: ["ZTSystem", "ZTUI"]),
         .executableTarget(name: "zt-autotile", dependencies: ["ZTSystem"]),
         .executableTarget(name: "zt-mcp", dependencies: ["ZTSystem"]),
+        .executableTarget(name: "zonetiler-cli", dependencies: ["ZTSystem"]),
         .testTarget(name: "ZTCoreTests", dependencies: ["ZTCore"]),
         .testTarget(name: "ZTSystemTests", dependencies: ["ZTSystem"]),
     ]

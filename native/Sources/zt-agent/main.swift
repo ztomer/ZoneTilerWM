@@ -452,15 +452,27 @@ final class AgentController: NSObject {
     /// dispatcher the hotkeys use; queries through the read-only (0-AX) arrangement provider. The
     /// handler runs on the main queue (AgentSocketServer's accept source), so touching the
     /// coordinator/config here is on-main like every other callback.
-    func setupIPCServer() {
-        socketServer = AgentSocketServer(path: AgentSocket.defaultPath()) { [weak self] request in
-            guard let self else { return .error("agent shutting down") }
-            switch request {
-            case .action(let action): return .action(self.dispatcher.perform(action))
-            case .query(let query):   return .query(self.arrangementQuery.answer(query))
+    func setupIPCServer() { reconcileIPCServer() }
+
+    /// Start/stop the IPC socket to match `[automation] enabled`. Idempotent — safe to call on
+    /// startup and after every live reload.
+    private func reconcileIPCServer() {
+        if config.automationEnabled {
+            guard socketServer == nil else { return }   // already running
+            let server = AgentSocketServer(path: AgentSocket.defaultPath()) { [weak self] request in
+                guard let self else { return .error("agent shutting down") }
+                switch request {
+                case .action(let action): return .action(self.dispatcher.perform(action))
+                case .query(let query):   return .query(self.arrangementQuery.answer(query))
+                }
             }
+            server.start()
+            socketServer = server
+        } else if socketServer != nil {
+            socketServer?.stop()
+            socketServer = nil
+            log("zt-agent: automation disabled — IPC socket stopped")
         }
-        socketServer?.start()
     }
 
     // MARK: - Display arrangement
@@ -531,6 +543,7 @@ final class AgentController: NSObject {
         pomodoroColorUsed = PomodoroBar.color(named: newConfig.pomodoroColorUsed)
         applyBorders(newConfig)
         bindAllHotkeys()
+        reconcileIPCServer()        // start/stop the MCP/CLI socket if [automation] enabled changed
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
     }
