@@ -4,7 +4,7 @@
 #
 #   ./build_package.sh [version]
 #
-# version defaults to the MARKETING_VERSION in project.yml (1.1.0). Build artifacts + the zip
+# version defaults to the MARKETING_VERSION in project.yml (1.2.0). Build artifacts + the zip
 # go to /tmp/ZoneTilerWM (kept out of the project tree). Requires xcodegen + Xcode.
 set -euo pipefail
 
@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 export PATH="/opt/homebrew/bin:$PATH"
 
-VERSION="${1:-1.1.0}"
+VERSION="${1:-1.2.0}"
 BUILD_ROOT="/tmp/ZoneTilerWM"
 DERIVED="$BUILD_ROOT/DerivedData"
 APP="$DERIVED/Build/Products/Release/ZoneTilerWM.app"
