@@ -98,7 +98,9 @@ public final class FocusBorderController {
     private var timer: Timer?
     private var lastFocusedID: Int?
     private var lastRendered: ZTRect?
-    private let tickInterval = 1.0 / 90.0   // poll rate; prediction covers the gap
+    private var lastTick: CFTimeInterval = 0
+    private let tickInterval = 1.0 / 90.0   // poll rate
+    private let leadSeconds = 0.012         // velocity lead when prediction is on (~1 frame)
 
     public init() {}
 
@@ -106,6 +108,7 @@ public final class FocusBorderController {
     public func apply(enabled: Bool, backend: BorderBackend, style: BorderStyle, prediction: Bool) {
         self.style = style
         self.prediction = prediction
+        predictor.lead = prediction ? leadSeconds : 0   // smoothing always on; lead is the toggle
         let backendChanged = backend != self.backend || renderer == nil
         self.backend = backend
         if backendChanged { swapRenderer() }
@@ -132,7 +135,7 @@ public final class FocusBorderController {
     private func start() {
         stop()
         if renderer == nil { swapRenderer() }
-        predictor.reset()
+        predictor.reset(); lastTick = 0
         let t = Timer(timeInterval: tickInterval, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(t, forMode: .common)   // fire during event tracking (window drags)
         timer = t
@@ -149,10 +152,11 @@ public final class FocusBorderController {
             if lastRendered != nil { renderer?.render(frame: nil, style: style); lastRendered = nil }
             return
         }
-        if cur.id != lastFocusedID { predictor.reset(); lastFocusedID = cur.id }
         let now = CACurrentMediaTime()
-        predictor.record(cur.frame, at: now)
-        let target = prediction ? (predictor.predicted(at: now + predictor.maxLead) ?? cur.frame) : cur.frame
+        if cur.id != lastFocusedID { predictor.reset(); lastFocusedID = cur.id; lastTick = 0 }
+        let dt = lastTick > 0 ? (now - lastTick) : tickInterval
+        lastTick = now
+        let target = predictor.process(cur.frame, dt: dt)   // smoothed; lead applied per prediction toggle
         // Skip the redraw when nothing moved (keeps the idle case cheap).
         if let last = lastRendered, framesEqual(last, target) { return }
         renderer?.render(frame: target, style: style)
