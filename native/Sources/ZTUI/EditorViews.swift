@@ -233,7 +233,7 @@ struct AppShortcutsView: View {
 
     var body: some View {
         let apps = currentGroup.apps
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 16) {   // more breathing room around the controls + keymap
             HStack(spacing: 12) {
                 Picker("", selection: $group) {
                     Text("App launcher").tag("appCuts")
@@ -335,7 +335,7 @@ struct LayoutEditorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 18) {   // de-crowd the dense Layouts sections
                 monitorsSection
                 Divider()
                 if !grid.isEmpty {

@@ -384,9 +384,9 @@ public struct SettingsView: View {
                     get: { model.config.workingSetTimeLimit / 60 },
                     set: { model.setWorkingSetMinutes($0) }), range: 1...240, suffix: "min")
                 LabeledContent("Auto-tile center zones") {
-                    HStack {
+                    HStack(spacing: 8) {
                         TextField("e.g. j, center, 0", text: $centerZonesEdit).textFieldStyle(.roundedBorder)
-                            .onSubmit { commitCenterZones() }
+                            .frame(width: 200).onSubmit { commitCenterZones() }
                         Button("Save") { commitCenterZones() }
                     }
                 }
