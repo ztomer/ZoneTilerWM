@@ -55,7 +55,7 @@ Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic co
 * **Audio Device Switching**: Cycle through audio devices with a hotkey.
 * **Pomodoro Timer**: A built-in Pomodoro timer to help you stay focused.
 * **Dynamic Resizing**: Adjust grid lines on the fly with visual feedback.
-* **Focus Border**: An optional colored outline around the focused window that follows it as it moves, with **motion prediction** to stay glued during drags/tile animations. Drawn with a click-through `NSWindow` overlay. (A private window-server renderer is in git history but disabled — it couldn't be made reliably click-through.)
+* **Focus Border**: An optional colored outline around the focused window that follows it as it moves, smoothed by a **One Euro Filter** (jitter-free, speed-adaptive) with optional motion-prediction lead. Two renderers, selectable in Settings: a click-through `NSWindow` **overlay** (default) and a private window-server **SkyLight** backend (off by default — click-through via window tags, like JankyBorders).
 * **Auto-Tiling**: Automatically arrange all windows into optimal positions using a **Cost-Based Backtracking Solver** (CSP).
     *   **Recency-Weighted**: Prioritizes your most recently used windows for prime spots.
     *   **Coverage Maximization**: Aggressively fills available screen space.

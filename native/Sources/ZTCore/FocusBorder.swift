@@ -95,8 +95,11 @@ public struct FrameMotionPredictor {
     private var lastOut: ZTRect?
     private var hasSample = false
 
-    /// Defaults tuned offscreen against realistic polled drag trajectories. `lead` ~ one frame.
-    public init(lead: Double = 0.012, minCutoff: Double = 1.2, beta: Double = 0.06, dCutoff: Double = 1.0) {
+    /// Defaults tuned offscreen against realistic polled trajectories incl. fast + jerky motion.
+    /// `beta` is the speed-coupling term: higher = cutoff rises faster with mouse speed, so fast/
+    /// jerky moves track tightly (low lag) while a near-still window stays heavily smoothed.
+    /// `lead` ~ one frame of velocity compensation.
+    public init(lead: Double = 0.012, minCutoff: Double = 1.2, beta: Double = 1.0, dCutoff: Double = 1.0) {
         self.lead = lead
         fx = OneEuroFilter(minCutoff: minCutoff, beta: beta, dCutoff: dCutoff)
         fy = OneEuroFilter(minCutoff: minCutoff, beta: beta, dCutoff: dCutoff)

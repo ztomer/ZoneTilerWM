@@ -351,7 +351,7 @@ enabled = false              # off by default — opt-in
 color = "blue"               # green/red/blue/yellow/orange/purple/white/black/gray
 width = 4                    # stroke width, px
 corner_radius = 9            # px
-backend = "overlay"          # "overlay" (the window-server backend is WIP/disabled → falls back)
+backend = "overlay"          # "overlay" (compatible) | "skylight" (window-server, private API)
 prediction = true            # lead the outline to compensate for follow-lag
 
 

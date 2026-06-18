@@ -273,15 +273,15 @@ verified vs Hammerspoon and/or live-validated (screenshots):
 | Hotkey conflicts | startup + reload log; Keys-tab banner | unit (`HotkeyConflicts.find`, real-config) |
 | Config live-reload | edit config.toml; reload hotkey; menu item | live (valid/invalid/restore) |
 | Overlays | flash on tile/focus; Pomodoro bar; grid; hints | live + unit (geometry/coordinate-flip) |
-| Focus border | click-through outline that follows the focused window; motion-predicted (SkyLight backend disabled — see note) | live + unit (`FrameMotionPredictor`) |
+| Focus border | click-through outline that follows the focused window; One Euro smoothed (overlay + optional SkyLight renderer) | live (both) + unit (`FrameMotionPredictor`) |
 | Settings GUI | menubar → Settings… | live (General / Keys / Apps / Layouts / Pomodoro / Advanced) |
 | Analytics | menubar → Window Analytics… | live (zone/keyboard/by-app heatmaps + learned-placement table, read-only) |
 
 System adapters: `CarbonHotkeyBinder` (+ modal register/unbind), `KeyMap`, `AppController`,
-`AudioDevices`, `Overlay` (flash/bar/grid/hints), `FocusBorderController` (`OverlayBorderRenderer`,
-a click-through NSWindow, behind ZTCore's `BorderRenderer`; focused frame sampled from CGWindowList
-= zero AX, lag compensated by `ZTCore.FrameMotionPredictor`; the `SkyLightBorderRenderer`
-window-server backend is disabled — it captured mouse input, see its header),
+`AudioDevices`, `Overlay` (flash/bar/grid/hints), `FocusBorderController` (renderers behind
+ZTCore's `BorderRenderer`: `OverlayBorderRenderer` click-through NSWindow [default] +
+`SkyLightBorderRenderer` private window-server, click-through via window tags [opt-in]; focused
+frame sampled from CGWindowList = zero AX, smoothed by `ZTCore.FrameMotionPredictor` [One Euro]),
 `ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
 Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **142 Swift tests,
