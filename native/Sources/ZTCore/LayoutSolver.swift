@@ -42,13 +42,21 @@ public enum LayoutSolver {
                                weights: CostWeights) -> Double {
         var cost = 0.0
 
+        // Guard the divisors against exactly-zero dimensions (degenerate windows/screens) so a
+        // bad input can't produce Inf/NaN — a NaN cost would silently defeat the branch-and-
+        // bound pruning below. Real AX frames are always positive, so this substitutes only on
+        // zero and leaves every valid computation byte-identical.
+        let tileH = tile.rect.h != 0 ? tile.rect.h : 1
+        let winH = window.h != 0 ? window.h : 1
+        let screenArea = (screen.w * screen.h) != 0 ? (screen.w * screen.h) : 1
+
         // 1. Geometric penalties.
-        let tileAR = tile.rect.w / tile.rect.h
-        let winAR = window.w / window.h
+        let tileAR = tile.rect.w / tileH
+        let winAR = window.w / winH
         cost += abs(winAR - tileAR) * weights.aspectRatio
 
-        let tileAreaRatio = (tile.rect.w * tile.rect.h) / (screen.w * screen.h)
-        let winAreaRatio = (window.w * window.h) / (screen.w * screen.h)
+        let tileAreaRatio = (tile.rect.w * tile.rect.h) / screenArea
+        let winAreaRatio = (window.w * window.h) / screenArea
         cost += abs(winAreaRatio - tileAreaRatio) * weights.areaRatio
 
         // 2. Coverage reward, boosted for more-recent windows (lower rank).

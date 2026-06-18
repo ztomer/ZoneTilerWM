@@ -1,5 +1,13 @@
 # ZoneTilerWM — Algorithm Sanity Review
 
+> **Hardened (resolution).** All Medium and the relevant Low findings below have since been
+> fixed: the `ZoneCalculator` grid regex is anchored (malformed coords → nil); `LayoutSolver`
+> and `SmartPlacer` guard their divisions against zero dimensions / area (no Inf/NaN); and
+> `WindowMemory` now requires `screenH > 0`. Locked by `HardeningTests.swift` (degenerate
+> inputs stay finite, malformed coords reject). The frozen golden corpus is unchanged (valid
+> inputs parse/compute identically), and `swift test --sanitize=address` runs clean
+> (148 tests, no AddressSanitizer reports). The text below is the original review record.
+
 A correctness, numerical, determinism, and robustness review of the pure-logic algorithms in `native/Sources/ZTCore/`, judged on their own merits (the Lua original has been removed; this is not a parity check). File:line citations refer to the `v2` working tree at review time.
 
 ## Summary verdict

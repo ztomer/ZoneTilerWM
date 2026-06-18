@@ -123,8 +123,10 @@ public final class WindowMemory {
 
         var newAR = 0.0
         var newAreaRatio = 0.0
-        // Guard mirrors Lua exactly: it checks screen width > 0 but not height.
-        if p.winW > 0 && p.winH > 0 && p.screenW > 0 {
+        // Require BOTH screen dimensions positive: a zero screen height would make the area
+        // ratio +Inf and permanently poison the running mean. (The original Lua only checked
+        // width; parity is no longer a constraint, so this is hardened.)
+        if p.winW > 0 && p.winH > 0 && p.screenW > 0 && p.screenH > 0 {
             newAR = p.winW / p.winH
             newAreaRatio = (p.winW * p.winH) / (p.screenW * p.screenH)
         }

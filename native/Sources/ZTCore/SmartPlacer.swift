@@ -48,6 +48,11 @@ public enum SmartPlacer {
             for (idx, candidate) in zone.tiles.enumerated() {
                 let i = idx + 1  // 1-based tile index
 
+                // A degenerate (zero-area) tile would make the area/AR/overlap divisions below
+                // produce NaN — and `NaN > maxScore` is always false, so it'd be silently
+                // skipped anyway. Skip it explicitly to keep the math finite.
+                if candidate.w <= 0 || candidate.h <= 0 { continue }
+
                 // Total overlap with already-placed windows (ignoring tiny bleeds).
                 var currentOverlap = 0.0
                 for occ in occupied {

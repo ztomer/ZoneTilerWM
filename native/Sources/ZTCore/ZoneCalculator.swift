@@ -164,10 +164,13 @@ public enum ZoneCalculator {
 
     struct GridCoords { let colStart: Int; let rowStart: Int; let colEnd: Int; let rowEnd: Int }
 
+    // Anchored: the WHOLE string must be a single "x#" cell or an "x#:y#" range — so a
+    // malformed coord (e.g. "abc1", "a1:2") is rejected (nil) instead of silently parsing to a
+    // plausible-but-wrong tile. Well-formed coords parse identically to before.
     private static let gridRegex = try! NSRegularExpression(
-        pattern: "([a-z])([0-9]+):?([a-z]?)([0-9]*)")
+        pattern: "^([a-z])([0-9]+)(?::([a-z])([0-9]+))?$")
 
-    /// Parses "a1", "a1:b2" → numeric grid coords. Mirrors the Lua match + byte arithmetic.
+    /// Parses "a1", "a1:b2" → numeric grid coords; nil for anything malformed.
     static func parseGridCoords(_ s: String) -> GridCoords? {
         let ns = s as NSString
         guard let m = gridRegex.firstMatch(in: s, range: NSRange(location: 0, length: ns.length))
@@ -177,10 +180,11 @@ public enum ZoneCalculator {
             return r.location == NSNotFound ? "" : ns.substring(with: r)
         }
         let csChar = group(1), rsStr = group(2), ceChar = group(3), reStr = group(4)
-        guard let csScalar = csChar.unicodeScalars.first, let rs = Int(rsStr) else { return nil }
         let a = Int(UnicodeScalar("a").value)
+        guard let csScalar = csChar.unicodeScalars.first, let rs = Int(rsStr) else { return nil }
         let cs = Int(csScalar.value) - a + 1
-        let ce = ceChar.isEmpty ? cs : (Int(ceChar.unicodeScalars.first!.value) - a + 1)
+        let ce: Int
+        if let ceScalar = ceChar.unicodeScalars.first { ce = Int(ceScalar.value) - a + 1 } else { ce = cs }
         let re = reStr.isEmpty ? rs : (Int(reStr) ?? rs)
         return GridCoords(colStart: cs, rowStart: rs, colEnd: ce, rowEnd: re)
     }
