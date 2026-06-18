@@ -19,9 +19,12 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            // The PNG is a full-bleed square; clip to the macOS "squircle" (≈22.4% radius) so the
+            // corners are rounded like the real app icon.
             Image(nsImage: appIcon)
                 .resizable().interpolation(.high)
                 .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
                 .accessibilityHidden(true)
 
             Text("ZoneTilerWM")

@@ -45,8 +45,9 @@ public struct AnalyticsView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header sits in the transparent titlebar; leading pad clears the close button.
+        VStack(alignment: .leading, spacing: 0) {
+            // Title + filters sit in the transparent titlebar band, aligned with the close
+            // button (which floats at the left). See AnalyticsWindowController.
             HStack {
                 Text("Placement analytics").font(.headline)
                 Spacer()
@@ -61,64 +62,77 @@ public struct AnalyticsView: View {
                     }.labelsHidden().frame(width: 110)
                 }
             }
-            .padding(.leading, 64)
-            summary
-            HStack {
-                Picker("", selection: $mode) {
-                    Text("Screen").tag("screen")
-                    Text("Keyboard").tag("keyboard")
-                    Text("By app").tag("apps")
-                    Text("Trend").tag("trend")
-                }.pickerStyle(.segmented).frame(width: 300).labelsHidden()
-                if mode == "screen" || mode == "apps" {
-                    Text("Grid").foregroundColor(.secondary)
-                    Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
-                        .labelsHidden().frame(width: 90)
+            .padding(.leading, 80).padding(.trailing, 16)
+            .frame(height: 38)
+
+            VStack(alignment: .leading, spacing: 12) {
+                summary
+                HStack {
+                    Picker("", selection: $mode) {
+                        Text("Screen").tag("screen")
+                        Text("Keyboard").tag("keyboard")
+                        Text("By app").tag("apps")
+                        Text("Trend").tag("trend")
+                    }.pickerStyle(.segmented).frame(width: 300).labelsHidden()
+                    if mode == "screen" || mode == "apps" {
+                        Text("Grid").foregroundColor(.secondary)
+                        Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
+                            .labelsHidden().frame(width: 90)
+                    }
+                    Toggle("Recency", isOn: $recency).toggleStyle(.switch).fixedSize()
+                        .help("Weight recent placements higher (2-week half-life)")
+                    if appFilter == nil {
+                        Stepper(value: $minCount, in: 1...50) { Text("min \(minCount)") }
+                            .help("Hide apps with fewer than this many placements (trims rarely-seen / helper apps)")
+                            .fixedSize()
+                    }
+                    Spacer()
                 }
-                Toggle("Recency", isOn: $recency).toggleStyle(.switch).fixedSize()
-                    .help("Weight recent placements higher (2-week half-life)")
-                if appFilter == nil {
-                    Stepper(value: $minCount, in: 1...50) { Text("min \(minCount)") }
-                        .help("Hide apps with fewer than this many placements (trims rarely-seen / helper apps)")
-                        .fixedSize()
+                Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
+                     : mode == "keyboard" ? "Which zone keys windows land in."
+                     : mode == "trend" ? "Placements per day (last 30 days)."
+                     : "Each app's placement footprint — tap one to filter.")
+                    .font(.caption).foregroundColor(.secondary)
+
+                if model.preferences.isEmpty {
+                    emptyState("No placements learned yet.",
+                               "Tile some windows and ZoneTilerWM will start learning where you put each app.")
+                } else {
+                    // Fixed-height visual area so the detail table below stays put across modes.
+                    Group {
+                        switch mode {
+                        case "keyboard": keyboardHeatmap
+                        case "apps": smallMultiples
+                        case "trend": trendView
+                        default: spatialHeatmap
+                        }
+                    }
+                    .frame(height: 300, alignment: .top)
+                    Divider()
+                    Text("Detail — \(filtered.count.formatted()) learned patterns\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
+                    if filtered.isEmpty {
+                        Text("Nothing matches this filter — lower “min” or clear the app/monitor filter.")
+                            .font(.callout).foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
+                    } else {
+                        Table(sortedRows, sortOrder: $sortOrder) {
+                            TableColumn("App", value: \.app) { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
+                            TableColumn("Monitor", value: \.monitor) { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
+                            TableColumn("Zone", value: \.zone) { Text(displayKey($0.zone)) }.width(min: 44, ideal: 52, max: 70)
+                            TableColumn("Tile", value: \.tile) { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
+                            TableColumn("Shape", value: \.meanAR) { Text($0.meanAR > 0 ? String(format: "%.2f", $0.meanAR) : "—") }
+                                .width(min: 50, ideal: 58, max: 72)
+                            TableColumn("Count", value: \.count) { Text($0.count.formatted()) }.width(min: 60, ideal: 76, max: 96)
+                        }
+                        .frame(minHeight: 200)
+                    }
                 }
-                Spacer()
             }
-            Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
-                 : mode == "keyboard" ? "Which zone keys windows land in."
-                 : mode == "trend" ? "Placements per day (last 30 days)."
-                 : "Each app's placement footprint — tap one to filter.")
-                .font(.caption).foregroundColor(.secondary)
-            if model.preferences.isEmpty {
-                emptyState("No placements learned yet.",
-                           "Tile some windows and ZoneTilerWM will start learning where you put each app.")
-            } else if mode == "trend" {
-                trendView
-            } else if filtered.isEmpty {
-                emptyState("Nothing matches this filter.", "Lower “min” or clear the app/monitor filter.")
-            } else {
-                switch mode {
-                case "keyboard": keyboardHeatmap
-                case "apps": smallMultiples
-                default: spatialHeatmap
-                }
-                Divider()
-                Text("Detail — \(filtered.count.formatted()) learned patterns\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
-                Table(sortedRows, sortOrder: $sortOrder) {
-                    TableColumn("App", value: \.app) { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
-                    TableColumn("Monitor", value: \.monitor) { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
-                    TableColumn("Zone", value: \.zone) { Text(displayKey($0.zone)) }.width(min: 44, ideal: 52, max: 70)
-                    TableColumn("Tile", value: \.tile) { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
-                    TableColumn("Shape", value: \.meanAR) { Text($0.meanAR > 0 ? String(format: "%.2f", $0.meanAR) : "—") }
-                        .width(min: 50, ideal: 58, max: 72)
-                    TableColumn("Count", value: \.count) { Text($0.count.formatted()) }.width(min: 60, ideal: 76, max: 96)
-                }
-                .frame(minHeight: 200)
-            }
+            .padding(.horizontal, 16).padding(.bottom, 16)
         }
-        .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .frame(minWidth: 600, idealWidth: 660, minHeight: 640, idealHeight: 720)   // ideal matches the window default
+        .frame(minWidth: 620, idealWidth: 680, minHeight: 640)
+        .ignoresSafeArea(.container, edges: .top)   // draw the header into the titlebar band
         .onAppear { if grid.isEmpty { grid = gridNames.last ?? "" } }   // default to the richest grid
     }
 
@@ -329,7 +343,8 @@ public final class AnalyticsWindowController {
         w.titleVisibility = .hidden
         w.standardWindowButton(.miniaturizeButton)?.isHidden = true
         w.standardWindowButton(.zoomButton)?.isHidden = true
-        w.setContentSize(NSSize(width: 660, height: 720))
+        w.setContentSize(NSSize(width: 680, height: 760))
+        w.contentMinSize = NSSize(width: 620, height: 520)
         w.isReleasedWhenClosed = false
         w.center()
         window = w

@@ -298,17 +298,18 @@ public struct SettingsView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // The tab bar lives in the (transparent, button-stripped) titlebar — the close
-            // button floats at the left; the segmented tabs are centered. See SettingsWindow.
+            // The tab bar sits IN the transparent titlebar, vertically aligned with the close
+            // button (which floats at the left); the segmented tabs are centered. The titlebar
+            // band height (~28pt) is reclaimed via .ignoresSafeArea below.
             Picker("", selection: $tab) {
                 ForEach(tabs, id: \.0) { Text($0.1).tag($0.0) }
             }
             .pickerStyle(.segmented).labelsHidden()
-            .frame(maxWidth: 480)
-            .padding(.leading, 72)     // clear the traffic-light close button
+            .frame(maxWidth: 460)
+            .padding(.leading, 78)     // clear the traffic-light close button
             .padding(.trailing, 16)
-            .padding(.vertical, 7)
             .frame(maxWidth: .infinity)
+            .frame(height: 38)         // titlebar band
             Divider()
             Group {
                 switch tab {
@@ -320,9 +321,12 @@ public struct SettingsView: View {
                 default: general
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 16).padding(.bottom, 16)
         }
-        .frame(width: 760)        // fixed width; height follows each tab's content (window auto-sizes)
+        .frame(width: 760)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .ignoresSafeArea(.container, edges: .top)   // draw the tab bar into the titlebar band
     }
 
     private var general: some View {
