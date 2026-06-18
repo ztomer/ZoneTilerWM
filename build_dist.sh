@@ -39,5 +39,10 @@ Recipient steps:
   4. Grant Accessibility when prompted: "Open System Settings" → toggle
      ZoneTilerWM on. If the prompt does not close after granting, quit it
      from the menu bar and relaunch once.
+  5. If it's toggled ON but still can't move windows (common after installing
+     a NEW version): select ZoneTilerWM in the Accessibility list, click "-"
+     to remove it, then re-add ("+") or relaunch and grant again.
+     Why: macOS binds the grant to the app's code signature; ad-hoc builds get
+     a new signature each build, so a stale entry no longer matches the new app.
 ────────────────────────────────────────────────────────────────────────────
 EOF

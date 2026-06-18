@@ -82,6 +82,23 @@ Install
    ZoneTilerWM on. If the prompt doesn't close after granting, quit it from
    the menu bar and relaunch once.
 
+Troubleshooting: Accessibility granted but windows won't move
+-------------------------------------------------------------
+If ZoneTilerWM is toggled ON under Privacy & Security -> Accessibility but it
+still can't move windows (most common right after installing a NEW version):
+   1. In that Accessibility list, select ZoneTilerWM and click the "-" button
+      to remove the entry.
+   2. Re-add it with "+" (choose /Applications/ZoneTilerWM.app), or just
+      relaunch the app and grant again when prompted. Make sure it's toggled ON.
+   3. Quit ZoneTilerWM from the menu bar and relaunch once.
+
+Why: macOS ties the Accessibility grant to the app's exact CODE SIGNATURE, not
+just its name. These builds are ad-hoc signed, so each new build has a different
+signature. When you replace the app with a newer build, the old grant is bound
+to the previous signature and no longer matches the running app — the toggle can
+even still LOOK on while doing nothing. Removing and re-adding rebinds the grant
+to the current build's signature.
+
 Using it
 --------
 - <modifier>+<zone key> tiles the focused window into a zone.
