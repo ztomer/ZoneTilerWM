@@ -66,6 +66,7 @@ public enum ConfigLoader {
         public var keyboardLayout: String                 // [ui] keyboard_layout: auto/qwerty/dvorak/colemak
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
+        public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
         public func resolvedHotkey(_ action: String, in group: [String: [String]]) -> (modifier: [String], key: String)? {
@@ -192,11 +193,25 @@ public enum ConfigLoader {
         var system_hotkeys: [String: [String]]?
         var ui: RawUI?
         var automation: RawAutomation?
+        var rules: [RawRule]?
     }
 
     private struct RawUI: Decodable { var keyboard_layout: String? }
 
     private struct RawAutomation: Decodable { var enabled: Bool? }
+
+    /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
+    /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
+    private struct RawRule: Decodable {
+        var app: String?
+        var trigger: String?
+        var action: String?
+        var zone: String?
+        var direction: String?
+        var command: String?
+        var name: String?
+        var device: String?
+    }
 
     /// A resolved app-shortcut group: the actual modifier names + key->app entries.
     public struct AppHotkeyGroup: Equatable {
@@ -297,7 +312,29 @@ public enum ConfigLoader {
                 width: Double(raw.borders?.width ?? 4),
                 cornerRadius: Double(raw.borders?.corner_radius ?? 9),
                 prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
-            automationEnabled: raw.automation?.enabled ?? true)  // on by default; the local socket is low-risk
+            automationEnabled: raw.automation?.enabled ?? true,  // on by default; the local socket is low-risk
+            rules: parseRules(raw.rules))
+    }
+
+    /// Build [Rule] from the raw [[rules]] entries. A rule's `action` + params are parsed through
+    /// the shared ActionParser (same contract as CLI/MCP); malformed rules are dropped.
+    private static func parseRules(_ raw: [RawRule]?) -> [Rule] {
+        guard let raw else { return [] }
+        var out: [Rule] = []
+        for r in raw {
+            guard let app = r.app, !app.isEmpty,
+                  let triggerRaw = r.trigger, let trigger = Rule.Trigger(rawValue: triggerRaw),
+                  let actionName = r.action else { continue }
+            var params: [String: String] = [:]
+            if let v = r.zone { params["zone"] = v }
+            if let v = r.direction { params["direction"] = v }
+            if let v = r.command { params["command"] = v }
+            if let v = r.name { params["name"] = v }
+            if let v = r.device { params["device"] = v }
+            guard case .success(let action) = ActionParser.parse(name: actionName, params: params) else { continue }
+            out.append(Rule(app: app, trigger: trigger, action: action))
+        }
+        return out
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

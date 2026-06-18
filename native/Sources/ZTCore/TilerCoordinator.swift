@@ -161,6 +161,40 @@ public final class TilerCoordinator {
                                     tileIndex: tileIndex, target: target, applied: applied))
     }
 
+    /// Tile a SPECIFIC window (by id) into `zoneKey` on its current screen — the rules-engine
+    /// entry point, where the target window is the one that just opened, not necessarily the
+    /// focused one. Mirrors moveFocusedToZone but resolves the window by id and moves it via
+    /// `WindowSystem.move(windowId:to:)`. Returns nil if the window/screen/zone/tile can't be
+    /// resolved. Learns + persists on success, like a manual tile.
+    @discardableResult
+    public func moveWindow(windowId: Int, toZone zoneKey: String) -> MoveOutcome? {
+        // Resolve the window + its screen via the zero-AX enumeration.
+        var found: (window: LiveWindow, uuid: String)?
+        for s in screenProvider.allScreens() {
+            if let w = windowSystem.windows(onScreen: s.uuid).first(where: { $0.id == windowId }) {
+                found = (w, s.uuid); break
+            }
+        }
+        guard let (window, uuid) = found, let screen = screenProvider.screen(uuid: uuid) else { return nil }
+
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets(forScreen: uuid)).zones
+        guard let tiles = zones[zoneKey], !tiles.isEmpty else { return nil }
+
+        let occupied = windowSystem.windows(onScreen: uuid)
+            .filter { $0.id != window.id }
+            .map { PlacementStrategy.OccupiedWindow(id: $0.id, frame: $0.frame) }
+        guard let target = PlacementStrategy.findBestTile(
+            strategy: strategy, tiles: tiles, zoneKey: zoneKey,
+            currentFrame: window.frame, stateZoneKey: nil, stateTileIndex: nil,
+            occupied: occupied, selfId: window.id) else { return nil }
+
+        let tileIndex = (tiles.firstIndex(of: target) ?? 0) + 1
+        let applied = windowSystem.move(windowId: window.id, to: target)
+        if applied { learn(window: window, screen: screen, zoneKey: zoneKey, tileIndex: tileIndex) }
+        return MoveOutcome(windowId: window.id, zoneKey: zoneKey, tileIndex: tileIndex, target: target, applied: applied)
+    }
+
     /// Auto-tile every window on the focused window's screen (or the main screen) using the
     /// ported AutoTiler, applying each planned move via the WindowSystem. Returns the moves.
     @discardableResult

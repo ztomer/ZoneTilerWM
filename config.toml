@@ -365,6 +365,25 @@ prediction = true            # lead the outline to compensate for follow-lag
 
 
 # =============================================================================
+# 8c. Window rules — declarative match → action (see docs/AUTOMATION.md)
+# Match by app name; fire on a trigger; run an action (same names/params as the CLI/MCP).
+# trigger: on-open (wired) | on-focus | on-display-change
+# Example (uncomment to use): auto-place Arc + Slack when they open.
+# =============================================================================
+# [[rules]]
+# app = "Arc"
+# trigger = "on-open"
+# action = "tile"
+# zone = "k"
+#
+# [[rules]]
+# app = "Slack"
+# trigger = "on-open"
+# action = "tile"
+# zone = "l"
+
+
+# =============================================================================
 # 9. Window memory
 # Learns and restores window positions across sessions.
 # =============================================================================

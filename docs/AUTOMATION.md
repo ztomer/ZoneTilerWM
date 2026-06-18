@@ -85,6 +85,35 @@ enabled = true   # default. Set false to turn off the MCP/CLI control socket ent
 Omitted entirely → **enabled** (the local socket is low-risk and the feature should work out of
 the box). The agent starts/stops the socket to match this on launch and on every live reload.
 
+## Window rules (`[[rules]]`)
+
+Declarative **match → action** rules in `config.toml`. A rule matches by **app name**
+(case-insensitive; never window title — that needs Screen Recording), fires on a **trigger**, and
+runs an **action** expressed in the same `action` + params contract as the CLI/MCP:
+
+```toml
+[[rules]]
+app = "Arc"
+trigger = "on-open"     # on-open | on-focus | on-display-change
+action = "tile"         # any action name; params are the action's params
+zone = "k"
+
+[[rules]]
+app = "Slack"
+trigger = "on-open"
+action = "tile"
+zone = "l"
+```
+
+Triggers:
+- **on-open** *(wired)* — a new window of the app appears. Detected by diffing the CGWindowList
+  window-id set each focus tick (**0 AX**), baseline-seeded so pre-existing windows never fire.
+  `tile` actions target that specific window via `coordinator.moveWindow(id:toZone:)`.
+- **on-focus**, **on-display-change** — parsed and stored; agent wiring lands in a follow-up.
+
+Malformed rules (unknown trigger, missing required action params) are dropped at load. Rules
+re-load live with the rest of the config.
+
 ## Layering / constraints
 
 - Vocabulary + parsing + MCP message logic + CLI formatting are **pure `ZTCore`** (no AppKit,

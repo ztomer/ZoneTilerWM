@@ -77,9 +77,12 @@ front-end — global hotkeys, the **MCP server** (`zt-mcp` stdio shim ⇄ Unix-d
 agent, via `AgentSocketServer`/`AgentSocketClient` + the pure `MCPServer`), and **`zonetiler-cli`**.
 Read-only resources (`QueryRequest`: arrangement/zones/placement-stats) are answered from
 `CGWindowList` + config + the learned store — **zero AX**, no window titles. New executables:
-`zt-mcp`, `zonetiler-cli`. See **`docs/AUTOMATION.md`** for the full surface and how to connect
-Claude / the CLI. Invariant: a new front-end only builds an `ActionRequest` — it never
-re-implements an action.
+`zt-mcp`, `zonetiler-cli`. A **rules engine** (`Rule`/`RulesEngine` in `ZTCore`, `[[rules]]` in
+config) turns app+trigger events into `ActionRequest`s — on-open is wired via a CGWindowList
+window-id diff (0 AX), and tile rules target the specific window via
+`TilerCoordinator.moveWindow(id:toZone:)`. See **`docs/AUTOMATION.md`** for the full surface and
+how to connect Claude / the CLI. Invariant: a new front-end only builds an `ActionRequest` — it
+never re-implements an action.
 
 ### The value-snapshot vs. mutation-protocol split
 

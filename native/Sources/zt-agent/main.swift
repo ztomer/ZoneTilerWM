@@ -115,6 +115,11 @@ final class AgentController: NSObject {
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
     private var appSwitcher: AppSwitcher.Config
+    // Declarative window rules (rebuilt on live reload). on-open detection diffs the CGWindowList
+    // window-id set (0 AX) each focus tick; baseline-seeded so pre-existing windows don't fire.
+    private var rulesEngine: RulesEngine
+    private var lastWindowIds: Set<Int> = []
+    private var rulesSeeded = false
     // The single source of truth for executing actions. Every hotkey (and the MCP server)
     // routes through this. Built after super.init (its hooks reference self).
     private var dispatcher: ActionDispatcher!
@@ -180,6 +185,7 @@ final class AgentController: NSObject {
                                                       resizeManager: resize)
         autoTilerConfig = config.autoTilerConfig()
         appSwitcher = config.appSwitcher
+        rulesEngine = RulesEngine(rules: config.rules)
         pomodoro = Pomodoro(config: .init(workPeriodSec: config.pomodoroWorkSec,
                                           restPeriodSec: config.pomodoroRestSec,
                                           enableColorBar: config.pomodoroEnableColorBar))
@@ -368,7 +374,45 @@ final class AgentController: NSObject {
         let now = Int(Date().timeIntervalSince1970)
         coordinator.seedFocusTimes(now: now)
         focusTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.coordinator.noteFocusedWindow(now: Int(Date().timeIntervalSince1970))
+            guard let self else { return }
+            self.coordinator.noteFocusedWindow(now: Int(Date().timeIntervalSince1970))
+            self.evaluateOnOpenRules()
+        }
+    }
+
+    /// All currently-live windows as id → app name (0 AX, CGWindowList via the WindowSystem).
+    private func enumerateWindows() -> [Int: String] {
+        var map: [Int: String] = [:]
+        for s in screens.allScreens() {
+            for w in windowSystem.windows(onScreen: s.uuid) { map[w.id] = w.appName }
+        }
+        return map
+    }
+
+    /// Fire on-open rules for windows that appeared since the last tick. Baseline-seeded on the
+    /// first run so rules never retro-fire on windows that already existed (at launch or when a
+    /// rule is added via live reload).
+    private func evaluateOnOpenRules() {
+        guard rulesEngine.hasRules(for: .onOpen) else { return }   // skip the enumeration entirely
+        let current = enumerateWindows()
+        let currentIds = Set(current.keys)
+        defer { lastWindowIds = currentIds }
+        guard rulesSeeded else { rulesSeeded = true; return }      // baseline only on first run
+        for id in currentIds.subtracting(lastWindowIds) {
+            guard let app = current[id] else { continue }
+            for rule in rulesEngine.matching(app: app, trigger: .onOpen) { apply(rule, toWindow: id) }
+        }
+    }
+
+    /// Execute a rule for a specific window. Tile actions target that window directly; other
+    /// actions fall back to focused-window semantics (a new window is usually focused anyway).
+    private func apply(_ rule: Rule, toWindow id: Int) {
+        if case .tileFocusedToZone(let zone) = rule.action {
+            if let o = coordinator.moveWindow(windowId: id, toZone: zone) {
+                log("zt-agent: rule \(rule.app)/on-open → tile \(o.zoneKey) applied=\(o.applied)")
+            }
+        } else {
+            dispatcher.perform(rule.action)
         }
     }
 
@@ -533,6 +577,7 @@ final class AgentController: NSObject {
                                                       resizeManager: resizeManager)
         autoTilerConfig = newConfig.autoTilerConfig()
         appSwitcher = newConfig.appSwitcher
+        rulesEngine = RulesEngine(rules: newConfig.rules)
         pomodoro.updateConfig(.init(workPeriodSec: newConfig.pomodoroWorkSec,
                                     restPeriodSec: newConfig.pomodoroRestSec,
                                     enableColorBar: newConfig.pomodoroEnableColorBar))
