@@ -134,6 +134,7 @@ final class AgentController: NSObject {
     private var settings: SettingsWindowController?
     private var analytics: AnalyticsWindowController?
     private var about: AboutWindowController?
+    private var tutorial: TutorialWindowController?
     private let onboarding = AccessibilityOnboardingController()
 
     init(config: ConfigLoader.LoadedConfig, configURL: URL) {
@@ -573,6 +574,9 @@ final class AgentController: NSObject {
         let aboutItem = NSMenuItem(title: "About ZoneTilerWM", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
+        let tutorialItem = NSMenuItem(title: "Tutorial / Getting Started", action: #selector(openTutorial), keyEquivalent: "")
+        tutorialItem.target = self
+        menu.addItem(tutorialItem)
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -608,6 +612,11 @@ final class AgentController: NSObject {
         about?.show()
     }
 
+    @objc func openTutorial() {
+        if tutorial == nil { tutorial = TutorialWindowController() }
+        tutorial?.show()
+    }
+
     /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
     /// need it). No-op when already trusted.
     func showOnboardingIfNeeded() {
@@ -632,6 +641,7 @@ switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
 case "analytics": DispatchQueue.main.async { controller.openAnalytics() }
 case "settings":  DispatchQueue.main.async { controller.openSettings() }
 case "about":     DispatchQueue.main.async { controller.openAbout() }
+case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 default: break
 }
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")

@@ -166,14 +166,14 @@ Grid is mapped to your keyboard:
 
 ### Pomodoro Timer
 
-* `Ctrl+Cmd+9` → Start timer
-* `Ctrl+Cmd+0` → Pause/reset
-* `Shift+Ctrl+Cmd+0` → Reset work count
+* `Ctrl+Cmd+8` → Start timer
+* `Ctrl+Cmd+9` → Pause
+* `Shift+Ctrl+Cmd+8` → Reset work count
 
 ### Utility
 
 * `Hyper+\` → Toggle Zen mode (hides all other windows)
-* `Hyper+r` → Toggle Resize Mode (Arrow keys to adjust grid)
+* `Ctrl+Cmd+r` → Toggle Resize Mode (Arrow keys to adjust grid)
 * `Hyper+-` → Show window hints
 * `Hyper+=` → Open Activity Monitor
 * `HYPER+Enter` → **Auto-Tile All Windows** (Ripple, Compaction, and Gap-Filling)
@@ -225,6 +225,7 @@ For detailed documentation, see the [docs/](docs/) folder:
 
 * **[Native Architecture](native/ARCHITECTURE.md)** - Design, layering (`ZTCore`/`ZTSystem`/`ZTUI`), conventions, feature status
 * **[Review](native/REVIEW.md)** - Engineering (Linus/Uncle Bob), performance (Carmack), and UI/UX (Rams/Kare) review plus the code-coverage breakdown
+* **[Tutorial / Getting Started](docs/TUTORIAL.md)** - New-user walkthrough (also in the menubar → Tutorial)
 * **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
 * **[SentinelOne Performance](docs/SENTINELONE_INVESTIGATION.md)** - Why AX-call count is the primary perf constraint, and how the agent minimizes it (CGWindowList reads, memoized EnhancedUI toggle)
 * **[Auto-tiling Design](docs/auto-tiling_algorithmic_design.md)** - The cost-based backtracking solver and scoring
