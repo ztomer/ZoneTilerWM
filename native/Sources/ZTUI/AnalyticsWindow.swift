@@ -12,6 +12,8 @@ public struct AnalyticsView: View {
     @State private var mode = "screen"          // "screen" (spatial cells) | "keyboard" (zone keys) | "apps"
     @State private var grid = ""
     @State private var recency = false          // weight by recency (decays stale habits)
+    @State private var minCount = 1             // hide apps below this many placements (long-tail noise)
+    @State private var sortOrder = [KeyPathComparator(\SettingsModel.Pref.count, order: .reverse)]
     public init(model: SettingsModel) { self.model = model }
 
     private var monitorFilter: String? { monitor == "all" ? nil : monitor }
@@ -20,7 +22,22 @@ public struct AnalyticsView: View {
     private func displayKey(_ k: String) -> String { k.count == 1 ? k.uppercased() : k }
 
     private var filtered: [SettingsModel.Pref] {
-        model.preferences.filter { (appFilter == nil || $0.app == appFilter) && (monitorFilter == nil || $0.monitor == monitorFilter) }
+        let base = model.preferences.filter {
+            (appFilter == nil || $0.app == appFilter) && (monitorFilter == nil || $0.monitor == monitorFilter)
+        }
+        // Data hygiene: drop the long tail of rarely-seen apps (renamed/helper/one-off
+        // processes inflate the raw app count). Only applies when not filtered to one app.
+        guard minCount > 1, appFilter == nil else { return base }
+        let totals = Dictionary(grouping: base, by: { $0.app }).mapValues { $0.reduce(0) { $0 + $1.count } }
+        return base.filter { (totals[$0.app] ?? 0) >= minCount }
+    }
+    private var sortedRows: [SettingsModel.Pref] { filtered.sorted(using: sortOrder) }
+    /// An app's most-used zone on the current monitor filter (independent of the app filter, so
+    /// every small-multiple card shows its own top zone).
+    private func topZone(forApp a: String) -> String? {
+        Dictionary(grouping: model.preferences.filter { $0.app == a && (monitorFilter == nil || $0.monitor == monitorFilter) },
+                   by: { $0.zone })
+            .mapValues { $0.reduce(0) { $0 + $1.count } }.max { $0.value < $1.value }?.key
     }
     private func intensityColor(_ count: Int, _ maxCount: Int) -> Color {
         count > 0 ? Color.accentColor.opacity(0.12 + 0.78 * (Double(count) / Double(max(maxCount, 1))))
@@ -57,28 +74,43 @@ public struct AnalyticsView: View {
                     Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
                         .labelsHidden().frame(width: 90)
                 }
-                Toggle("Recency", isOn: $recency).toggleStyle(.switch).help("Weight recent placements higher (2-week half-life)")
+                Toggle("Recency", isOn: $recency).toggleStyle(.switch).fixedSize()
+                    .help("Weight recent placements higher (2-week half-life)")
+                if appFilter == nil {
+                    Stepper(value: $minCount, in: 1...50) { Text("min \(minCount)") }
+                        .help("Hide apps with fewer than this many placements (trims rarely-seen / helper apps)")
+                        .fixedSize()
+                }
                 Spacer()
-                Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
-                     : mode == "keyboard" ? "Which zone keys windows land in."
-                     : "Each app's placement footprint — tap one to filter.")
-                    .font(.caption).foregroundColor(.secondary)
             }
-            switch mode {
-            case "keyboard": keyboardHeatmap
-            case "apps": smallMultiples
-            default: spatialHeatmap
+            Text(mode == "screen" ? "Where windows land on screen (hotter = more used)."
+                 : mode == "keyboard" ? "Which zone keys windows land in."
+                 : "Each app's placement footprint — tap one to filter.")
+                .font(.caption).foregroundColor(.secondary)
+            if model.preferences.isEmpty {
+                emptyState("No placements learned yet.",
+                           "Tile some windows and ZoneTilerWM will start learning where you put each app.")
+            } else if filtered.isEmpty {
+                emptyState("Nothing matches this filter.", "Lower “min” or clear the app/monitor filter.")
+            } else {
+                switch mode {
+                case "keyboard": keyboardHeatmap
+                case "apps": smallMultiples
+                default: spatialHeatmap
+                }
+                Divider()
+                Text("Detail — \(filtered.count.formatted()) learned patterns\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
+                Table(sortedRows, sortOrder: $sortOrder) {
+                    TableColumn("App", value: \.app) { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
+                    TableColumn("Monitor", value: \.monitor) { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
+                    TableColumn("Zone", value: \.zone) { Text(displayKey($0.zone)) }.width(min: 44, ideal: 52, max: 70)
+                    TableColumn("Tile", value: \.tile) { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
+                    TableColumn("Shape", value: \.meanAR) { Text($0.meanAR > 0 ? String(format: "%.2f", $0.meanAR) : "—") }
+                        .width(min: 50, ideal: 58, max: 72)
+                    TableColumn("Count", value: \.count) { Text($0.count.formatted()) }.width(min: 60, ideal: 76, max: 96)
+                }
+                .frame(minHeight: 200)
             }
-            Divider()
-            Text("Detail — \(filtered.count.formatted()) learned patterns\(appFilter.map { " · \($0)" } ?? "")").font(.headline)
-            Table(filtered) {
-                TableColumn("App") { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
-                TableColumn("Monitor") { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
-                TableColumn("Zone") { Text(displayKey($0.zone)) }.width(min: 44, ideal: 52, max: 70)
-                TableColumn("Tile") { Text($0.tile) }.width(min: 40, ideal: 48, max: 64)
-                TableColumn("Count") { Text($0.count.formatted()) }.width(min: 60, ideal: 76, max: 96)
-            }
-            .frame(minHeight: 200)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -97,6 +129,9 @@ public struct AnalyticsView: View {
         let byMon = Dictionary(grouping: filtered, by: { $0.monitor })
             .mapValues { $0.reduce(0) { $0 + $1.count } }
         let busiest = byMon.max { $0.value < $1.value }
+        // Concentration: share of placements in the top 3 zones (focused vs spread-out habits).
+        let zoneTotals = Dictionary(grouping: filtered, by: { $0.zone }).mapValues { $0.reduce(0) { $0 + $1.count } }
+        let top3 = zoneTotals.values.sorted(by: >).prefix(3).reduce(0, +)
         // Layout in an even grid so the tiles line up regardless of how many show.
         return HStack(alignment: .top, spacing: 28) {
             stat(total.formatted(), "placements")
@@ -104,6 +139,7 @@ public struct AnalyticsView: View {
             if appFilter == nil { stat(appCount.formatted(), appCount == 1 ? "app" : "apps") }
             if let topZone { stat(displayKey(topZone), "top zone") }
             if appFilter == nil, let topApp { stat(topApp, "top app") }
+            if total > 0 { stat("\(Int((Double(top3) / Double(total) * 100).rounded()))%", "top-3 zones") }
             if byMon.count > 1, let busiest, total > 0 {
                 stat("Mon \(busiest.key) · \(Int((Double(busiest.value) / Double(total) * 100).rounded()))%", "busiest")
             }
@@ -116,6 +152,15 @@ public struct AnalyticsView: View {
             Text(label).font(.caption2).foregroundColor(.secondary)
         }
         .fixedSize()
+    }
+
+    private func emptyState(_ title: String, _ detail: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: "chart.bar.doc.horizontal").font(.system(size: 34)).foregroundColor(.secondary)
+            Text(title).font(.headline)
+            Text(detail).font(.callout).foregroundColor(.secondary).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, minHeight: 240)
     }
 
     // Spatial: the monitor's grid cells colored by occupancy.
@@ -146,7 +191,7 @@ public struct AnalyticsView: View {
     private var topApps: [(app: String, count: Int)] {
         let totals = Dictionary(grouping: model.preferences.filter { !$0.app.isEmpty }, by: { $0.app })
             .mapValues { $0.filter { monitorFilter == nil || $0.monitor == monitorFilter }.reduce(0) { $0 + $1.count } }
-        return totals.filter { $0.value > 0 }.sorted { $0.value > $1.value }.prefix(16).map { (app: $0.key, count: $0.value) }
+        return totals.filter { $0.value >= max(minCount, 1) }.sorted { $0.value > $1.value }.prefix(16).map { (app: $0.key, count: $0.value) }
     }
 
     private var smallMultiples: some View {
@@ -156,12 +201,17 @@ public struct AnalyticsView: View {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(topApps, id: \.app) { item in
                     let selected = app == item.app
-                    VStack(spacing: 6) {
+                    VStack(spacing: 5) {
                         Text(item.app).font(.caption).fontWeight(.semibold).lineLimit(1).truncationMode(.tail)
                         miniHeatmap(app: item.app)
-                        Text(item.count.formatted()).font(.caption2).foregroundColor(.secondary)
+                        HStack(spacing: 4) {
+                            Text(item.count.formatted())
+                            if let tz = topZone(forApp: item.app) {
+                                Text("· \(displayKey(tz))").foregroundColor(.secondary)
+                            }
+                        }.font(.caption2).foregroundColor(.secondary)
                     }
-                    .frame(width: 150, height: 132)
+                    .frame(width: 150, height: 138)
                     .background(RoundedRectangle(cornerRadius: 8)
                         .fill(selected ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor).opacity(0.5)))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2)))

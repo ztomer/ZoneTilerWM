@@ -231,13 +231,16 @@ public final class SettingsModel: ObservableObject {
         public let app: String, monitor: String, zone: String, tile: String
         public let count: Int
         public let lastSeen: Int
+        public let meanAR: Double      // mean window aspect ratio (w/h) when learned
+        public let meanArea: Double    // mean window area as a fraction of the screen
     }
 
     public var preferences: [Pref] {
         guard let memory else { return [] }
         return memory.save().preferences
             .map { Pref(app: $0.app_name, monitor: $0.monitor_id, zone: $0.zone_key,
-                        tile: $0.tile_index.sortKey, count: $0.data.count, lastSeen: $0.data.last_seen) }
+                        tile: $0.tile_index.sortKey, count: $0.data.count, lastSeen: $0.data.last_seen,
+                        meanAR: $0.data.mean_ar, meanArea: $0.data.mean_area) }
             .sorted { $0.count > $1.count }
     }
 
