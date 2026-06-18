@@ -296,8 +296,8 @@ struct AppShortcutsView: View {
         let mapped = !app.isEmpty
         let sel = selectedKey == key
         return VStack(spacing: 2) {
-            Text(displayKey(key)).font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundColor(mapped ? .primary : .secondary)
+            Text(displayKey(key)).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundColor(mapped ? .white : .secondary.opacity(0.7))
             Text(app).font(.system(size: 9)).lineLimit(1).minimumScaleFactor(0.7)   // shrink long names instead of truncating
                 .truncationMode(.tail).frame(maxWidth: .infinity)
         }
@@ -318,6 +318,23 @@ struct AppShortcutsView: View {
 
 // MARK: - Visual layout editor
 
+/// A titled card matching the grouped-Form rhythm used by the other Settings tabs, so the
+/// custom Layouts editor reads as the same design language (not a bare VStack of dividers).
+struct SectionCard<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.headline)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
+    }
+}
+
 struct LayoutEditorView: View {
     @ObservedObject var model: SettingsModel
     @State private var grid: String = ""
@@ -336,38 +353,37 @@ struct LayoutEditorView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {   // de-crowd the dense Layouts sections
+            VStack(alignment: .leading, spacing: 16) {   // de-crowd the dense Layouts sections
                 monitorsSection
-                Divider()
                 if !grid.isEmpty {
-                    HStack(spacing: 8) {
-                        Text("Grid").font(.headline)
-                        Text(grid).font(.system(.headline, design: .monospaced)).foregroundColor(.accentColor)
-                        Spacer()
-                        Picker("Edit grid", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
-                            .frame(width: 150).onChange(of: grid) { _ in syncZone() }
+                    SectionCard(title: "Zones") {
+                        HStack(spacing: 8) {
+                            Text("Grid").foregroundColor(.secondary)
+                            Text(grid).font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(.accentColor)
+                            Spacer()
+                            Picker("Edit grid", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
+                                .frame(width: 150).onChange(of: grid) { _ in syncZone() }
+                        }
+                        Text("Each key shows the zone mapped to it; the cells show its first tile. Click to edit.")
+                            .font(.caption).foregroundColor(.secondary)
+                        zonePreviews
+                        Divider().padding(.vertical, 6)
+                        HStack(alignment: .top, spacing: 20) { gridView; tileList }
+                        Text("Click a cell, then another to span a rectangle. Add appends it to the zone's cycle; Save writes config.toml.")
+                            .font(.caption).foregroundColor(.secondary)
                     }
-                    Text("Zones — each key shows the zone mapped to it; the cells show its first tile. Click to edit.")
-                        .font(.caption).foregroundColor(.secondary)
-                    zonePreviews
-                    Divider()
-                    HStack(alignment: .top, spacing: 20) { gridView; tileList }
-                    Text("Click a cell, then another to span a rectangle. Add appends it to the zone's cycle; Save writes config.toml.")
-                        .font(.caption).foregroundColor(.secondary)
                 }
-                Divider()
-                DefaultZonesSection(model: model)
+                SectionCard(title: "Default zone per app") { DefaultZonesSection(model: model) }
                 if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
             }
-            .padding(.vertical, 4)
+            .padding(16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { if grid.isEmpty { grid = model.monitors.first?.effective ?? gridNames.first ?? ""; syncZone() } }
     }
 
     private var monitorsSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Monitors").font(.headline)
+        SectionCard(title: "Monitors") {
             Text("Each monitor uses an auto-detected grid; override it here. Hierarchy: monitor → grid → zones.")
                 .font(.caption).foregroundColor(.secondary)
             if model.monitors.isEmpty { Text("No displays detected.").font(.caption).foregroundColor(.secondary) }
@@ -415,10 +431,10 @@ struct LayoutEditorView: View {
         let sel = zone == key
         return VStack(spacing: 2) {
             miniGrid(span: span, dim: !isZone)
-            Text(displayKey(key)).font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundColor(isZone ? .primary : .secondary.opacity(0.6))
+            Text(displayKey(key)).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundColor(isZone ? .white : .secondary.opacity(0.55))
         }
-        .frame(width: 54, height: 46)
+        .frame(width: 54, height: 48)
         .background(RoundedRectangle(cornerRadius: 6).fill(sel ? Color.accentColor.opacity(0.20)
             : (isZone ? Color(NSColor.controlBackgroundColor) : Color.clear)))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Color.accentColor : Color.secondary.opacity(isZone ? 0.3 : 0.12), lineWidth: sel ? 2 : 0.5))

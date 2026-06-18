@@ -43,8 +43,11 @@ public struct AnalyticsView: View {
                    by: { $0.zone })
             .mapValues { $0.reduce(0) { $0 + $1.count } }.max { $0.value < $1.value }?.key
     }
+    // Muted slate-blue heat ramp: encodes frequency by intensity while sitting calmly against the
+    // dark window chrome. (The vivid system-accent blue read as "neon" against the dark palette.)
+    private static let heatBase = Color(red: 0.36, green: 0.47, blue: 0.66)
     private func intensityColor(_ count: Int, _ maxCount: Int) -> Color {
-        count > 0 ? Color.accentColor.opacity(0.12 + 0.78 * (Double(count) / Double(max(maxCount, 1))))
+        count > 0 ? Self.heatBase.opacity(0.16 + 0.72 * (Double(count) / Double(max(maxCount, 1))))
                   : Color(NSColor.controlBackgroundColor)
     }
 
@@ -120,7 +123,7 @@ public struct AnalyticsView: View {
                             .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
                     } else {
                         Table(sortedRows, sortOrder: $sortOrder) {
-                            TableColumn("App", value: \.app) { Text($0.app.isEmpty ? "—" : $0.app) }.width(min: 120, ideal: 170)
+                            TableColumn("App", value: \.app) { Text($0.app.isEmpty ? "—" : $0.app).padding(.vertical, 5) }.width(min: 120, ideal: 170)
                             TableColumn("Monitor", value: \.monitor) { Text("Mon \($0.monitor)") }.width(min: 56, ideal: 72, max: 90)
                             TableColumn("Zone", value: \.zone) { Text(displayKey($0.zone)) }.width(min: 44, ideal: 52, max: 70)
                             TableColumn("Tile", value: \.tile) { Text($0.tile) }.width(min: 40, ideal: 48, max: 60)
@@ -132,6 +135,7 @@ public struct AnalyticsView: View {
                                 Text($0.count.formatted()).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
                             }.width(min: 60, ideal: 76, max: 96)
                         }
+                        .tableStyle(.inset)
                         .frame(minHeight: 200)
                     }
                 }

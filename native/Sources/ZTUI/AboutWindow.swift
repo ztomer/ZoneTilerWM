@@ -18,41 +18,44 @@ struct AboutView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            // The PNG is a full-bleed square; clip to the macOS "squircle" (≈22.4% radius) so the
-            // corners are rounded like the real app icon.
-            Image(nsImage: appIcon)
-                .resizable().interpolation(.high)
-                .frame(width: 96, height: 96)
-                .clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
-                .padding(.bottom, 6)        // separate the icon from the name header
-                .accessibilityHidden(true)
+        VStack(spacing: 20) {
+            // Identity block: icon → name → version, tight internally so it reads as one unit.
+            VStack(spacing: 8) {
+                // The PNG is a full-bleed square; clip to the macOS "squircle" (≈22.4% radius) so
+                // the corners are rounded like the real app icon.
+                Image(nsImage: appIcon)
+                    .resizable().interpolation(.high)
+                    .frame(width: 96, height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
+                    .padding(.bottom, 4)        // separate the icon from the name header
+                    .accessibilityHidden(true)
 
-            Text("ZoneTilerWM")
-                .font(.system(.title, design: .rounded)).bold()
-            Text("Version \(version)")
-                .font(.callout).foregroundColor(.secondary)
+                Text("ZoneTilerWM")
+                    .font(.system(.title, design: .rounded)).bold()
+                Text("Version \(version)")
+                    .font(.subheadline).foregroundColor(.secondary)
+            }
 
             Text("A kinesthetic tiling window manager for macOS.")
                 .font(.callout).foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
 
-            Divider().frame(width: 200).padding(.vertical, 6)
+            Divider().frame(width: 120)
 
-            VStack(spacing: 3) {
-                Text("© 2026 Tomer Zaidenstein").font(.callout)
-                Text("All rights reserved.").font(.callout)
+            // Legal block: one visual group, primary line bold, supporting lines stepped down.
+            VStack(spacing: 4) {
+                Text("© 2026 Tomer Zaidenstein").font(.callout).fontWeight(.medium)
+                Text("All rights reserved.").font(.callout).foregroundColor(.secondary)
                 Text("Proprietary software — not open source.")
                     .font(.caption).foregroundColor(.secondary)
             }
             .multilineTextAlignment(.center)
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 36)        // clears the transparent titlebar / close button
-        .padding(.bottom, 26)
-        .frame(width: 320)
+        .padding(.horizontal, 32)
+        .padding(.top, 40)        // clears the transparent titlebar / close button
+        .padding(.bottom, 38)     // balance the heavier top (icon) weight
+        .frame(width: 340)
     }
 }
 

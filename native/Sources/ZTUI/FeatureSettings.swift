@@ -237,7 +237,6 @@ struct DefaultZonesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Default zone per app").font(.headline)
             Text("A fresh window of these apps tiles into the given zone key when nothing is learned yet.")
                 .font(.caption).foregroundColor(.secondary)
             ForEach(model.config.windowMemory.appZones.keys.sorted(), id: \.self) { app in
