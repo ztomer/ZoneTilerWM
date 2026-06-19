@@ -125,4 +125,34 @@ final class WindowMemoryTests: XCTestCase {
         let wm = WindowMemory(); wm.load(data)
         XCTAssertTrue(wm.dailyCounts().isEmpty)
     }
+
+    // Legacy window_memory.json files store fields in looser shapes — numeric monitor_id, numeric
+    // zone keys, and preference counts as a bare `count`, as `data` itself a number, or absent. The
+    // flexible decoders must coerce all of these (CLAUDE.md: legacy *.json must stay loadable).
+    func testDecodesLegacyNumericAndBareCountShapes() throws {
+        let json = """
+        {
+          "positions": [
+            {"app_name": "Safari", "monitor_id": 1, "zone_key": 2.0, "tile_index": 1}
+          ],
+          "preferences": [
+            {"app_name": "Mail",  "monitor_id": "1", "zone_key": "h", "tile_index": 1,
+             "data": {"count": 5, "mean_ar": 1.2, "mean_area": 0.3}},
+            {"app_name": "Notes", "monitor_id": "1", "zone_key": "k", "tile_index": 1, "count": 7},
+            {"app_name": "Music", "monitor_id": "1", "zone_key": "l", "tile_index": 1, "data": 9},
+            {"app_name": "Code",  "monitor_id": "1", "zone_key": "j", "tile_index": 1}
+          ]
+        }
+        """.data(using: .utf8)!
+        let d = try JSONDecoder().decode(WindowMemory.SaveData.self, from: json)
+
+        // decodeStringy: Int monitor_id and Double zone_key both coerce to their string form.
+        XCTAssertEqual(d.positions[0].monitor_id, "1")
+        XCTAssertEqual(d.positions[0].zone_key, "2")
+        // PreferenceEntry data: object form, bare `count`, `data`-as-number, and the absent fallback.
+        XCTAssertEqual(d.preferences[0].data.count, 5)
+        XCTAssertEqual(d.preferences[1].data.count, 7)
+        XCTAssertEqual(d.preferences[2].data.count, 9)
+        XCTAssertEqual(d.preferences[3].data.count, 0)
+    }
 }
