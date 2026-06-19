@@ -258,8 +258,8 @@ struct AliasEditorSection: View {
                 }
             }
             HStack {
-                TextField("new alias (e.g. mash_shift)", text: $newName).textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 220)
+                TextField("new alias (e.g. mash_shift)", text: $newName).labelsHidden()   // in-field prompt, not a wrapping Form label
+                    .textFieldStyle(.roundedBorder).frame(maxWidth: 220)
                 Button("Add") {
                     let n = newName.trimmingCharacters(in: .whitespaces)
                     guard !n.isEmpty, model.config.aliases[n] == nil else { return }

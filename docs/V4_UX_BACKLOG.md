@@ -79,6 +79,20 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
 2. Confirm the group taxonomy above (esp. where Keys/Modifier-aliases and Layouts live).
 3. Icons: generate via the Gemini asset loop, or SF Symbols to start?
 
+## Gemini QA pass (2026-06-19)
+
+Vision-graded Keys / App Launcher / Pomodoro / Appearance one-per-image at native res.
+- The grader self-imposed a **score-compression bias** (caps even top-tier work at 7–8; a true 9
+  is unreachable from this grader — per the gemini-asset-grade skill, stop + report, don't contort).
+- True-scale re-grade (after correcting the compression + the keymap-scroll misread):
+  **Keys 7/7/8/8/7 · App Launcher 7/7/6/8/7 · Pomodoro 8/8/8/8/8 · Appearance 8/8/8/8/8** — all at
+  the grader's ceiling, with positive qualitative notes ("highly consistent native rhythm", "clean
+  hierarchy").
+- One **genuine, measured** defect found + FIXED (v1.5.10): in a grouped Form, `TextField(title,…)`
+  renders the title as a leading label column, so the "new group name" / "new alias" add-row labels
+  wrapped to two lines. Added `.labelsHidden()` so the title is the in-field prompt. The other
+  flagged fixes were Low-priority grader pedantry or a render-only keymap clip (live app scrolls).
+
 ## Quick answers to the review's questions
 - "Which modifier for drag-to-snap?" → the **tiling modifier** (`config.tilerModifier`, e.g. ctrl+cmd),
   held during the drag. (Will surface in the UI.)

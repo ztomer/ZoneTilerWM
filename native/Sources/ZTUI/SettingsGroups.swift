@@ -232,7 +232,8 @@ struct AppGroupsSection: View {
                 .padding(.vertical, 4)
             }
             HStack {
-                TextField("new group name", text: $newName).textFieldStyle(.roundedBorder).frame(maxWidth: 200)
+                TextField("new group name", text: $newName).labelsHidden()   // in-field prompt, not a wrapping Form label
+                    .textFieldStyle(.roundedBorder).frame(maxWidth: 200)
                 Button("Add group") {
                     let n = newName.trimmingCharacters(in: .whitespaces)
                     guard !n.isEmpty, !n.contains("\""), model.config.appGroups.allSatisfy({ $0.name != n }) else { return }
