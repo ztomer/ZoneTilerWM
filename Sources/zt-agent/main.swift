@@ -1099,6 +1099,15 @@ final class AgentController: NSObject {
             let m = BreakScreen.message(restSec: 300, workCount: 3)
             data = BreakScreenOverlay.renderPNG(title: m.title, subtitle: m.subtitle,
                                                 size: NSSize(width: screen.fullFrame.w, height: screen.fullFrame.h), backdropImage: bg)
+        case "mc":
+            // Fake a 2×2 exposé layout so the overlay's badges + × buttons can be graded headlessly.
+            let f = screen.frame, mx = f.w * 0.06, my = f.h * 0.08
+            let cw = (f.w - 3 * mx) / 2, ch = (f.h - 3 * my) / 2
+            let tiles = [(0, 0), (1, 0), (0, 1), (1, 1)].enumerated().map { i, p in
+                MissionControl.Tile(windowId: i + 1, frame: ZTRect(
+                    x: f.x + mx + Double(p.0) * (cw + mx), y: f.y + my + Double(p.1) * (ch + my), w: cw, h: ch))
+            }
+            data = MissionControlOverlay.renderPNG(hints: MissionControl.hints(for: tiles), screenCGFrame: f, backdropImage: bg)
         default: break
         }
         if let data, (try? data.write(to: URL(fileURLWithPath: path))) != nil { log("zt-agent: rendered \(which) → \(path)") }
