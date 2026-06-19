@@ -22,6 +22,43 @@ private func splitList(_ s: String) -> [String] {
     s.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 }
 
+/// Resolved tiling-modifier glyphs (e.g. "⌃⌘") for "hold X" trigger hints.
+func tilingGlyphs(_ model: SettingsModel) -> String { ModGlyph.string(model.config.tilerModifier) }
+
+/// A Form section whose enable toggle lives IN the header (instead of a row that just restates the
+/// title), with the explanation as a footer rather than a header-duplicating caption. Extra controls
+/// go in `content` and are typically only built when `isOn`.
+struct ToggleSection<Content: View>: View {
+    let title: String
+    @Binding var isOn: Bool
+    var footer: String? = nil
+    @ViewBuilder var content: () -> Content
+
+    init(_ title: String, isOn: Binding<Bool>, footer: String? = nil,
+         @ViewBuilder content: @escaping () -> Content = { EmptyView() }) {
+        self.title = title; self._isOn = isOn; self.footer = footer; self.content = content
+    }
+
+    var body: some View {
+        // The toggle is the section's first row (its de-facto header) — one label for the feature,
+        // no duplicate title row or header-restating caption. (A Toggle in a Section `header:` does
+        // not reliably reflect its bound state, so it lives in the body.)
+        Section {
+            Toggle(isOn: $isOn) { Text(title).font(.body.weight(.semibold)) }
+                .toggleStyle(.switch)
+            content()
+        } footer: {
+            if let footer { Text(footer).font(.caption).foregroundColor(.secondary) }
+        }
+    }
+}
+
+/// Bool binding from a config keypath + a model setter (the common toggle wiring).
+func boolBind(_ model: SettingsModel, _ keyPath: KeyPath<ConfigLoader.LoadedConfig, Bool>,
+              _ setter: @escaping (Bool) -> Void) -> Binding<Bool> {
+    Binding(get: { model.config[keyPath: keyPath] }, set: { setter($0) })
+}
+
 // MARK: - General
 
 struct GeneralTab: View {
@@ -92,10 +129,9 @@ struct TilingTab: View {
                 }
             }
 
-            Section("Zone HUD") {
-                Toggle("Zone HUD (modifier-held cheat-sheet)", isOn: Binding(
-                    get: { model.config.zoneHUDEnabled }, set: { model.setZoneHUDEnabled($0) }))
-                caption("Hold the tiling modifier to see each zone's key. Self-silences for quick chords.")
+            let mods = tilingGlyphs(model)
+            ToggleSection("Zone HUD", isOn: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled),
+                          footer: "Hold \(mods) to show each zone's key on screen. Self-silences for quick chords.") {
                 if model.config.zoneHUDEnabled {
                     NumberRow(label: "Hold delay", value: Binding(
                         get: { model.config.zoneHUDHoldDelayMs },
@@ -103,18 +139,8 @@ struct TilingTab: View {
                 }
             }
 
-            Section("Drag-to-snap") {
-                Toggle("Drag-to-snap (modifier + drag → zone)", isOn: Binding(
-                    get: { model.config.dragSnapEnabled }, set: { model.setDragSnapEnabled($0) }))
-                caption("Hold the tiling modifier while dragging a window; it snaps to the zone under the "
-                        + "cursor on drop. (Uses the same modifier as your tiling hotkeys.)")
-            }
-
-            Section("Action-only (bind a hotkey under Keys)") {
-                caption("Window peek — label the windows stacked in the focused zone, type to focus.  ·  "
-                        + "Session sandbox — hide everything but the focused app, toggle to restore.  ·  "
-                        + "Per-window float, swap / nudge / throw — fine-tune placement.")
-            }
+            ToggleSection("Drag-to-snap", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled),
+                          footer: "Hold \(mods) while dragging a window; dropping it snaps to the zone under the cursor.")
 
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
