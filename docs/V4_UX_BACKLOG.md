@@ -65,16 +65,12 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
 
 ## F. Structural / housekeeping
 - [ ] **Drop the `native/` folder** — there's no non-native code anymore; flatten the layout.
-- [~] **Coverage ≥ 95%?** — MEASURED + improving: ZTCore is now **92.9%** line coverage (3000 lines,
-      212 missed), up from 91.1% — covered CLIFormat (100%), Pomodoro (100%), and WindowMemory's
-      legacy-JSON decode shapes. NOT yet ≥95%. The remaining gap is now almost entirely the
-      orchestration / OS-boundary layer — `TilerCoordinator` (83 missed, 73%) and `AutoTiler` (55,
-      85%) — the move-application path the project deliberately validates via live screenshot QA +
-      post-move AX readback, not units (see REVIEW.md). Only ~17 pure-logic lines remain outside it
-      (ZoneCalculator orientation/grid defaults).
-      DECISION STILL NEEDED: chase ≥95% by mocking the WindowSystem boundary for
-      TilerCoordinator/AutoTiler (real work, somewhat artificial), or declare the bar met for the
-      genuinely-pure files (nearly all ≥95-100%) and leave orchestration to live QA?
+- [x] **Coverage ≥ 95%** — DONE: ZTCore is **95.17%** line coverage (3000 lines, 145 missed), up
+      from 91.1%. Per the user's call, mocked the WindowSystem boundary: covered CLIFormat (100%),
+      Pomodoro (100%), WindowMemory legacy-JSON shapes, and the TilerCoordinator directional ops
+      (nudge/throw/swap/cycle-zone-stack/seed+prune) against the FakeWindowSystem — TilerCoordinator
+      73% → 93%. 329 tests green. The residual <5% is mostly AutoTiler solver branches + a few
+      ZoneCalculator orientation defaults, left to live QA.
 
 ## Open design decisions (confirm before the big restructure)
 1. Proceed with the sidebar restructure now, or land the bug-fixes + content tweaks first?

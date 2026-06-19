@@ -377,4 +377,84 @@ final class TilerCoordinatorTests: XCTestCase {
         // "k" = b1:b2 (right column) on M2 (x:1000,w:1000) → right half x:1500,w:500.
         XCTAssertEqual(outcome?.target, ZTRect(x: 1500, y: 0, w: 500, h: 1000))
     }
+
+    // MARK: - Directional ops (nudge / throw / swap) against the fake window system
+
+    private func makeCoord(_ ws: FakeWindowSystem, _ screens: [ScreenSnapshot]? = nil) -> TilerCoordinator {
+        TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider(screens ?? [screen()]),
+                         zoneConfig: zoneConfig(), placementStrategy: "rotate")
+    }
+
+    func testNudgeFocusedShiftsAStep() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 100, y: 100, w: 400, h: 300), screenUUID: "M1")
+        let outcome = makeCoord(ws).nudgeFocused(.right)   // +5% of 1000 = +50
+        XCTAssertEqual(outcome?.target, ZTRect(x: 150, y: 100, w: 400, h: 300))
+        XCTAssertTrue(outcome?.applied ?? false)
+        XCTAssertEqual(ws.moved.last?.id, 1)
+    }
+
+    func testThrowFocusedSnapsToEdge() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 100, y: 100, w: 400, h: 300), screenUUID: "M1")
+        let outcome = makeCoord(ws).throwFocused(.left)    // x → screen left edge (0)
+        XCTAssertEqual(outcome?.target, ZTRect(x: 0, y: 100, w: 400, h: 300))
+        XCTAssertEqual(ws.moved.last?.rect.x, 0)
+    }
+
+    func testNudgeAndThrowReturnNilWithNoFocus() {
+        let ws = FakeWindowSystem()   // focused = nil
+        XCTAssertNil(makeCoord(ws).nudgeFocused(.up))
+        XCTAssertNil(makeCoord(ws).throwFocused(.down))
+        XCTAssertNil(makeCoord(ws).swapFocused(.left))
+    }
+
+    func testSwapFocusedSwapsFramesWithNeighbour() {
+        let ws = FakeWindowSystem()
+        let w1 = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 100, y: 100, w: 200, h: 200), screenUUID: "M1")
+        let w2 = LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 700, y: 100, w: 200, h: 200), screenUUID: "M1")
+        ws.focused = w1; ws.byScreen["M1"] = [w1, w2]
+        let result = makeCoord(ws).swapFocused(.right)
+        XCTAssertEqual(result?.a, 1); XCTAssertEqual(result?.b, 2)
+        XCTAssertTrue(result?.applied ?? false)
+        // Each window moved into the other's frame.
+        XCTAssertEqual(ws.moved.first { $0.id == 1 }?.rect, w2.frame)
+        XCTAssertEqual(ws.moved.first { $0.id == 2 }?.rect, w1.frame)
+    }
+
+    func testSwapFocusedNoNeighbourReturnsNil() {
+        let ws = FakeWindowSystem()
+        let w1 = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 100, y: 100, w: 200, h: 200), screenUUID: "M1")
+        ws.focused = w1; ws.byScreen["M1"] = [w1]
+        XCTAssertNil(makeCoord(ws).swapFocused(.left))   // alone on screen → no neighbour
+    }
+
+    // MARK: - Zone-stack focus cycling + focus-time bookkeeping
+
+    func testCycleZoneStackFocusesNextInZone() {
+        let ws = FakeWindowSystem()
+        // Two windows stacked in the top-left "y" zone (a1 = 0,0,500,500).
+        let w1 = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 480, h: 480), screenUUID: "M1")
+        let w2 = LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 5, y: 5, w: 480, h: 480), screenUUID: "M1")
+        ws.focused = w1; ws.byScreen["M1"] = [w1, w2]
+        let next = makeCoord(ws).cycleZoneStack(.next)
+        XCTAssertEqual(next, 2)
+        XCTAssertEqual(ws.focusedIds, [2])
+    }
+
+    func testCycleZoneStackReturnsNilWithNoFocus() {
+        let ws = FakeWindowSystem()
+        XCTAssertNil(makeCoord(ws).cycleZoneStack(.next))
+    }
+
+    func testSeedAndPruneFocusTimesAreSafe() {
+        let ws = FakeWindowSystem()
+        let w = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")
+        ws.focused = w; ws.onScreen = [w]
+        let c = makeCoord(ws)
+        c.seedFocusTimes(now: 100)        // baseline every visible window
+        c.noteFocusedWindow(now: 200)
+        c.pruneFocusTimes(liveIds: [1])   // keep live ids only
+        XCTAssertNotNil(c.nudgeFocused(.right))   // still operable afterward
+    }
 }

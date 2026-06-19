@@ -66,4 +66,9 @@ final class ActionRequestTests: XCTestCase {
         XCTAssertNotEqual(ActionRequest.focusScreen(direction: .next),
                           ActionRequest.focusScreen(direction: .previous))
     }
+
+    func testNavDirectionMapsToScreenNav() {
+        XCTAssertEqual(NavDirection.next.screenNav, .next)
+        XCTAssertEqual(NavDirection.previous.screenNav, .previous)
+    }
 }
