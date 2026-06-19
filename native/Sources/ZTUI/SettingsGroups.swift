@@ -192,12 +192,52 @@ struct AppLauncherTab: View {
     }
 }
 
-// MARK: - Appearance (window border + margins; selection-overlay + live preview are follow-ups)
+// MARK: - Appearance (window border + margins, with a shared live preview)
+
+/// Config colour-name → SwiftUI Color (mirrors the swatch set used in the editors).
+private let configSwatch: [String: Color] = [
+    "green": .green, "red": .red, "blue": .blue, "yellow": .yellow, "orange": .orange,
+    "purple": .purple, "white": .white, "black": .black, "gray": .gray,
+]
+
+/// A live mock of a focused window so border colour/width/corner-radius + margins are visible as you
+/// change them (the live review asked for "a live preview … margins can use the same preview").
+struct AppearancePreview: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        let b = model.config.borders
+        let m = model.config.zoneConfig.margins
+        let marginsOn = m?.enabled ?? false
+        let marginInset = CGFloat(min(max(m?.size ?? 0, 0), 40)) * 0.5
+        let color = b.enabled ? (configSwatch[b.color] ?? .accentColor) : .clear
+        return VStack(spacing: 6) {
+            ZStack {
+                // "desktop"
+                RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.30))
+                // "focused window" with the configured border, inset by the margin when enabled
+                RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius))
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius))
+                        .strokeBorder(color, lineWidth: CGFloat(b.width)))
+                    .overlay(Text("focused window").font(.caption2).foregroundColor(.secondary))
+                    .padding(12 + (marginsOn ? marginInset : 0))
+            }
+            .frame(height: 132)
+            Text(marginsOn ? "Preview · margins \(Int(m?.size ?? 0))px"
+                           : "Preview · margins off")
+                .font(.caption2).foregroundColor(.secondary)
+        }
+        .listRowInsets(EdgeInsets())
+        .padding(.vertical, 4)
+    }
+}
 
 struct AppearanceTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
+            Section("Preview") { AppearancePreview(model: model) }
             BordersSettings(model: model)
             Section("Margins") {
                 Toggle("Enable margins", isOn: Binding(

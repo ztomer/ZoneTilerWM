@@ -48,9 +48,11 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
       horizontal scroll). Widen the window / fix the layout so it fits.
 - [ ] **Pomodoro: live preview** of the color bar (look + position), updating as params change.
 - [ ] **Break screen: live preview** once it's on the Pomodoro tab (also fills the empty space).
-- [ ] **Appearance section** (new): window borders + margins + selection overlay, with a **shared
-      live preview**. Selection overlay = the on-move/on-focus highlight; add a toggle (some find
-      it distracting) + an overlay color picker.
+- [~] **Appearance section** (new): window borders + margins + selection overlay, with a **shared
+      live preview**. DONE so far (v1.5.3 group + v1.5.7 preview): the Appearance group has window
+      border + margins with a shared live preview (mock focused window reflecting colour/width/radius
+      + margin inset). REMAINING: the selection-overlay toggle (on-move/on-focus highlight) + overlay
+      colour picker — needs the selection-overlay feature itself.
 
 ## E. New features
 - [ ] **Mission Control overlay** — when Mission Control (expose) is open, overlay each window with
