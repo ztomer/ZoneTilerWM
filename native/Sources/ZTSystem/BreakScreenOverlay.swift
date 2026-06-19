@@ -44,6 +44,15 @@ public final class BreakScreenOverlay {
         }
     }
     private func hideNow() { window?.orderOut(nil); window = nil }
+
+    /// Deterministic windowless render of the break overlay over a neutral backdrop → PNG.
+    public static func renderPNG(title: String, subtitle: String, size: NSSize,
+                                 backdrop: NSColor = NSColor(white: 0.42, alpha: 1),
+                                 backdropImage: NSImage? = nil) -> Data? {
+        let view = BreakScreenView(frame: NSRect(origin: .zero, size: size))
+        view.title = title; view.subtitle = subtitle
+        return OverlayRender.png(of: view, size: size, backdrop: backdrop, backdropImage: backdropImage)
+    }
 }
 
 private final class BreakScreenView: NSView {
@@ -84,7 +93,7 @@ private final class BreakScreenView: NSView {
         let hint = "click to dismiss" as NSString
         let hintAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.30), .kern: 2]
+            .foregroundColor: NSColor.white.withAlphaComponent(0.48), .kern: 2]   // +contrast (Gemini: too dim)
         let hSize = hint.size(withAttributes: hintAttrs)
         hint.draw(at: NSPoint(x: cx - hSize.width / 2, y: bounds.height - 48), withAttributes: hintAttrs)
     }

@@ -951,6 +951,28 @@ final class AgentController: NSObject {
     func dragSnapForQA() { dragSnap.forceSnap() }
     func breakScreenForQA() { breakScreen.forceShow() }
 
+    /// Deterministic, windowless render of a visual overlay to a PNG (QA / Gemini visual grading).
+    /// No app loop, no display capture — draws the overlay view into a bitmap over a neutral backdrop.
+    func renderOverlayPNG(_ which: String, to path: String) {
+        guard let screen = screens.screenUnderMouse() ?? screens.mainScreen() else { log("render: no screen"); return }
+        // Optional real-desktop backdrop (ZT_RENDER_BG=/path.png) so the dim is judged over content.
+        let bg = ProcessInfo.processInfo.environment["ZT_RENDER_BG"].flatMap { NSImage(contentsOfFile: $0) }
+        var data: Data?
+        switch which {
+        case "hud":
+            let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+            let zones = ZoneCalculator.computeZones(screen: info, config: config.zoneConfig).zones
+            data = ZoneHUDOverlay.renderPNG(cells: ZoneHUD.layout(zones: zones), screenCGFrame: screen.frame, backdropImage: bg)
+        case "break":
+            let m = BreakScreen.message(restSec: 300, workCount: 3)
+            data = BreakScreenOverlay.renderPNG(title: m.title, subtitle: m.subtitle,
+                                                size: NSSize(width: screen.fullFrame.w, height: screen.fullFrame.h), backdropImage: bg)
+        default: break
+        }
+        if let data, (try? data.write(to: URL(fileURLWithPath: path))) != nil { log("zt-agent: rendered \(which) → \(path)") }
+        else { log("zt-agent: render \(which) failed") }
+    }
+
     /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
     /// need it). No-op when already trusted.
     func showOnboardingIfNeeded() {
@@ -986,5 +1008,12 @@ case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
 case "break":     DispatchQueue.main.async { controller.breakScreenForQA() }
 default: break
 }
+// Deterministic overlay render for QA / Gemini grading: "ZT_RENDER=hud:/path.png" → render + exit.
+if let render = ProcessInfo.processInfo.environment["ZT_RENDER"] {
+    let parts = render.split(separator: ":", maxSplits: 1).map(String.init)
+    if parts.count == 2 { controller.renderOverlayPNG(parts[0], to: parts[1]) }
+    exit(0)
+}
+
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")
 app.run()

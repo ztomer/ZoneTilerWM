@@ -50,12 +50,16 @@ working (no re-grant). Confirmed:
 - Possible future: retire legacy `zt-tile`/`zt-autotile` — but they're standalone (own coordinator,
   no agent needed), useful as a no-agent live AX test tool. Keep for now.
 
-## Pending visual grade (display asleep during overnight run)
-- **Zone HUD Gemini grade** — the redesign (deoverlapped key chips on a light dim, no amber wash)
-  could not be Gemini-graded: the 2am resume found the display asleep (screencapture = black). Code
-  was reviewed twice (5-persona pass) and fixed: 0-AX screen pick (screenUnderMouse), modifier
-  poll + screen/space-change dismissal (no orphan), hold-delay clamp, chip de-overlap, fade. Do a
-  Gemini visual pass in daylight via ZT_OPEN_WINDOW=hud.
+## Gemini visual grade — DONE (v1.4.13, Gemini 3 Extended thinking)
+- **Zone HUD + Break screen** were Gemini-graded to excellence via the deterministic render harness
+  (`OverlayRender` + `ZT_RENDER=hud|break:/path.png`, 0 AX, no live agent). Extended-thinking grade:
+  **Break screen 9/10/9/9/9 → SHIP IT**; **Zone HUD 9/9/9/9/8** (the lone 8 is punctuation-chip
+  glyph centering — the grader's fix would make chips non-uniform, a consistency regression, so
+  banked per the skill's "don't damage the asset to chase a point"). Fixes applied along the way:
+  HUD now renders via orderFrontRegardless (was orderFront(nil) — a real bug: the menubar agent
+  isn't active so the HUD never appeared), stronger 0.55 dim + larger amber glowing chips + CRT
+  scanlines matching the break screen (unified retro-terminal language); break "click to dismiss"
+  brightened. Re-grade anytime: `ZT_RENDER=hud:/tmp/h.png ./native/.build/debug/zt-agent`.
 
 ## Live validation deferred — drag-to-snap (v1.4.6)
 - **Drag-to-snap live exercise** — the pure target selection (`DragSnap.target`) is fully unit-

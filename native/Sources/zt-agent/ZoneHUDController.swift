@@ -78,12 +78,14 @@ final class ZoneHUDController {
 
     private func showHUD(withPoll: Bool) {
         if shown { return }
-        guard let screen = screens.screenUnderMouse() else { return }   // 0 AX
+        guard let screen = screens.screenUnderMouse() else { log("zone-hud: no screen under mouse"); return }  // 0 AX
         let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
         let key = String(monitorManager.id(forUUID: screen.uuid))
         let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig(),
                                                 offsets: { [offset] axis, index in offset(key, axis, index) }).zones
-        overlay.show(ZoneHUD.layout(zones: zones), screenCGFrame: screen.frame)
+        let cells = ZoneHUD.layout(zones: zones)
+        log("zone-hud: showing \(cells.count) chips on \(screen.name) frame \(screen.frame)")
+        overlay.show(cells, screenCGFrame: screen.frame)
         shown = true
         guard withPoll else { return }
         // Safety net: if the "modifier released" flagsChanged is ever missed, this still hides it.
