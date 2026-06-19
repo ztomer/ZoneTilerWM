@@ -66,5 +66,6 @@ public enum ActionResult: Codable, Equatable {
     case suggestionsApplied(moves: [TiledMove])        // windows moved into their learned-preferred zones
     case scratchpadToggled(summoned: Bool, apps: [String])   // scratchpad drawer summoned (true) or dismissed
     case clusterApplied(name: String, moves: [TiledMove])    // an app-cluster profile was arranged
+    case sandboxToggled(active: Bool, hidden: Int)           // session sandbox entered (true) / restored
     case failed(reason: ActionError)
 }

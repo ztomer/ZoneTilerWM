@@ -19,6 +19,7 @@ final class ActionRequestTests: XCTestCase {
         .scratchpad,
         .applyCluster(name: "dev"),
         .peekZone,
+        .sandboxToggle,
         .focusScreen(direction: .next),
         .focusScreen(direction: .previous),
         .moveFocusedToMonitor(direction: .next),

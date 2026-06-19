@@ -128,6 +128,7 @@ final class AgentController: NSObject {
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
     private var scratchpad: ScratchpadController!           // gated by [scratchpad] apps
+    private let sandbox = SandboxController()               // session sandbox (toggle action)
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -269,7 +270,8 @@ final class AgentController: NSObject {
             },
             applySuggestions: { [unowned self] in self.applyPlacementSuggestions() },
             scratchpad: { [unowned self] in self.scratchpad.toggle() },
-            applyCluster: { [unowned self] name in self.applyCluster(name) }))
+            applyCluster: { [unowned self] name in self.applyCluster(name) },
+            sandbox: { [unowned self] in self.sandbox.toggle() }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
@@ -884,6 +886,10 @@ final class AgentController: NSObject {
         // hotkey is set; also via palette/CLI/MCP).
         bindAction(config.resolvedHotkey("peek", in: config.systemHotkeys), label: "peek") { [weak self] in
             self?.dispatcher.perform(.peekZone)
+        }
+        // Session sandbox: hide-all-but-focused / restore (opt-in `sandbox` hotkey; also palette/CLI/MCP).
+        bindAction(config.resolvedHotkey("sandbox", in: config.systemHotkeys), label: "sandbox") { [weak self] in
+            self?.dispatcher.perform(.sandboxToggle)
         }
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.dispatcher.perform(.reloadConfig)

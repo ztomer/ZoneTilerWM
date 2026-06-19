@@ -51,6 +51,8 @@ public final class ActionDispatcher {
         public var scratchpad: () -> ActionResult
         /// Arrange a named app-cluster profile (launch missing apps + tile matching windows).
         public var applyCluster: (String) -> ActionResult
+        /// Toggle the session sandbox (hide everything but the focused app / restore).
+        public var sandbox: () -> ActionResult
 
         public init(coordinator: @escaping () -> TilerCoordinator,
                     autoTilerConfig: @escaping () -> AutoTiler.Config,
@@ -70,7 +72,8 @@ public final class ActionDispatcher {
                     syncImport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
                     applySuggestions: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
                     scratchpad: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
-                    applyCluster: @escaping (String) -> ActionResult = { _ in .failed(reason: .unsupportedAction) }) {
+                    applyCluster: @escaping (String) -> ActionResult = { _ in .failed(reason: .unsupportedAction) },
+                    sandbox: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
             self.coordinator = coordinator
             self.autoTilerConfig = autoTilerConfig
             self.appSwitcherConfig = appSwitcherConfig
@@ -90,6 +93,7 @@ public final class ActionDispatcher {
             self.applySuggestions = applySuggestions
             self.scratchpad = scratchpad
             self.applyCluster = applyCluster
+            self.sandbox = sandbox
         }
     }
 
@@ -182,6 +186,9 @@ public final class ActionDispatcher {
 
         case .applyCluster(let name):
             return hooks.applyCluster(name)
+
+        case .sandboxToggle:
+            return hooks.sandbox()
 
         case .syncExport:
             return hooks.syncExport()

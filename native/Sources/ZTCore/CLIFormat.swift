@@ -51,6 +51,8 @@ public enum CLIFormat {
             return "scratchpad \(summoned ? "summoned" : "dismissed"): \(apps.joined(separator: ", "))"
         case .clusterApplied(let name, let moves):
             return "cluster '\(name)': arranged \(moves.count) window\(moves.count == 1 ? "" : "s")"
+        case .sandboxToggled(let active, let hidden):
+            return active ? "sandbox on — hid \(hidden) app\(hidden == 1 ? "" : "s")" : "sandbox off — restored \(hidden) app\(hidden == 1 ? "" : "s")"
         case .failed(let reason):
             return "error: \(describe(reason))"
         }

@@ -47,6 +47,7 @@ public enum ActionRequest: Codable, Equatable {
     case scratchpad         // summon/dismiss the configured scratchpad app set ([scratchpad] apps)
     case applyCluster(name: String)   // arrange a named app-cluster profile ([[clusters]])
     case peekZone   // window-peek: hint-label the windows stacked in the focused zone, type to focus
+    case sandboxToggle   // session sandbox: hide everything but the focused app (toggle) → restore
     case focusScreen(direction: NavDirection)
     case moveFocusedToMonitor(direction: NavDirection)
     case nudge(direction: MoveDirection)        // shift the focused window a step in a direction

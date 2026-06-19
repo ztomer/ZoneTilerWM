@@ -40,7 +40,10 @@ bump version → commit + push → tick this file.
 ### Phase B — power-user automation (cheap, gated)
 - [ ] State-diff event stream on the agent socket (subscribe to CGWindowList diffs)
 - [ ] JSON spatial layout macros (author exact geometry → apply)
-- [ ] Session sandbox (snapshot+hide → clean layer → restore)
+- [x] Session sandbox — **v1.4.17 DONE**. `sandbox` toggle action: hide every regular/visible/
+      non-focused app (remember the set) → restore on toggle. Distinct from zen (minimize). Pure
+      `Sandbox.appsToHide` TDD'd (3 tests); 0 AX (NSWorkspace hide/unhide); SandboxController owns
+      state. Self-reviewed (5 lenses).
 - [ ] Environment/topology presets (auto-switch layout on display-set / Wi-Fi SSID change)
 ### Phase C — interaction polish (check AX)
 - [ ] Transactional drag-snap tap (refine drag-to-snap onto one transactional write)

@@ -29,8 +29,14 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
 `app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `sync-export`,
-`sync-import`, `apply-suggestions`, `scratchpad`, `cluster`, `peek`, `reload`. Resources:
+`sync-import`, `apply-suggestions`, `scratchpad`, `cluster`, `peek`, `sandbox`, `reload`. Resources:
 `arrangement`, `zones`, `placement-stats`, `suggestions`.
+
+**`sandbox`** (Session sandbox) toggles a clean-slate focus mode: hides every regular, visible,
+non-focused app (remembering exactly which it hid) and restores that set on the next toggle. Unlike
+zen (which minimizes others to the Dock), sandbox hides + un-hides, so one chord blanks the desktop
+and one brings it all back. 0 AX (NSWorkspace hide/unhide). Bind a `sandbox` hotkey or use
+palette/CLI/MCP.
 
 **`peek`** (Window Peek) labels the windows stacked in the **focused window's zone** with hint keys;
 type a label to focus that window (ESC cancels). It's `window-hints` scoped to the current zone —

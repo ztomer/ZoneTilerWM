@@ -35,6 +35,7 @@ final class ActionResultTests: XCTestCase {
         .suggestionsApplied(moves: [TiledMove(windowId: 7, zone: "l", tileIndex: .int(1), rect: ZTRect(x: 0, y: 0, w: 5, h: 5))]),
         .scratchpadToggled(summoned: true, apps: ["Terminal", "Notes"]),
         .clusterApplied(name: "dev", moves: [TiledMove(windowId: 3, zone: "h", tileIndex: .int(1), rect: ZTRect(x: 0, y: 0, w: 9, h: 9))]),
+        .sandboxToggled(active: true, hidden: 4),
         .failed(reason: .noFocusedWindow),
         .failed(reason: .noZone("z")),
         .failed(reason: .invalidParameter("zone")),

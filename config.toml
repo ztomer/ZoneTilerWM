@@ -396,6 +396,10 @@ prediction = true            # lead the outline to compensate for follow-lag
 #   [[clusters.windows]]
 #   app = "Zen"
 #   zone = "l"
+#
+# Session sandbox (hide all but the focused app, toggle to restore) and window peek (label the
+# windows in the focused zone) are actions — bind `sandbox` / `peek` under [system_hotkeys], or
+# trigger via the command palette / CLI / MCP. No config block needed.
 
 
 # =============================================================================
