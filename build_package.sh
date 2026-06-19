@@ -46,10 +46,11 @@ make verify
 echo "==> Generating Xcode project"
 xcodegen generate
 
-echo "==> Building ZoneTilerWM.app (Release, version $VERSION)"
+echo "==> Building ZoneTilerWM.app (Release, version $VERSION, universal arm64 + x86_64)"
 xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
   -configuration Release -derivedDataPath "$DERIVED" \
   MARKETING_VERSION="$VERSION" \
+  ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$SIGN_ID" \
   build
 
@@ -59,13 +60,26 @@ xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
 # it and the Settings → Automation pane resolves them next to the agent (Contents/MacOS). They
 # are SwiftPM products, not built by xcodebuild, so build them here and re-sign the bundle
 # (adding files invalidates the prior signature).
-echo "==> Bundling helper tools (zt-mcp, zonetiler-cli)"
-( cd "$ROOT/native" && swift build -c release --product zt-mcp && swift build -c release --product zonetiler-cli )
-ditto "$ROOT/native/.build/release/zt-mcp" "$APP/Contents/MacOS/zt-mcp"
-ditto "$ROOT/native/.build/release/zonetiler-cli" "$APP/Contents/MacOS/zonetiler-cli"
+echo "==> Bundling helper tools (zt-mcp, zonetiler-cli) — universal arm64 + x86_64"
+( cd "$ROOT/native" && swift build -c release --arch arm64 --arch x86_64 --product zt-mcp \
+    && swift build -c release --arch arm64 --arch x86_64 --product zonetiler-cli )
+# Multi-arch SwiftPM lands products under .build/apple/Products/Release, not .build/release.
+HELPER_BIN="$( cd "$ROOT/native" && swift build -c release --arch arm64 --arch x86_64 --show-bin-path )"
+ditto "$HELPER_BIN/zt-mcp" "$APP/Contents/MacOS/zt-mcp"
+ditto "$HELPER_BIN/zonetiler-cli" "$APP/Contents/MacOS/zonetiler-cli"
 codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/zt-mcp"
 codesign --force --sign "$SIGN_ID" "$APP/Contents/MacOS/zonetiler-cli"
 codesign --force --sign "$SIGN_ID" "$APP"   # re-sign the bundle to cover the added binaries
+
+# Fail the build if any shipped binary isn't a fat arm64 + x86_64 Mach-O.
+echo "==> Verifying universal slices (lipo)"
+for b in "$APP/Contents/MacOS/ZoneTilerWM" "$APP/Contents/MacOS/zt-mcp" "$APP/Contents/MacOS/zonetiler-cli"; do
+  archs="$(lipo -archs "$b" 2>/dev/null)"
+  case "$archs" in
+    *arm64*x86_64* | *x86_64*arm64*) echo "    $(basename "$b"): $archs" ;;
+    *) echo "error: $(basename "$b") is not universal (got: '$archs')"; exit 1 ;;
+  esac
+done
 
 echo "==> Staging app + INSTALL.txt"
 rm -rf "$STAGE"; mkdir -p "$STAGE" "$OUT"

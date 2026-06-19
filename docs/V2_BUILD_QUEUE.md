@@ -60,7 +60,13 @@ zt-mcp serverVersion) → commit + push → tick this file.
       (thread `now` so weight is recency-decayed, matching live placement) + round-trip coverage.
       This is the read surface the LLM-assisted item consumes.
 - [ ] Retro break theme (Pomodoro break screen; opt-in default off) — visual ← NEXT
-- [ ] Universal binary (arm64 + x86_64) — build flag
+- [x] Universal binary (arm64 + x86_64) — **v1.4.9 DONE** (build config, not a runtime feature →
+      no gating/persona-review). `build_package.sh`: xcodebuild `ARCHS="arm64 x86_64"
+      ONLY_ACTIVE_ARCH=NO`; helper tools built `--arch arm64 --arch x86_64` (land under
+      `.build/apple/Products/Release`, resolved via `--show-bin-path`); added a `lipo` gate that
+      fails packaging if any shipped binary isn't fat. SwiftPM universal half lipo-verified live
+      (`x86_64 arm64`). Full `.app` xcodebuild packaging not re-run this session (slow + signing) —
+      the lipo gate self-verifies on next package; noted in V2_TEST_DEBT.md.
 - [ ] Config + memory sync across machines (file-based; gated)
 - [ ] On-device NL layout box (Foundation Models; gated, capable Macs; STUB if SDK-gated) — visual
 - [ ] LLM-assisted suggestions (opt-in; lean on the MCP placement-stats resource)

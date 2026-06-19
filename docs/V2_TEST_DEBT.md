@@ -68,6 +68,13 @@ working (no re-grant). Confirmed:
 - **No Gemini grade** — drag-to-snap adds no new visual surface (it reuses the existing tile move),
   so there is nothing to grade; N/A by design.
 
+## Packaging check deferred — universal binary (v1.4.9)
+- **Full universal `.app` packaging** — `build_package.sh` now requests `ARCHS="arm64 x86_64"`
+  and builds the helper tools multi-arch; the SwiftPM half was lipo-verified live (`x86_64 arm64`).
+  The full `xcodebuild` Release packaging wasn't re-run this session (slow + Dev signing). Run
+  `./build_package.sh` in daylight; the built-in `lipo` gate fails the build if any shipped binary
+  (ZoneTilerWM, zt-mcp, zonetiler-cli) isn't fat, so a non-universal regression can't ship silently.
+
 ## Live validation deferred — window stacks (v1.4.7)
 - **stack-cycle live exercise** — pure `ZoneStack.adjacent` is unit-tested (6 cases) and
   `cycleZoneStack` has the same AX profile as the live-validated `cycleFocus` (5-persona review:
