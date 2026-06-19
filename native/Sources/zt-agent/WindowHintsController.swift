@@ -14,6 +14,7 @@ final class WindowHintsController {
     private let screens: NSScreenProvider
     private let windowSystem: AXWindowSystem
     private let keyboardLayout: () -> String   // live (config can reload)
+    private let zoneConfig: () -> ZoneConfig    // for the zone-scoped "peek" variant
 
     private let overlay = HintOverlay()
     private var active = false
@@ -22,11 +23,13 @@ final class WindowHintsController {
     private var iconCache: [String: NSImage?] = [:]
 
     init(binder: CarbonHotkeyBinder, screens: NSScreenProvider, windowSystem: AXWindowSystem,
-         keyboardLayout: @escaping () -> String) {
+         keyboardLayout: @escaping () -> String,
+         zoneConfig: @escaping () -> ZoneConfig = { ZoneConfig(grids: [:], layouts: [:], margins: nil) }) {
         self.binder = binder
         self.screens = screens
         self.windowSystem = windowSystem
         self.keyboardLayout = keyboardLayout
+        self.zoneConfig = zoneConfig
     }
 
     func toggle() { active ? exit() : enter() }
@@ -40,6 +43,25 @@ final class WindowHintsController {
                 seen.insert(w.id); wins.append(w)
             }
         }
+        present(wins)
+    }
+
+    /// Visual Window Peek: hints scoped to the windows occupying the FOCUSED window's zone — a quick
+    /// way to jump to a specific window stacked in the current zone. 0 AX enumeration (CGWindowList);
+    /// the focusedWindow() read + the focus-on-select are the only AX, same as window hints.
+    func enterZone() {
+        guard let focused = windowSystem.focusedWindow(), let uuid = focused.screenUUID,
+              let screen = screens.screen(uuid: uuid) else { return }
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig()).zones
+        guard let zoneKey = ZoneOccupancy.bestZone(window: focused.frame, zones: zones) else { return }
+        let wins = windowSystem.windows(onScreen: uuid).filter {
+            ZoneOccupancy.bestZone(window: $0.frame, zones: zones) == zoneKey
+        }
+        present(wins)
+    }
+
+    private func present(_ wins: [LiveWindow]) {
         guard !wins.isEmpty else { return }
 
         // Desktop bounds (union of screens) → normalize each window center to [0,1] so the hint

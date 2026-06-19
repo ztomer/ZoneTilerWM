@@ -32,7 +32,11 @@ bump version → commit + push → tick this file.
       (name + [[clusters.windows]] app/zone). Launches missing apps (0 AX) + tiles matching windows
       via moveWindow (0-AX enumerate + bounded moves). Pure `ClusterPlan.match` TDD'd (4 tests).
       monitor hint deferred (places on current screen). Self-reviewed (5 lenses).
-- [ ] Visual Window Peek — CoreAnimation/overlay grid of windows stacked in a zone; pick by key
+- [x] Visual Window Peek — **v1.4.16 DONE**. `peek` action + opt-in hotkey. Implemented as
+      window-hints scoped to the focused window's zone (reuses the validated badges-overlay +
+      key-modal-to-focus infra via a refactored `present()` + new `enterZone()`). Same AX profile as
+      window hints (0-AX enumerate; focus on select). Thumbnail grid intentionally NOT used — that
+      needs Screen Recording, which the app deliberately avoids. Self-reviewed (5 lenses).
 ### Phase B — power-user automation (cheap, gated)
 - [ ] State-diff event stream on the agent socket (subscribe to CGWindowList diffs)
 - [ ] JSON spatial layout macros (author exact geometry → apply)

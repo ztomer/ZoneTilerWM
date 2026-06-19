@@ -41,6 +41,8 @@ public enum ActionParser {
             return .success(.scratchpad)
         case "cluster":
             return requireNonEmpty(params, "name").map { .applyCluster(name: $0) }
+        case "peek":
+            return .success(.peekZone)
         case "focus-screen":
             return direction(params).map { .focusScreen(direction: $0) }
         case "move-monitor":
@@ -117,6 +119,7 @@ public enum ActionParser {
         case .applySuggestions:                  return ("apply-suggestions", [:])
         case .scratchpad:                        return ("scratchpad", [:])
         case .applyCluster(let name):            return ("cluster", ["name": name])
+        case .peekZone:                          return ("peek", [:])
         case .focusScreen(let dir):              return ("focus-screen", ["direction": dir.rawValue])
         case .moveFocusedToMonitor(let dir):     return ("move-monitor", ["direction": dir.rawValue])
         case .nudge(let dir):                    return ("nudge", ["direction": dir.rawValue])
@@ -202,6 +205,7 @@ public extension ActionParser {
         ActionSpec(name: "scratchpad", description: "Summon or dismiss the configured scratchpad app set ([scratchpad] apps)."),
         ActionSpec(name: "cluster", description: "Arrange a named app-cluster profile ([[clusters]]) — launch + tile its apps.",
                    params: [ActionParam(name: "name", required: true, description: "Cluster profile name, e.g. dev.")]),
+        ActionSpec(name: "peek", description: "Window peek: label the windows stacked in the focused zone; type a label to focus one."),
         ActionSpec(name: "focus-screen", description: "Focus the same app's window on the next/previous screen.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "move-monitor", description: "Move the focused window to the next/previous monitor.",

@@ -225,7 +225,8 @@ final class AgentController: NSObject {
             zoneConfig: { [weak self] in self?.config.zoneConfig ?? ZoneConfig(grids: [:], layouts: [:], margins: Margins(enabled: false, size: 0, screen_edge: false)) })
         windowHints = WindowHintsController(
             binder: binder, screens: screens, windowSystem: windowSystem,
-            keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" })
+            keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" },
+            zoneConfig: { [weak self] in self?.config.zoneConfig ?? ZoneConfig(grids: [:], layouts: [:]) })
         // The action dispatcher: hooks read live state via `unowned self` (the dispatcher is owned
         // by self and never outlives it). The coordinator/config getters are closures so a live
         // reload is picked up automatically. The pomodoro hook also refreshes the menubar UI, so
@@ -250,6 +251,7 @@ final class AgentController: NSObject {
             },
             toggleResizeMode: { [unowned self] in self.resizeMode.toggle() },
             toggleWindowHints: { [unowned self] in self.windowHints.toggle() },
+            peekZone: { [unowned self] in self.windowHints.enterZone() },
             toggleFloat: { [unowned self] in
                 guard let id = self.windowSystem.focusedWindow()?.id else { return .failed(reason: .noFocusedWindow) }
                 let floating = self.floats.toggle(id)
@@ -877,6 +879,11 @@ final class AgentController: NSObject {
         // System: window hints (label each window, type to focus) + config reload hotkey.
         bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
             self?.dispatcher.perform(.toggleWindowHints)
+        }
+        // Window peek: hints scoped to the focused window's zone (opt-in — only bound when a `peek`
+        // hotkey is set; also via palette/CLI/MCP).
+        bindAction(config.resolvedHotkey("peek", in: config.systemHotkeys), label: "peek") { [weak self] in
+            self?.dispatcher.perform(.peekZone)
         }
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.dispatcher.perform(.reloadConfig)

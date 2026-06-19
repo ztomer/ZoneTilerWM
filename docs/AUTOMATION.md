@@ -29,8 +29,14 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
 `app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `sync-export`,
-`sync-import`, `apply-suggestions`, `scratchpad`, `cluster`, `reload`. Resources: `arrangement`,
-`zones`, `placement-stats`, `suggestions`.
+`sync-import`, `apply-suggestions`, `scratchpad`, `cluster`, `peek`, `reload`. Resources:
+`arrangement`, `zones`, `placement-stats`, `suggestions`.
+
+**`peek`** (Window Peek) labels the windows stacked in the **focused window's zone** with hint keys;
+type a label to focus that window (ESC cancels). It's `window-hints` scoped to the current zone —
+a fast way to jump to a specific window piled in one zone. Same AX profile as window hints
+(0-AX CGWindowList enumeration; focus only on selection). Bind a `peek` hotkey under
+`[system_hotkeys]`, or trigger via palette/CLI/MCP.
 
 **`cluster name=<name>`** arranges a named **app-cluster profile** (`[[clusters]]`, default none):
 launches any of the cluster's apps that aren't running, then tiles each running matching window to
