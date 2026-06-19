@@ -75,6 +75,7 @@ public enum ConfigLoader {
         public var breakScreenDurationSec: Int             // how long the break overlay stays up
         public var scratchpadApps: [String]                // [scratchpad] apps — summon/dismiss together ([] = off)
         public var scratchpadAutoDismiss: Bool             // hide the set when focus leaves it
+        public var appGroups: [AppGroupProfile]            // [[app_groups]] — named app sets, each with its own hotkey
         public var clusters: [ClusterProfile]              // [[clusters]] — named app→zone profiles ([] = none)
         public var displayPresets: [DisplayPreset]         // [[display_presets]] — auto-action on display-set change
         public var focusFollowsMouseEnabled: Bool          // [focus_follows_mouse] enabled (opt-in, default off; AX-sensitive)
@@ -216,6 +217,7 @@ public enum ConfigLoader {
         var sync: RawSync?
         var break_screen: RawBreakScreen?
         var scratchpad: RawScratchpad?
+        var app_groups: [String: RawAppGroup]?     // [app_groups.<name>] subtables, keyed by group name
         var clusters: [RawCluster]?
         var display_presets: [RawDisplayPreset]?
         var focus_follows_mouse: RawFocusFollowsMouse?
@@ -233,6 +235,7 @@ public enum ConfigLoader {
     private struct RawSync: Decodable { var folder: String? }
     private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
     private struct RawScratchpad: Decodable { var apps: [String]?; var auto_dismiss: Bool? }
+    private struct RawAppGroup: Decodable { var apps: [String]?; var hotkey: [String]?; var auto_dismiss: Bool? }
     private struct RawCluster: Decodable { var name: String?; var windows: [RawClusterWindow]? }
     private struct RawClusterWindow: Decodable { var app: String?; var zone: String?; var monitor: String? }
     private struct RawDisplayPreset: Decodable {
@@ -365,6 +368,7 @@ public enum ConfigLoader {
             breakScreenDurationSec: raw.break_screen?.duration_sec ?? 6,
             scratchpadApps: raw.scratchpad?.apps ?? [],                     // empty = scratchpad off
             scratchpadAutoDismiss: raw.scratchpad?.auto_dismiss ?? true,
+            appGroups: parseAppGroups(raw.app_groups),
             clusters: parseClusters(raw.clusters),
             displayPresets: parseDisplayPresets(raw.display_presets),
             focusFollowsMouseEnabled: raw.focus_follows_mouse?.enabled ?? false,   // opt-in; AX-sensitive
@@ -395,6 +399,19 @@ public enum ConfigLoader {
             out.append(Rule(app: app, trigger: trigger, action: action))
         }
         return out
+    }
+
+    /// Build [AppGroupProfile] from the raw [[app_groups]] entries. Entries missing a name or with
+    /// no apps are dropped. The hotkey is kept raw ([alias, key]); it's resolved (alias → modifiers)
+    /// when bound, exactly like the other hotkeys.
+    private static func parseAppGroups(_ raw: [String: RawAppGroup]?) -> [AppGroupProfile] {
+        guard let raw else { return [] }
+        // Keep named groups even with no apps yet, so a just-created group stays editable in the UI
+        // (an empty group is simply a no-op at runtime).
+        return raw.sorted { $0.key < $1.key }.compactMap { (name, g) -> AppGroupProfile? in
+            guard !name.isEmpty else { return nil }
+            return AppGroupProfile(name: name, apps: g.apps ?? [], hotkey: g.hotkey ?? [], autoDismiss: g.auto_dismiss ?? true)
+        }
     }
 
     /// Build [ClusterProfile] from the raw [[clusters]] entries (each with [[clusters.windows]]).

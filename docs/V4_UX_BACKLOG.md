@@ -40,8 +40,11 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
 
 ## D. Settings content changes
 - [x] **Break screen** → moved to the **Pomodoro** tab; renamed to **"Break screen"** (v1.5.3).
-- [ ] **Scratchpad → "App groups"**: it's really grouped apps. Make it a standalone feature with a
-      **per-group hotkey** assignment (multiple named groups, each its own shortcut).
+- [x] **Scratchpad → "App groups"**: DONE (v1.5.9). New `[app_groups.<name>]` subtables — multiple
+      named groups, each with its own apps + hotkey + auto-dismiss. Managed in Settings → App
+      Launcher (add/edit/delete, inline apps + alias-picker hotkey + auto-dismiss). Each group's
+      hotkey is bound per reload (reload-safe via bindAllHotkeys). Legacy single [scratchpad] still
+      loads + binds for back-compat.
 - [x] **On-device AI is just a command-palette toggle** — grouped WITH the command palette under
       Automation (v1.5.3).
 - [ ] **Apps tab too narrow** — the app launcher + hyper apps overflow by ~20-30px (needs a little

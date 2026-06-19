@@ -175,6 +175,21 @@ public final class SettingsModel: ObservableObject {
         persist(edited)
     }
 
+    /// Create / update a named app group ([app_groups."<name>"] subtable). hotkey is [alias, key]
+    /// (empty = no shortcut). Three surgical writes (each reloads); the subtable form keeps it
+    /// TOMLEditor-addressable, unlike an [[array]] of tables.
+    public func setAppGroup(name: String, apps: [String], hotkey: [String], autoDismiss: Bool) {
+        let section = "app_groups.\"\(name)\""
+        setOrAppend(section: section, key: "apps", rawValue: tomlArray(apps))
+        setOrAppend(section: section, key: "hotkey", rawValue: tomlArray(hotkey))
+        setOrAppend(section: section, key: "auto_dismiss", rawValue: autoDismiss ? "true" : "false")
+    }
+    public func removeAppGroup(name: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeSection(text, section: "app_groups.\"\(name)\"") else { return }
+        persist(edited)
+    }
+
     /// Define / replace a modifier alias, e.g. [aliases] mash_shift = ["shift","ctrl","cmd"].
     /// The token order is normalised so the same combo always serialises identically.
     public func setAlias(name: String, modifiers: [String]) {

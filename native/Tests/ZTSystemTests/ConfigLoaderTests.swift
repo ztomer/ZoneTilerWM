@@ -93,6 +93,37 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(at.weights.memoryExact, -2000)
     }
 
+    func testAppGroupsDecodeFromSubtables() throws {
+        // Append app-group subtables to the valid repo template (mash alias exists there).
+        let toml = try String(contentsOf: repoConfigURL(), encoding: .utf8) + """
+
+        [app_groups.work]
+        apps = ["Slack", "Mail"]
+        hotkey = ["mash", "1"]
+        auto_dismiss = false
+
+        [app_groups.media]
+        apps = ["Music"]
+        """
+        let cfg = try ConfigLoader.load(tomlString: toml, homeDirectory: "/Users/test")
+        XCTAssertEqual(cfg.appGroups.count, 2)
+        // sorted by name: media, work
+        XCTAssertEqual(cfg.appGroups.map { $0.name }, ["media", "work"])
+        let work = cfg.appGroups.first { $0.name == "work" }
+        XCTAssertEqual(work?.apps, ["Slack", "Mail"])
+        XCTAssertEqual(work?.hotkey, ["mash", "1"])
+        XCTAssertEqual(work?.autoDismiss, false)
+        let media = cfg.appGroups.first { $0.name == "media" }
+        XCTAssertEqual(media?.hotkey, [])          // no hotkey → empty
+        XCTAssertEqual(media?.autoDismiss, true)   // default
+    }
+
+    func testNoAppGroupsByDefault() throws {
+        let cfg = try ConfigLoader.load(tomlString: String(contentsOf: repoConfigURL(), encoding: .utf8),
+                                        homeDirectory: "/Users/test")
+        XCTAssertTrue(cfg.appGroups.isEmpty)   // repo template ships none
+    }
+
     func testHotkeyResolversAndDerivedAccessors() throws {
         let cfg = try ConfigLoader.load(tomlString: String(contentsOf: repoConfigURL(), encoding: .utf8),
                                         homeDirectory: "/Users/test")

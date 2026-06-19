@@ -128,6 +128,7 @@ final class AgentController: NSObject {
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
     private var scratchpad: ScratchpadController!           // gated by [scratchpad] apps
+    private var appGroupControllers: [String: ScratchpadController] = [:]  // one per [[app_groups]] entry, by name
     private let sandbox = SandboxController()               // session sandbox (toggle action)
     private var ffm: FocusFollowsMouseController!           // gated by [focus_follows_mouse] enabled
     private var eventStream: EventStreamController!         // gated by [events] enabled
@@ -377,6 +378,34 @@ final class AgentController: NSObject {
         log("zt-agent: bound \(bound)/\(group.apps.count) \(label) app hotkeys")
     }
 
+    /// Bind each [[app_groups]] entry's hotkey to summon/dismiss that group. Reload-safe: called from
+    /// bindAllHotkeys (after unbindAll); the per-group controller reads the live config by name so a
+    /// renamed / re-app'd group stays correct without rebuilding it.
+    func bindAppGroupHotkeys() {
+        var bound = 0
+        for g in config.appGroups where g.hotkey.count >= 2 {
+            let mods = config.aliases[g.hotkey[0]] ?? [g.hotkey[0]]
+            let mask = KeyMap.modifierMask(for: mods)
+            guard mask != 0, let code = KeyMap.keyCode(for: g.hotkey[1]) else { continue }
+            let name = g.name
+            if binder.bind(keyCode: code, modifiers: mask, action: { [weak self] in
+                _ = self?.appGroupController(named: name).toggle()
+            }) { bound += 1 }
+        }
+        if bound > 0 { log("zt-agent: bound \(bound) app-group hotkeys") }
+    }
+
+    /// The summon/dismiss controller for one app group, created on demand and reused across reloads
+    /// so its summoned + auto-dismiss state survives. Reads apps/auto-dismiss live by name.
+    private func appGroupController(named name: String) -> ScratchpadController {
+        if let c = appGroupControllers[name] { return c }
+        let c = ScratchpadController(
+            apps: { [unowned self] in self.config.appGroups.first { $0.name == name }?.apps ?? [] },
+            autoDismiss: { [unowned self] in self.config.appGroups.first { $0.name == name }?.autoDismiss ?? true })
+        appGroupControllers[name] = c
+        return c
+    }
+
     func bindAutoTile(modifier: [String], key: String) {
         guard let code = KeyMap.keyCode(for: key) else { return }
         let mask = KeyMap.modifierMask(for: modifier)
@@ -573,6 +602,7 @@ final class AgentController: NSObject {
         if let hyper = config.aliases["HYPER"] { bindAutoTile(modifier: hyper, key: "return") }
         bindAppHotkeys(config.appCuts, label: "appCuts")
         bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")
+        bindAppGroupHotkeys()
         if let audioKey = config.audioHotkeyKey {
             bindAudioHotkey(modifier: config.audioHotkeyModifier, key: audioKey,
                             devices: config.audioDevices, shortcut: config.audioShortcutCallback)

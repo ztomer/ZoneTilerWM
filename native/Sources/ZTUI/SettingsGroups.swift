@@ -160,34 +160,88 @@ struct IOTab: View {
 
 struct AppLauncherTab: View {
     @ObservedObject var model: SettingsModel
-    @State private var scratchApps = ""
-    @State private var loaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             AppShortcutsView(model: model).padding(16)
             Divider()
-            Form {
-                Section("Scratchpad") {
-                    LabeledContent("Apps") {
-                        TextField("Terminal, Notes", text: $scratchApps)
-                            .textFieldStyle(.roundedBorder).frame(maxWidth: 280)
-                            .onSubmit { model.setScratchpadApps(splitList(scratchApps)) }
-                    }
-                    caption("Comma-separated apps summoned/dismissed together by the scratchpad action. "
-                            + "Press ⏎ to save. Bind a hotkey under Keys.")
-                    Toggle("Auto-dismiss when focus leaves the set", isOn: Binding(
-                        get: { model.config.scratchpadAutoDismiss },
-                        set: { model.setScratchpadAutoDismiss($0) }))
-                        .disabled(model.config.scratchpadApps.isEmpty)
-                }
-            }
-            .formStyle(.grouped)
+            Form { AppGroupsSection(model: model) }.formStyle(.grouped)
         }
-        .onAppear {
-            guard !loaded else { return }
-            scratchApps = model.config.scratchpadApps.joined(separator: ", ")
-            loaded = true
+    }
+}
+
+/// Editor for the named [[app_groups]] — each a set of apps summoned/dismissed together by its own
+/// hotkey (supersedes the single scratchpad). Add / rename-by-recreate / delete; edit apps, hotkey
+/// (alias + key), and auto-dismiss inline.
+struct AppGroupsSection: View {
+    @ObservedObject var model: SettingsModel
+    @State private var appEdits: [String: String] = [:]   // group → apps CSV in progress
+    @State private var keyEdits: [String: String] = [:]   // group → hotkey key in progress
+    @State private var newName = ""
+
+    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+    private func aliasOf(_ g: AppGroupProfile) -> String { g.hotkey.first ?? (aliasNames.first ?? "mash") }
+    private func keyOf(_ g: AppGroupProfile) -> String { g.hotkey.count >= 2 ? g.hotkey[1] : "" }
+
+    /// One surgical write covering whichever fields changed (others keep their current value).
+    private func save(_ g: AppGroupProfile, apps: [String]? = nil, alias: String? = nil,
+                      key: String? = nil, autoDismiss: Bool? = nil) {
+        let k = key ?? keyOf(g)
+        let hotkey = k.isEmpty ? [] : [alias ?? aliasOf(g), k]
+        model.setAppGroup(name: g.name, apps: apps ?? g.apps, hotkey: hotkey, autoDismiss: autoDismiss ?? g.autoDismiss)
+    }
+
+    var body: some View {
+        Section("App groups") {
+            caption("Named sets of apps summoned and dismissed together, each with its own hotkey "
+                    + "(supersedes the single scratchpad). Press ⏎ in a field to save.")
+            ForEach(model.config.appGroups, id: \.name) { g in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(g.name).font(.system(.body, design: .monospaced)).fontWeight(.medium)
+                        Spacer()
+                        Button { model.removeAppGroup(name: g.name) } label: { Image(systemName: "minus.circle") }
+                            .buttonStyle(.borderless).help("Delete group")
+                    }
+                    HStack {
+                        Text("Apps").foregroundColor(.secondary).frame(width: 56, alignment: .leading)
+                        TextField("Slack, Mail", text: Binding(
+                            get: { appEdits[g.name] ?? g.apps.joined(separator: ", ") },
+                            set: { appEdits[g.name] = $0 }))
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit { save(g, apps: splitList(appEdits[g.name] ?? "")) }
+                    }
+                    HStack(spacing: 6) {
+                        Text("Hotkey").foregroundColor(.secondary).frame(width: 56, alignment: .leading)
+                        Picker("", selection: Binding(
+                            get: { aliasOf(g) }, set: { save(g, alias: $0) })) {
+                            ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
+                        }.labelsHidden().frame(width: 132)
+                        Text("+").foregroundColor(.secondary)
+                        TextField("key", text: Binding(
+                            get: { keyEdits[g.name] ?? keyOf(g) },
+                            set: { keyEdits[g.name] = $0 }))
+                            .textFieldStyle(.roundedBorder).frame(width: 50).multilineTextAlignment(.center)
+                            .onSubmit { save(g, key: keyEdits[g.name] ?? "") }
+                        Spacer()
+                        Toggle("Auto-dismiss", isOn: Binding(
+                            get: { g.autoDismiss }, set: { save(g, autoDismiss: $0) }))
+                            .toggleStyle(.switch).controlSize(.small)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            HStack {
+                TextField("new group name", text: $newName).textFieldStyle(.roundedBorder).frame(maxWidth: 200)
+                Button("Add group") {
+                    let n = newName.trimmingCharacters(in: .whitespaces)
+                    guard !n.isEmpty, !n.contains("\""), model.config.appGroups.allSatisfy({ $0.name != n }) else { return }
+                    model.setAppGroup(name: n, apps: [], hotkey: [], autoDismiss: true)
+                    newName = ""
+                }
+                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                Spacer()
+            }
         }
     }
 }

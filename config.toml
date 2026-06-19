@@ -388,6 +388,11 @@ prediction = true            # lead the outline to compensate for follow-lag
 # apps = ["Terminal"]        # bind a `scratchpad` hotkey under [system_hotkeys], or use the
 # auto_dismiss = true        # `scratchpad` action; auto_dismiss hides the set when focus leaves it
 #
+# [app_groups.<name>]        # named app sets, each with its OWN hotkey (the multi-group successor
+# apps = ["Slack", "Mail"]   # to [scratchpad]; manage these in Settings → App Launcher)
+# hotkey = ["mash", "1"]     # [modifier-alias, key] — summons/dismisses this group's apps together
+# auto_dismiss = true        # hide the group when focus leaves it
+#
 # [[clusters]]               # named app→zone profiles; apply with `cluster name=dev` (opt-in)
 # name = "dev"               # launches missing apps + tiles each app's window to its zone
 #   [[clusters.windows]]
