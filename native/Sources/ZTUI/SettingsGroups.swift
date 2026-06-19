@@ -155,28 +155,29 @@ struct IOTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
-            Section("Keyboard layout") {
-                Picker("Layout", selection: Binding(
+            // Input
+            Section {
+                Picker("Keyboard layout", selection: Binding(
                     get: { model.keyboardChoice },
                     set: { model.setKeyboardLayout($0) })) {
                     Text("Auto (\(model.detectedKeyboard))").tag("auto")
                     ForEach(KeyboardLayout.presets, id: \.self) { Text($0).tag($0) }
                 }
-                caption("Used to render the Apps and Layouts key maps. Auto follows the active macOS input source.")
+            } header: { Text("Input") } footer: {
+                Text("Renders the Apps and Layouts key maps. Auto follows the active macOS input source.")
+                    .font(.caption).foregroundColor(.secondary)
             }
-            AudioSettings(model: model)
-            Section("Focus follows mouse") {
-                Toggle("Focus the window under the cursor", isOn: Binding(
-                    get: { model.config.focusFollowsMouseEnabled },
-                    set: { model.setFocusFollowsMouseEnabled($0) }))
-                caption("Focus the window the cursor settles on. Note: this is the one feature that adds "
-                        + "per-interaction Accessibility calls — keep it off unless you want it.")
+            ToggleSection("Focus follows mouse", isOn: boolBind(model, \.focusFollowsMouseEnabled, model.setFocusFollowsMouseEnabled),
+                          footer: "Focuses the window the cursor settles on. The one feature that adds per-interaction "
+                                + "Accessibility calls — leave off unless you want it.") {
                 if model.config.focusFollowsMouseEnabled {
                     NumberRow(label: "Dwell", value: Binding(
                         get: { model.config.focusFollowsMouseDelayMs },
                         set: { model.setFocusFollowsMouseDelay($0) }), range: 50...2000, step: 25, suffix: "ms")
                 }
             }
+            // Output
+            AudioSettings(model: model)
         }
         .formStyle(.grouped)
     }

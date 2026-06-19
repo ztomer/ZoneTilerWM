@@ -78,31 +78,44 @@ struct PomodoroSettings: View {
         // so the durations and the bar appearance read as distinct groups — and the tab gains the
         // same sectioned rhythm as the Keys tab (Modifiers / Actions).
         Section("Timer") {
-            NumberRow(label: "Work", value: Binding(
-                get: { model.config.pomodoroWorkSec / 60 },
-                set: { model.setPomodoroWorkMinutes($0) }), range: 1...120, suffix: "min")
-            NumberRow(label: "Rest", value: Binding(
-                get: { model.config.pomodoroRestSec / 60 },
-                set: { model.setPomodoroRestMinutes($0) }), range: 1...60, suffix: "min")
+            HStack(spacing: 18) {
+                compactMinutes("Work", value: Binding(
+                    get: { model.config.pomodoroWorkSec / 60 }, set: { model.setPomodoroWorkMinutes($0) }), range: 1...120)
+                Divider().frame(height: 18)
+                compactMinutes("Rest", value: Binding(
+                    get: { model.config.pomodoroRestSec / 60 }, set: { model.setPomodoroRestMinutes($0) }), range: 1...60)
+                Spacer()
+            }
         }
-        Section("Color bar") {
-            Toggle("Show color bar", isOn: Binding(
-                get: { model.config.pomodoroEnableColorBar },
-                set: { model.setPomodoroColorBar($0) }))
-            NumberRow(label: "Bar height", value: Binding(
-                get: { Int((model.config.pomodoroIndicatorHeight * 100).rounded()) },
-                set: { model.setPomodoroIndicatorHeight(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
-                .disabled(!model.config.pomodoroEnableColorBar)
-            NumberRow(label: "Bar opacity", value: Binding(
-                get: { Int((model.config.pomodoroIndicatorAlpha * 100).rounded()) },
-                set: { model.setPomodoroIndicatorAlpha(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
-                .disabled(!model.config.pomodoroEnableColorBar)
-            ColorSwatchRow(label: "Remaining color", selected: model.config.pomodoroColorRemaining) {
-                model.setPomodoroColor(remaining: true, $0)
+        ToggleSection("Color bar", isOn: Binding(
+            get: { model.config.pomodoroEnableColorBar }, set: { model.setPomodoroColorBar($0) })) {
+            if model.config.pomodoroEnableColorBar {
+                NumberRow(label: "Bar height", value: Binding(
+                    get: { Int((model.config.pomodoroIndicatorHeight * 100).rounded()) },
+                    set: { model.setPomodoroIndicatorHeight(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
+                NumberRow(label: "Bar opacity", value: Binding(
+                    get: { Int((model.config.pomodoroIndicatorAlpha * 100).rounded()) },
+                    set: { model.setPomodoroIndicatorAlpha(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
+                ColorSwatchRow(label: "Remaining color", selected: model.config.pomodoroColorRemaining) {
+                    model.setPomodoroColor(remaining: true, $0)
+                }
+                ColorSwatchRow(label: "Used color", selected: model.config.pomodoroColorUsed) {
+                    model.setPomodoroColor(remaining: false, $0)
+                }
             }
-            ColorSwatchRow(label: "Used color", selected: model.config.pomodoroColorUsed) {
-                model.setPomodoroColor(remaining: false, $0)
-            }
+        }
+    }
+
+    /// Compact "<label> [n] min [stepper]" cell so Work and Rest fit on one row.
+    private func compactMinutes(_ label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+            TextField("", value: Binding(
+                get: { value.wrappedValue },
+                set: { value.wrappedValue = min(max($0, range.lowerBound), range.upperBound) }), format: .number)
+                .labelsHidden().textFieldStyle(.roundedBorder).frame(width: 44).multilineTextAlignment(.trailing)
+            Text("min").foregroundColor(.secondary)
+            Stepper("", value: value, in: range).labelsHidden()
         }
     }
 }
@@ -113,32 +126,28 @@ struct BordersSettings: View {
     @ObservedObject var model: SettingsModel
 
     var body: some View {
-        Section("Window border") {
-            Toggle("Outline the focused window", isOn: Binding(
-                get: { model.config.borders.enabled },
-                set: { model.setBordersEnabled($0) }))
-            ColorSwatchRow(label: "Color", selected: model.config.borders.color) { model.setBordersColor($0) }
-            NumberRow(label: "Width", value: Binding(
-                get: { Int(model.config.borders.width.rounded()) },
-                set: { model.setBordersWidth($0) }), range: 1...12, suffix: "px")
-                .disabled(!model.config.borders.enabled)
-            NumberRow(label: "Corner radius", value: Binding(
-                get: { Int(model.config.borders.cornerRadius.rounded()) },
-                set: { model.setBordersCornerRadius($0) }), range: 0...24, suffix: "px")
-                .disabled(!model.config.borders.enabled)
-            Picker("Renderer", selection: Binding(
-                get: { model.config.borders.backend },
-                set: { model.setBordersBackend($0) })) {
-                Text("Overlay (default)").tag("overlay")
-                Text("Window server (experimental)").tag("skylight")
-            }.disabled(!model.config.borders.enabled)
-            Toggle("Motion prediction", isOn: Binding(
-                get: { model.config.borders.prediction },
-                set: { model.setBordersPrediction($0) }))
-                .disabled(!model.config.borders.enabled)
-            Text("Draws a colored outline around the focused window that follows it as it moves. "
-                 + "Motion prediction leads the outline to compensate for follow-lag.")
-                .font(.caption).foregroundColor(.secondary)
+        ToggleSection("Window border", isOn: Binding(
+            get: { model.config.borders.enabled }, set: { model.setBordersEnabled($0) }),
+            footer: "Draws a colored outline around the focused window and follows it as it moves. "
+                  + "Motion prediction leads the outline to compensate for follow-lag.") {
+            if model.config.borders.enabled {
+                ColorSwatchRow(label: "Color", selected: model.config.borders.color) { model.setBordersColor($0) }
+                NumberRow(label: "Width", value: Binding(
+                    get: { Int(model.config.borders.width.rounded()) },
+                    set: { model.setBordersWidth($0) }), range: 1...12, suffix: "px")
+                NumberRow(label: "Corner radius", value: Binding(
+                    get: { Int(model.config.borders.cornerRadius.rounded()) },
+                    set: { model.setBordersCornerRadius($0) }), range: 0...24, suffix: "px")
+                Picker("Renderer", selection: Binding(
+                    get: { model.config.borders.backend },
+                    set: { model.setBordersBackend($0) })) {
+                    Text("Overlay (default)").tag("overlay")
+                    Text("Window server (experimental)").tag("skylight")
+                }
+                Toggle("Motion prediction", isOn: Binding(
+                    get: { model.config.borders.prediction },
+                    set: { model.setBordersPrediction($0) }))
+            }
         }
     }
 }
@@ -285,11 +294,9 @@ struct PomodoroTab: View {
         Form {
             Section("Preview") { PomodoroBarPreview(model: model) }
             PomodoroSettings(model: model)
-            Section("Break screen") {
-                Toggle("Show a full-screen break overlay", isOn: Binding(
-                    get: { model.config.breakScreenEnabled }, set: { model.setBreakScreenEnabled($0) }))
-                Text("A full-screen \"BREAK TIME\" overlay when a work period ends.")
-                    .font(.caption).foregroundColor(.secondary)
+            ToggleSection("Break screen", isOn: Binding(
+                get: { model.config.breakScreenEnabled }, set: { model.setBreakScreenEnabled($0) }),
+                footer: "A full-screen \"BREAK TIME\" overlay when a work period ends.") {
                 if model.config.breakScreenEnabled {
                     NumberRow(label: "Duration", value: Binding(
                         get: { model.config.breakScreenDurationSec },
