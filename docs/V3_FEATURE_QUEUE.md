@@ -38,7 +38,11 @@ bump version → commit + push → tick this file.
       window hints (0-AX enumerate; focus on select). Thumbnail grid intentionally NOT used — that
       needs Screen Recording, which the app deliberately avoids. Self-reviewed (5 lenses).
 ### Phase B — power-user automation (cheap, gated)
-- [ ] State-diff event stream on the agent socket (subscribe to CGWindowList diffs)
+- [x] State-diff event stream — **v1.4.20 DONE**. `[events]` appends arrangement-change events to a
+      jsonl file (`tail -f` to subscribe without polling) — chosen over a socket pub/sub (no protocol
+      change, simpler, same goal). Pure `ArrangementSignature` TDD'd (4 tests); 0 AX (CGWindowList
+      poll on a clamped timer); emits only meaningful zone/monitor changes, baseline not emitted.
+      Self-reviewed (5 lenses).
 - [ ] JSON spatial layout macros (author exact geometry → apply)
 - [x] Session sandbox — **v1.4.17 DONE**. `sandbox` toggle action: hide every regular/visible/
       non-focused app (remember the set) → restore on toggle. Distinct from zen (minimize). Pure

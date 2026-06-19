@@ -130,6 +130,7 @@ final class AgentController: NSObject {
     private var scratchpad: ScratchpadController!           // gated by [scratchpad] apps
     private let sandbox = SandboxController()               // session sandbox (toggle action)
     private var ffm: FocusFollowsMouseController!           // gated by [focus_follows_mouse] enabled
+    private var eventStream: EventStreamController!         // gated by [events] enabled
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -304,6 +305,15 @@ final class AgentController: NSObject {
             offset: { [weak resizeManager] m, a, i in resizeManager?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
             memory: { [unowned self] in self.learnedMemory },
             now: { Int(Date().timeIntervalSince1970) })
+        eventStream = EventStreamController(
+            arrangement: { [unowned self] in
+                if case .arrangement(let w) = self.arrangementQuery.answer(.arrangement) { return w }
+                return []
+            },
+            path: { [unowned self] in
+                self.config.eventsPath ?? (self.config.windowMemory.cacheDir as NSString).appendingPathComponent("events.jsonl")
+            },
+            intervalMs: { [unowned self] in self.config.eventsIntervalMs })
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
         applyBorders(config)
     }
@@ -630,6 +640,12 @@ final class AgentController: NSObject {
         if config.focusFollowsMouseEnabled { ffm.start() } else { ffm.stop() }
     }
 
+    /// Start the arrangement event stream iff [events] enabled. Idempotent; reconciled on reload.
+    func setupEventStream() { reconcileEventStream() }
+    private func reconcileEventStream() {
+        if config.eventsEnabled { eventStream.start() } else { eventStream.stop() }
+    }
+
     func setupIPCServer() { reconcileIPCServer() }
 
     /// Start/stop the IPC socket to match `[automation] enabled`. Idempotent — safe to call on
@@ -831,6 +847,7 @@ final class AgentController: NSObject {
         reconcileZoneHUD()          // start/stop the zone HUD if [zone_hud] enabled changed
         reconcileDragSnap()         // start/stop drag-to-snap if [drag_snap] enabled changed
         reconcileFocusFollowsMouse()  // start/stop focus-follows-mouse if [focus_follows_mouse] changed
+        reconcileEventStream()        // start/stop the arrangement event stream if [events] changed
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
     }
@@ -1065,6 +1082,7 @@ controller.setupURLHandler()       // zonetiler:// scheme (effective in the bund
 controller.setupZoneHUD()          // modifier-held zone cheat-sheet (gated by [zone_hud] enabled)
 controller.setupDragSnap()         // drag-to-snap mouse monitor (gated by [drag_snap] enabled)
 controller.setupFocusFollowsMouse()  // focus-follows-mouse (gated by [focus_follows_mouse] enabled)
+controller.setupEventStream()        // arrangement event stream (gated by [events] enabled)
 controller.showOnboardingIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {

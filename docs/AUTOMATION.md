@@ -224,6 +224,16 @@ imported state live (layouts replace; learned positions merge, imported winning 
 **Gated (opt-in):** does nothing unless `[sync] folder` is set; surfaced via the catalog
 (palette/CLI/MCP). Default off.
 
+## Arrangement event stream (`[events]`)
+
+Append one JSON line to an events file whenever the window arrangement meaningfully changes (a window
+moves zone/monitor, appears, or disappears). External tools `tail -f` it to react to layout changes
+**without polling**. The agent polls the arrangement on a timer (CGWindowList = 0 AX) and emits only
+when `ZTCore.ArrangementSignature` changes (raw pixel jitter within a zone doesn't emit). Each line:
+`{"ts":<epoch>,"windows":[{windowId,app,frame,monitor,zone}…]}`. Gated `[events] enabled` (default
+off) + `path` (default `cache_dir/events.jsonl`) + `interval_ms` (default 1000, clamped 250–10000).
+0 AX.
+
 ## Focus-follows-mouse (`[focus_follows_mouse]`)
 
 Focus the window the cursor **settles** on. A passive `NSEvent` mouse monitor (0 AX) re-arms a

@@ -79,6 +79,9 @@ public enum ConfigLoader {
         public var displayPresets: [DisplayPreset]         // [[display_presets]] — auto-action on display-set change
         public var focusFollowsMouseEnabled: Bool          // [focus_follows_mouse] enabled (opt-in, default off; AX-sensitive)
         public var focusFollowsMouseDelayMs: Int           // dwell: cursor must settle this long before focusing
+        public var eventsEnabled: Bool                     // [events] enabled — append arrangement-change events to a file
+        public var eventsPath: String?                     // events file path (nil = cacheDir/events.jsonl)
+        public var eventsIntervalMs: Int                   // arrangement poll interval
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -215,6 +218,7 @@ public enum ConfigLoader {
         var clusters: [RawCluster]?
         var display_presets: [RawDisplayPreset]?
         var focus_follows_mouse: RawFocusFollowsMouse?
+        var events: RawEvents?
         var rules: [RawRule]?
     }
 
@@ -234,6 +238,7 @@ public enum ConfigLoader {
         var zone: String?; var direction: String?; var command: String?; var name: String?; var device: String?
     }
     private struct RawFocusFollowsMouse: Decodable { var enabled: Bool?; var delay_ms: Int? }
+    private struct RawEvents: Decodable { var enabled: Bool?; var path: String?; var interval_ms: Int? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -361,6 +366,9 @@ public enum ConfigLoader {
             displayPresets: parseDisplayPresets(raw.display_presets),
             focusFollowsMouseEnabled: raw.focus_follows_mouse?.enabled ?? false,   // opt-in; AX-sensitive
             focusFollowsMouseDelayMs: raw.focus_follows_mouse?.delay_ms ?? 250,
+            eventsEnabled: raw.events?.enabled ?? false,                           // opt-in
+            eventsPath: raw.events?.path.flatMap { $0.isEmpty ? nil : $0 },
+            eventsIntervalMs: raw.events?.interval_ms ?? 1000,
             rules: parseRules(raw.rules))
     }
 
