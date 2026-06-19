@@ -117,7 +117,9 @@ struct HotkeyRowView: View {
     let section: String
     let key: String
     var labelWidth: CGFloat = KeyRowMetrics.label
+    var help: String? = nil
     @StateObject private var recorder = ChordRecorder()
+    @State private var showHelp = false
 
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
 
@@ -138,6 +140,13 @@ struct HotkeyRowView: View {
             Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
                 recorder.start(id: key)
             }.frame(width: 84)
+            if let help {
+                Button { showHelp.toggle() } label: { Image(systemName: "questionmark.circle") }
+                    .buttonStyle(.borderless)
+                    .popover(isPresented: $showHelp, arrowEdge: .trailing) {
+                        Text(help).font(.callout).padding(14).frame(width: 300)
+                    }
+            }
         }
         .onAppear {
             recorder.onCapture = { _, k in
@@ -151,7 +160,7 @@ struct HotkeyRowView: View {
 struct KeybindEditorView: View {
     @ObservedObject var model: SettingsModel
 
-    private struct Row: Identifiable { let id: String; let label: String; let section: String; let key: String }
+    private struct Row: Identifiable { let id: String; let label: String; let section: String; let key: String; var help: String? = nil }
 
     // Pomodoro keys live in the Pomodoro tab; these are the tiling/movement/system keys.
     private let rows: [Row] = [
@@ -168,14 +177,24 @@ struct KeybindEditorView: View {
     // Gated / opt-in feature actions — no hotkey by default, so they need a binding row to be
     // reachable at all (the live review flagged "how do I open the command palette?").
     private let featureRows: [Row] = [
-        .init(id: "command_palette", label: "Command palette", section: "system_hotkeys", key: "command_palette"),
-        .init(id: "scratchpad", label: "Scratchpad summon/dismiss", section: "system_hotkeys", key: "scratchpad"),
-        .init(id: "peek", label: "Window peek", section: "system_hotkeys", key: "peek"),
-        .init(id: "sandbox", label: "Session sandbox", section: "system_hotkeys", key: "sandbox"),
-        .init(id: "zen_mode", label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode"),
-        .init(id: "float", label: "Toggle float", section: "tiler.hotkeys", key: "float"),
-        .init(id: "stack_next", label: "Stack: focus next", section: "tiler.hotkeys", key: "stack_next"),
-        .init(id: "stack_prev", label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev"),
+        .init(id: "command_palette", label: "Command palette", section: "system_hotkeys", key: "command_palette",
+              help: "A searchable list of every action. Type to fuzzy-find and run one. With Natural language "
+                  + "on (Automation), an unmatched query is sent to the on-device model (\"put terminal left\")."),
+        .init(id: "scratchpad", label: "Scratchpad summon/dismiss", section: "system_hotkeys", key: "scratchpad",
+              help: "Summon a set of utility apps together and dismiss them together. Set the apps under "
+                  + "App Launcher → App groups (or the legacy [scratchpad] set)."),
+        .init(id: "peek", label: "Window peek", section: "system_hotkeys", key: "peek",
+              help: "Labels every window stacked in the focused zone; type a label to jump straight to that window."),
+        .init(id: "sandbox", label: "Session sandbox", section: "system_hotkeys", key: "sandbox",
+              help: "Hides every app except the focused one for distraction-free work; toggle again to restore them all."),
+        .init(id: "zen_mode", label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode",
+              help: "Minimizes the other windows so only the focused one remains; toggle to bring them back."),
+        .init(id: "float", label: "Toggle float", section: "tiler.hotkeys", key: "float",
+              help: "Excludes the focused window from auto-tiling (lets it float freely); toggle to re-include it."),
+        .init(id: "stack_next", label: "Stack: focus next", section: "tiler.hotkeys", key: "stack_next",
+              help: "Cycles focus forward through the windows stacked in the current zone."),
+        .init(id: "stack_prev", label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev",
+              help: "Cycles focus backward through the windows stacked in the current zone."),
     ]
 
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
@@ -197,7 +216,7 @@ struct KeybindEditorView: View {
                 ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
             }
             Section("Feature actions") {
-                ForEach(featureRows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
+                ForEach(featureRows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key, help: $0.help) }
             }
         }
         .formStyle(.grouped)

@@ -43,8 +43,8 @@ targets:
         # (replaces the runtime setActivationPolicy(.accessory)).
         LSUIElement: true
         CFBundleIconFile: AppIcon
-        CFBundleShortVersionString: "1.5.11"
-        CFBundleVersion: "42"
+        CFBundleShortVersionString: "1.5.12"
+        CFBundleVersion: "43"
         LSMinimumSystemVersion: "13.0"
         NSHumanReadableCopyright: "Copyright © 2026 Tomer Zaidenstein. All rights reserved."
         # zonetiler:// URL scheme — handled by the agent's GURL Apple Event handler
@@ -57,8 +57,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zaidenstein.ZoneTilerWM
         PRODUCT_NAME: ZoneTilerWM
-        MARKETING_VERSION: "1.5.11"
-        CURRENT_PROJECT_VERSION: "42"
+        MARKETING_VERSION: "1.5.12"
+        CURRENT_PROJECT_VERSION: "43"
         # Ad-hoc signing for now (no Apple Developer account yet). A STABLE bundle id + this
         # ad-hoc identity keeps the Accessibility (TCC) grant from resetting every rebuild.
         # Switch to Developer ID + hardened runtime + notarization when distribution is on.
