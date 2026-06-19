@@ -43,7 +43,9 @@ bump version → commit + push → tick this file.
       change, simpler, same goal). Pure `ArrangementSignature` TDD'd (4 tests); 0 AX (CGWindowList
       poll on a clamped timer); emits only meaningful zone/monitor changes, baseline not emitted.
       Self-reviewed (5 lenses).
-- [ ] JSON spatial layout macros (author exact geometry → apply)
+- [~] JSON spatial layout macros — common case (app→zone profiles) COVERED by App-Cluster Profiles
+      (v1.4.15) + layout snapshots. Only the niche arbitrary-pixel-rect variant is genuinely new
+      (Gemini utility 4); deferred as low-value unless requested.
 - [x] Session sandbox — **v1.4.17 DONE**. `sandbox` toggle action: hide every regular/visible/
       non-focused app (remember the set) → restore on toggle. Distinct from zen (minimize). Pure
       `Sandbox.appsToHide` TDD'd (3 tests); 0 AX (NSWorkspace hide/unhide); SandboxController owns
@@ -54,8 +56,16 @@ bump version → commit + push → tick this file.
       `DisplayPresetEngine.match` TDD'd (5 tests); 0 AX; reuses the existing didChangeScreenParameters
       observer. No new action (it's a trigger). Self-reviewed (5 lenses).
 ### Phase C — interaction polish (check AX)
-- [ ] Transactional drag-snap tap (refine drag-to-snap onto one transactional write)
-- [ ] Sticky Tiles (coupled-resize of adjacent tiles)
+> **Dispositions (honest assessment after building Phase A/B — these overlap already-shipped work):**
+> - **Transactional drag-snap → ALREADY COVERED by drag-to-snap (v1.4.6).** That uses a *passive*
+>   monitor (0 AX during the drag) and a single move on drop — i.e. it is already the "one
+>   transactional write" Gemini proposed. A CGEventTap rewrite would add EDR/AX risk for zero
+>   user-visible gain, so it's intentionally NOT done.
+> - **Sticky tiles → ALREADY COVERED by resize-mode.** Grid-line offsets are keyed per shared
+>   line index (`ResizeManager`), so adjusting a boundary coherently resizes BOTH adjacent zones —
+>   that *is* coupled/sticky resize.
+- [~] Transactional drag-snap tap — COVERED by drag-to-snap (v1.4.6); not rebuilt (see disposition).
+- [~] Sticky Tiles — COVERED by resize-mode (shared grid-line offsets); not rebuilt (see disposition).
 - [x] Focus-follows-mouse — **v1.4.19 DONE** (gated HARD, default off). Passive `.mouseMoved`
       monitor (0 AX) → dwell timer → on settle, CGWindowList hit-test (`FocusFollowsMouse.topWindow`,
       TDD'd 3 tests) → focus the window under cursor if changed. **5-persona review (AX-sensitive) →
@@ -63,9 +73,14 @@ bump version → commit + push → tick this file.
       single coordinate space via `screen(containing:)` (was a bottom-left/top-left mismatch),
       exclude own-app windows, oscillation guard documented. **AX-trace validation required before
       enabling widely — see V2_TEST_DEBT.md.**
-### Phase D — internal (deferred by Gemini utility, but user said everything)
-- [ ] Predictive shadow-buffer (verify layout math headless before mutating)
-- [ ] Headless virtual-display layout prefetch
+### Phase D — internal (RECOMMEND SKIP — flagged to user)
+> These are invisible internal optimizations with **no user-facing surface to "gate behind a
+> toggle"** (the instruction can't apply), Gemini utility **2**, and **speculative** — they optimize
+> problems (multi-window resize stutter, pre-connect display layout) that aren't observed today.
+> Building them = complex speculative code with nothing to validate against. **Recommend skip unless
+> a concrete bug motivates them.** Flagged to the user for override.
+- [~] Predictive shadow-buffer — RECOMMEND SKIP (speculative; no gateable surface).
+- [~] Headless virtual-display layout prefetch — RECOMMEND SKIP (speculative; no gateable surface).
 ### Parked v2 item
 - [ ] On-device NL layout box (FoundationModels — available on this Mac; build real, gated [nl])
 
