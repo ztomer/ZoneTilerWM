@@ -65,14 +65,16 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
 
 ## F. Structural / housekeeping
 - [ ] **Drop the `native/` folder** — there's no non-native code anymore; flatten the layout.
-- [~] **Coverage ≥ 95%?** — MEASURED: ZTCore is **92.2%** line coverage (3000 lines, 234 missed), up
-      from 91.1% after covering CLIFormat (now 100%). NOT yet ≥95%. The remaining gap is concentrated
-      in the orchestration / OS-boundary layer — `TilerCoordinator` (83 missed lines, 73%) and
-      `AutoTiler` (55, 85%) — much of which is the move-application path the project deliberately
-      validates via live screenshot QA + post-move AX readback rather than units (see REVIEW.md).
-      DECISION NEEDED: chase ≥95% by mocking the WindowSystem boundary for TilerCoordinator/AutoTiler,
-      or treat 95% as the bar for the genuinely-pure files (most already ~95-100%) and leave the
-      orchestration to live QA? Easy remaining pure-logic wins if we proceed: Pomodoro (15), ZoneCalculator (17), WindowMemory (23).
+- [~] **Coverage ≥ 95%?** — MEASURED + improving: ZTCore is now **92.9%** line coverage (3000 lines,
+      212 missed), up from 91.1% — covered CLIFormat (100%), Pomodoro (100%), and WindowMemory's
+      legacy-JSON decode shapes. NOT yet ≥95%. The remaining gap is now almost entirely the
+      orchestration / OS-boundary layer — `TilerCoordinator` (83 missed, 73%) and `AutoTiler` (55,
+      85%) — the move-application path the project deliberately validates via live screenshot QA +
+      post-move AX readback, not units (see REVIEW.md). Only ~17 pure-logic lines remain outside it
+      (ZoneCalculator orientation/grid defaults).
+      DECISION STILL NEEDED: chase ≥95% by mocking the WindowSystem boundary for
+      TilerCoordinator/AutoTiler (real work, somewhat artificial), or declare the bar met for the
+      genuinely-pure files (nearly all ≥95-100%) and leave orchestration to live QA?
 
 ## Open design decisions (confirm before the big restructure)
 1. Proceed with the sidebar restructure now, or land the bug-fixes + content tweaks first?
