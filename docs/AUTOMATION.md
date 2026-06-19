@@ -29,7 +29,8 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
 `app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `sync-export`,
-`sync-import`, `reload`. Resources: `arrangement`, `zones`, `placement-stats`, `suggestions`.
+`sync-import`, `apply-suggestions`, `reload`. Resources: `arrangement`, `zones`, `placement-stats`,
+`suggestions`.
 
 **`suggestions`** (context-aware placement) cross-references the live arrangement against the
 learned per-app preferences and lists every window sitting away from the zone its app usually
@@ -37,6 +38,16 @@ occupies on that monitor — each with `currentZone → suggestedZone` and a rec
 (same decay the live auto-placement uses). Read-only, **0 AX**; returns `unavailable` when window
 memory is off. It's the read surface the LLM-assisted-suggestions front-end builds on:
 `zonetiler-cli get suggestions` (or the `zonetiler://suggestions` MCP resource).
+
+### LLM-assisted placement
+
+Because both the read (`suggestions`) and the writes (`tile`, `apply-suggestions`) are MCP
+tools/resources, an LLM (Claude over the MCP server) can reason about your layout end-to-end:
+read `zonetiler://suggestions`, decide which moves make sense in context, and either issue
+per-window `tile` calls or apply them all at once with **`apply-suggestions`** — which moves every
+flagged window into its learned-preferred zone (the same per-window tile path the rules engine uses;
+bounded AX, never automatic). `apply-suggestions` also stands alone as a one-shot "tidy up to my
+usual layout" for the CLI / palette / Shortcuts, no LLM required.
 
 ## Transport: agent + Unix-domain socket
 

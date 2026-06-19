@@ -262,7 +262,8 @@ final class AgentController: NSObject {
                 let r = self.syncEngine().run(.import)
                 if case .synced = r { self.adoptImportedSettings() }
                 return r
-            }))
+            },
+            applySuggestions: { [unowned self] in self.applyPlacementSuggestions() }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
@@ -652,6 +653,23 @@ final class AgentController: NSObject {
         }
         layouts = resizeStorage.load("layouts", as: LayoutLibrary.self) ?? layouts
         log("zt-agent: sync-import adopted config + learned state")
+    }
+
+    /// Apply the context-aware placement suggestions: move each window the `suggestions` resource
+    /// flags into its learned-preferred zone (the same per-window tile path the rules engine uses).
+    /// Bounded AX (one move per out-of-place window); user/LLM-invoked, never automatic.
+    private func applyPlacementSuggestions() -> ActionResult {
+        guard case .suggestions(let suggestions) = arrangementQuery.answer(.suggestions) else {
+            return .failed(reason: .unsupportedAction)   // window memory disabled → no suggestions
+        }
+        var moves: [TiledMove] = []
+        for s in suggestions {
+            if let o = coordinator.moveWindow(windowId: s.windowId, toZone: s.suggestedZone) {
+                moves.append(TiledMove(windowId: o.windowId, zone: o.zoneKey, tileIndex: .int(o.tileIndex), rect: o.target))
+            }
+        }
+        log("zt-agent: applied \(moves.count)/\(suggestions.count) placement suggestion(s)")
+        return .suggestionsApplied(moves: moves)
     }
 
     private func saveLayout(_ name: String) -> ActionResult {

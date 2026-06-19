@@ -75,7 +75,12 @@ zt-mcp serverVersion) → commit + push → tick this file.
       data-loss CRITICAL/HIGH (non-atomic import) + path coupling + state-reload. Live round-trip
       deferred (V2_TEST_DEBT.md).
 - [ ] On-device NL layout box (Foundation Models; gated, capable Macs; STUB if SDK-gated) — visual
-- [ ] LLM-assisted suggestions (opt-in; lean on the MCP placement-stats resource)
+- [x] LLM-assisted suggestions — **v1.4.11 DONE**. The `suggestions` resource (1.4.8) lets an LLM
+      (Claude over MCP) read placement advice; added the `apply-suggestions` action so it (or the
+      CLI/palette/Shortcuts) can move every flagged window into its learned zone in one shot
+      (reuses the rules-engine moveWindow path; bounded AX; new `.suggestionsApplied` result).
+      Documented the end-to-end LLM workflow in AUTOMATION.md. Self-reviewed (thin composition of
+      the already-reviewed moveWindow + action spine).
 
 ## Final (after the queue)
 - One consolidated `make verify`, rebuild + reinstall the complete `.app`, bump to a clean release

@@ -15,6 +15,7 @@ final class ActionRequestTests: XCTestCase {
         .cycleFocus(zone: "k"),
         .cycleZoneStack(direction: .next),
         .cycleZoneStack(direction: .previous),
+        .applySuggestions,
         .focusScreen(direction: .next),
         .focusScreen(direction: .previous),
         .moveFocusedToMonitor(direction: .next),

@@ -43,6 +43,10 @@ public enum CLIFormat {
         case .synced(let direction, let files):
             return files.isEmpty ? "sync \(direction): nothing to copy"
                                  : "sync \(direction): \(files.count) file\(files.count == 1 ? "" : "s") (\(files.joined(separator: ", ")))"
+        case .suggestionsApplied(let moves):
+            if moves.isEmpty { return "no suggestions to apply (every window is in its usual zone)" }
+            let detail = moves.map { "  window \($0.windowId) → \($0.zone) \($0.tileIndex.sortKey)" }
+            return (["applied \(moves.count) suggestion\(moves.count == 1 ? "" : "s")"] + detail).joined(separator: "\n")
         case .failed(let reason):
             return "error: \(describe(reason))"
         }

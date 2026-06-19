@@ -32,6 +32,7 @@ final class ActionResultTests: XCTestCase {
         .layoutSaved(name: "coding", windowCount: 3),
         .layoutApplied(name: "coding", moved: 2),
         .synced(direction: "export", files: ["config.toml", "layouts.json"]),
+        .suggestionsApplied(moves: [TiledMove(windowId: 7, zone: "l", tileIndex: .int(1), rect: ZTRect(x: 0, y: 0, w: 5, h: 5))]),
         .failed(reason: .noFocusedWindow),
         .failed(reason: .noZone("z")),
         .failed(reason: .invalidParameter("zone")),

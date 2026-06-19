@@ -35,6 +35,8 @@ public enum ActionParser {
             return requireNonEmpty(params, "zone").map { .cycleFocus(zone: $0) }
         case "stack-cycle":
             return direction(params).map { .cycleZoneStack(direction: $0) }
+        case "apply-suggestions":
+            return .success(.applySuggestions)
         case "focus-screen":
             return direction(params).map { .focusScreen(direction: $0) }
         case "move-monitor":
@@ -108,6 +110,7 @@ public enum ActionParser {
         case .autoTileScreen:                    return ("autotile", [:])
         case .cycleFocus(let zone):              return ("focus-cycle", ["zone": zone])
         case .cycleZoneStack(let dir):           return ("stack-cycle", ["direction": dir.rawValue])
+        case .applySuggestions:                  return ("apply-suggestions", [:])
         case .focusScreen(let dir):              return ("focus-screen", ["direction": dir.rawValue])
         case .moveFocusedToMonitor(let dir):     return ("move-monitor", ["direction": dir.rawValue])
         case .nudge(let dir):                    return ("nudge", ["direction": dir.rawValue])
@@ -189,6 +192,7 @@ public extension ActionParser {
                    params: [ActionParam(name: "zone", required: true, description: "Zone key to cycle within.")]),
         ActionSpec(name: "stack-cycle", description: "Cycle focus through the windows stacked in the focused window's zone.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
+        ActionSpec(name: "apply-suggestions", description: "Move every window the 'suggestions' resource flags into its learned-preferred zone."),
         ActionSpec(name: "focus-screen", description: "Focus the same app's window on the next/previous screen.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "move-monitor", description: "Move the focused window to the next/previous monitor.",

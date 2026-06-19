@@ -63,5 +63,6 @@ public enum ActionResult: Codable, Equatable {
     case layoutSaved(name: String, windowCount: Int)
     case layoutApplied(name: String, moved: Int)
     case synced(direction: String, files: [String])   // file-based settings sync export/import
+    case suggestionsApplied(moves: [TiledMove])        // windows moved into their learned-preferred zones
     case failed(reason: ActionError)
 }

@@ -44,6 +44,8 @@ public final class ActionDispatcher {
         /// File-based settings sync — export/import the config + state to/from the synced folder.
         public var syncExport: () -> ActionResult
         public var syncImport: () -> ActionResult
+        /// Apply the context-aware placement suggestions (move flagged windows to their zones).
+        public var applySuggestions: () -> ActionResult
 
         public init(coordinator: @escaping () -> TilerCoordinator,
                     autoTilerConfig: @escaping () -> AutoTiler.Config,
@@ -59,7 +61,8 @@ public final class ActionDispatcher {
                     saveLayout: @escaping (String) -> ActionResult,
                     applyLayout: @escaping (String) -> ActionResult,
                     syncExport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
-                    syncImport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
+                    syncImport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
+                    applySuggestions: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
             self.coordinator = coordinator
             self.autoTilerConfig = autoTilerConfig
             self.appSwitcherConfig = appSwitcherConfig
@@ -75,6 +78,7 @@ public final class ActionDispatcher {
             self.applyLayout = applyLayout
             self.syncExport = syncExport
             self.syncImport = syncImport
+            self.applySuggestions = applySuggestions
         }
     }
 
@@ -154,6 +158,9 @@ public final class ActionDispatcher {
         case .toggleWindowHints:
             hooks.toggleWindowHints()
             return .modeToggled(mode: .windowHints)
+
+        case .applySuggestions:
+            return hooks.applySuggestions()
 
         case .syncExport:
             return hooks.syncExport()
