@@ -94,7 +94,11 @@ public enum AppController {
         if let running = NSWorkspace.shared.runningApplications.first(where: {
             ($0.localizedName ?? "").caseInsensitiveCompare(name) == .orderedSame
         }) {
-            running.activate()
+            // unhide() FIRST: activate() alone does NOT reliably bring back a *hidden* app, so a
+            // toggle that just hid an app (esp. Electron) would fail to restore it. hs's
+            // launchOrFocus unhides as part of activate — we replicate that here.
+            running.unhide()
+            running.activate(options: [.activateAllWindows])
             return
         }
         // `open -a <name>` launches or activates by display name — robust, not deprecated.
