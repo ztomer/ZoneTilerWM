@@ -4,10 +4,13 @@
 
 import AppKit
 import SwiftUI
+import ZTCore
 
 struct AboutView: View {
     private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.16"
+        // The .app's Info.plist is authoritative; the SwiftPM dev binary has none, so fall back to
+        // the single-source ZTVersion (kept in sync with project.yml by ./bump.sh).
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ZTVersion.marketing
     }
     // Load the real app icon from the bundled resource (works in the dev binary too, where
     // NSApplication.applicationIconImage is just the generic executable icon).

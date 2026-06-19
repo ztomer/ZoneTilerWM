@@ -17,7 +17,7 @@ let server = MCPServer()
 
 let context = MCPServer.Context(
     serverName: "zonetiler",
-    serverVersion: "1.5.16",
+    serverVersion: ZTVersion.marketing,   // single source (Sources/ZTCore/Version.swift)
     perform: { request in
         switch client.send(.action(request)) {
         case .action(let result): return result

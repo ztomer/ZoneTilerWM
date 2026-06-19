@@ -2,7 +2,7 @@
 # repo root); the original Hammerspoon/Lua implementation and its differential oracle harness were
 # retired once the port reached parity (they live on in git history + the `origin` remote).
 
-.PHONY: verify test-swift build app probe help
+.PHONY: verify test-swift build app probe bump help
 
 help:
 	@echo "make verify      - swift unit + golden tests"
@@ -10,6 +10,11 @@ help:
 	@echo "make build       - build the Swift package"
 	@echo "make app         - build ZoneTilerWM.app (Release, ad-hoc signed) via xcodegen"
 	@echo "make probe       - read-only system probe (screens/windows/audio)"
+	@echo "make bump VERSION=1.5.17 BUILD=48  - set the version in one place (Version.swift + project.yml)"
+
+# Single-source version bump (Version.swift + project.yml together) — see ./bump.sh.
+bump:
+	@./bump.sh $(VERSION) $(BUILD)
 
 verify test-swift:
 	@swift test
