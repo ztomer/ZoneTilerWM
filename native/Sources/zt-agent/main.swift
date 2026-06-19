@@ -436,7 +436,7 @@ final class AgentController: NSObject {
     private func apply(_ rule: Rule, toWindow id: Int) {
         if case .tileFocusedToZone(let zone) = rule.action {
             if let o = coordinator.moveWindow(windowId: id, toZone: zone) {
-                log("zt-agent: rule \(rule.app)/on-open → tile \(o.zoneKey) applied=\(o.applied)")
+                log("zt-agent: rule \(rule.app)/\(rule.trigger.rawValue) → tile \(o.zoneKey) applied=\(o.applied)")
             }
         } else {
             dispatcher.perform(rule.action)

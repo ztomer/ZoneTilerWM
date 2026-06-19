@@ -25,18 +25,23 @@ focused pass and delete items as they're verified. See `docs/AUTOMATION.md` for 
 - ✅ Already validated earlier: MCP handshake/tools/resources + a real AX tile via MCP;
   `zonetiler-cli` actions + resources + exit codes.
 
-## Residual (low risk — optional, GUI/Shortcuts round-trips)
-- **`zonetiler://` dispatch round-trip**: registration + parse are confirmed and the dispatcher
-  path is validated (rules/MCP/CLI all use it); the GURL handler is trivial glue. A full
-  LaunchServices round-trip (`open "zonetiler://…"`) wasn't run — it needs the `.app` installed as
-  the sole handler (and would reset the ad-hoc grant). Worth one check after a real install.
-- **App Intents firing in Shortcuts.app**: metadata present (discoverable) and each intent just
-  forwards over the socket (same path as the validated CLI). Visual Shortcuts check is the last mile.
-- **Rules on-focus / on-display-change**: share the validated `apply()`/`moveWindow` path and the
-  tested matching logic; the trigger *detection* (focus-change / display-change) is unexercised
-  live (on-display-change needs a real dock/undock).
-- **Note on install**: the installed `.app` is ad-hoc signed; the new build uses `ZoneTilerWM Dev`,
-  so installing it resets the Accessibility grant (one-time re-grant) — see `INSTALL.txt`.
+## Validation pass 2 — DONE (full GUI session, the complete build installed)
+The complete build (incl. layout snapshots) was installed to `/Applications` and validated live.
+The `ZoneTilerWM Dev` signature already had an Accessibility grant, so installing kept tiling
+working (no re-grant). Confirmed:
+- ✅ **`zonetiler://` round-trip**: `open "zonetiler://autotile"` auto-tiled the screen,
+  `reload` reloaded config, `tile` parsed, and `save-layout?name=…` persisted to `layouts.json`.
+  (The GURL handler routes → parses → dispatches → executes.)
+- ✅ **App Intents in Shortcuts.app**: ZoneTilerWM appears in the action library with all six
+  actions — Tile Focused Window, Auto-Tile Screen, Focus Screen, Switch Audio Output, Toggle
+  Application, Toggle Zen Mode. (Surfaced after a post-install reindex / Shortcuts relaunch.)
+- ✅ **Rules on-focus**: activating Finder (focus change) fired the rule and tiled the Finder
+  window (the `apply()` trigger log was fixed to print the real trigger, not always "on-open").
+
+## Residual (one item, hardware-gated)
+- **Rules on-display-change** *detection*: shares the validated `apply()`/`moveWindow` path and the
+  tested matching logic; the trigger is the standard `didChangeScreenParametersNotification`
+  observer. Not exercised live because it needs a real dock/undock or display reconfiguration.
 
 ## Known polish
 - ✅ DONE: `QueryResult` enum cases now carry labels, so the MCP/CLI JSON is self-describing
