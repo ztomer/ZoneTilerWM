@@ -71,6 +71,15 @@ final class ActionParserTests: XCTestCase {
         XCTAssertEqual(ActionParser.parse(name: "reload", params: [:]), .success(.reloadConfig))
     }
 
+    func testParseLayouts() {
+        XCTAssertEqual(ActionParser.parse(name: "save-layout", params: ["name": "coding"]),
+                       .success(.saveLayout(name: "coding")))
+        XCTAssertEqual(ActionParser.parse(name: "apply-layout", params: ["name": "coding"]),
+                       .success(.applyLayout(name: "coding")))
+        XCTAssertEqual(ActionParser.parse(name: "save-layout", params: [:]),
+                       .failure(.invalidParameter("name")))
+    }
+
     // MARK: bidirectional round-trip
 
     func testCanonicalRoundTripEveryCase() {

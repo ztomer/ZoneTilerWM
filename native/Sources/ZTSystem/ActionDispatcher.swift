@@ -36,6 +36,10 @@ public final class ActionDispatcher {
         public var toggleWindowHints: () -> Void
         /// Returns whether the reload was applied (false = parse/validation failed, config kept).
         public var reloadConfig: () -> Bool
+        /// Layout snapshots — agent-orchestrated (storage + arrangement capture + window-targeted
+        /// restore). Each returns the resulting ActionResult.
+        public var saveLayout: (String) -> ActionResult
+        public var applyLayout: (String) -> ActionResult
 
         public init(coordinator: @escaping () -> TilerCoordinator,
                     autoTilerConfig: @escaping () -> AutoTiler.Config,
@@ -46,7 +50,9 @@ public final class ActionDispatcher {
                     pomodoro: @escaping (PomodoroCommand) -> ActionResult,
                     toggleResizeMode: @escaping () -> Void,
                     toggleWindowHints: @escaping () -> Void,
-                    reloadConfig: @escaping () -> Bool) {
+                    reloadConfig: @escaping () -> Bool,
+                    saveLayout: @escaping (String) -> ActionResult,
+                    applyLayout: @escaping (String) -> ActionResult) {
             self.coordinator = coordinator
             self.autoTilerConfig = autoTilerConfig
             self.appSwitcherConfig = appSwitcherConfig
@@ -57,6 +63,8 @@ public final class ActionDispatcher {
             self.toggleResizeMode = toggleResizeMode
             self.toggleWindowHints = toggleWindowHints
             self.reloadConfig = reloadConfig
+            self.saveLayout = saveLayout
+            self.applyLayout = applyLayout
         }
     }
 
@@ -121,6 +129,12 @@ public final class ActionDispatcher {
 
         case .reloadConfig:
             return .configReloaded(ok: hooks.reloadConfig())
+
+        case .saveLayout(let name):
+            return hooks.saveLayout(name)
+
+        case .applyLayout(let name):
+            return hooks.applyLayout(name)
         }
     }
 

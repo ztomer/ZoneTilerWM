@@ -180,9 +180,10 @@ the HUD be **toggleable and unobtrusive by default for experienced users**:
     the **`zonetiler://` URL scheme**, and **App Intents** (Shortcuts/Spotlight/Siri) are built — so
     **all four planned front-ends over the action API are in place**. The agent hotkeys are rewired
     through the dispatcher, and the `.app` bundle ships the helper binaries (zt-mcp, zonetiler-cli).
-    Remaining within v2.0: the **live/integration validation pass** (deferred while GUI access is
-    unavailable; tracked in `docs/V2_TEST_DEBT.md`) and minor polish (wire-shape, retire legacy
-    CLIs). Unit suite green at 233. See `docs/AUTOMATION.md`.
+    **Layout snapshots** (`save-layout`/`apply-layout`, theme C pulled forward onto the action API)
+    capture/restore named arrangements. The validation pass is done (live: rules on-open, packaging,
+    Settings pane, menubar/hints; residuals tracked in `docs/V2_TEST_DEBT.md`). Unit suite green at
+    244. See `docs/AUTOMATION.md`.
 - **v2.1 — Kinesthetic discoverability.** Modifier-held zone HUD (with the toggle/hold-delay design
   above), then mouse drag-to-snap. Built on the existing overlay infrastructure.
 - **v2.2 — Depth & intelligence.** Layout snapshots/workspaces, window stacks, context-aware

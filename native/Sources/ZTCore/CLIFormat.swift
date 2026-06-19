@@ -30,6 +30,10 @@ public enum CLIFormat {
             return "toggled \(mode.rawValue) mode"
         case .configReloaded(let ok):
             return ok ? "config reloaded" : "config reload failed (kept running config)"
+        case .layoutSaved(let name, let count):
+            return "saved layout '\(name)' (\(count) window\(count == 1 ? "" : "s"))"
+        case .layoutApplied(let name, let moved):
+            return "applied layout '\(name)' (\(moved) window\(moved == 1 ? "" : "s") moved)"
         case .failed(let reason):
             return "error: \(describe(reason))"
         }

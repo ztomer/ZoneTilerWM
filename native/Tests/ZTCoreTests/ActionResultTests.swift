@@ -26,6 +26,8 @@ final class ActionResultTests: XCTestCase {
         .modeToggled(mode: .resize),
         .modeToggled(mode: .windowHints),
         .configReloaded(ok: true),
+        .layoutSaved(name: "coding", windowCount: 3),
+        .layoutApplied(name: "coding", moved: 2),
         .failed(reason: .noFocusedWindow),
         .failed(reason: .noZone("z")),
         .failed(reason: .invalidParameter("zone")),

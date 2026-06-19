@@ -26,6 +26,8 @@ final class ActionRequestTests: XCTestCase {
         .pomodoro(.reset),
         .toggleResizeMode,
         .toggleWindowHints,
+        .saveLayout(name: "coding"),
+        .applyLayout(name: "writing"),
         .reloadConfig,
     ]
 

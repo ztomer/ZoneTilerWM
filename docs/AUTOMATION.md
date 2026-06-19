@@ -28,7 +28,8 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `focus-screen`, `move-monitor`, `zen`, `audio`, `app`, `pomodoro`, `resize-mode`,
-`window-hints`, `reload`. Resources: `arrangement`, `zones`, `placement-stats`.
+`window-hints`, `save-layout`, `apply-layout`, `reload`. Resources: `arrangement`, `zones`,
+`placement-stats`.
 
 ## Transport: agent + Unix-domain socket
 
@@ -91,6 +92,21 @@ and (for a couple) by voice via App Shortcuts. Each intent forwards its `ActionR
 running agent over the same socket (so it works regardless of which process runs the intent, as
 long as the agent is up). Defined in `native/Sources/zt-agent/Intents.swift`; discovered via the
 App Intents metadata the Xcode build extracts.
+
+## Layout snapshots (`save-layout` / `apply-layout`)
+
+Capture the current window arrangement under a name and restore it later:
+
+```sh
+zonetiler-cli save-layout --name coding     # capture now
+zonetiler-cli apply-layout --name coding    # restore later
+```
+
+A snapshot records, per (app, monitor), the zone its window occupies; restore matches each
+saved assignment to a live window of that app (preferring the same monitor) and tiles it there.
+Persisted to `~/.config/ZoneTilerWM/layouts.json`. Best-effort by design (app-name
+re-identification) — single-main-window apps restore reliably; multi-window/Electron apps are
+approximate (roadmap risk register). Available over MCP and the URL scheme too, same as any action.
 
 ## Settings → Automation pane
 

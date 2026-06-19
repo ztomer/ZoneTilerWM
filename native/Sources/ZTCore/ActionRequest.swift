@@ -57,6 +57,11 @@ public enum ActionRequest: Codable, Equatable {
     case toggleResizeMode
     case toggleWindowHints
 
+    // Layout snapshots (capture/restore named arrangements). Agent-orchestrated (storage +
+    // arrangement capture + window-targeted restore).
+    case saveLayout(name: String)
+    case applyLayout(name: String)
+
     // Lifecycle.
     case reloadConfig
 }

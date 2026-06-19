@@ -129,6 +129,8 @@ final class AgentController: NSObject {
     // socket the zt-mcp shim forwards to.
     private var arrangementQuery: ArrangementQuery!
     private var socketServer: AgentSocketServer?
+    // Named layout snapshots (persisted to "layouts" under the cache dir).
+    private var layouts: LayoutLibrary
     private let pomodoro: Pomodoro
     private var statusItem: NSStatusItem?
     private var pomodoroItem: NSStatusItem?
@@ -179,6 +181,7 @@ final class AgentController: NSObject {
         let rstore = JSONFileStorage(directory: URL(fileURLWithPath: config.windowMemory.cacheDir, isDirectory: true))
         resizeStorage = rstore
         resizeManager.load(from: rstore)
+        layouts = rstore.load("layouts", as: LayoutLibrary.self) ?? LayoutLibrary()
         let resize = resizeManager
 
         coordinator = AgentController.makeCoordinator(config: config, windowSystem: windowSystem,
@@ -230,7 +233,9 @@ final class AgentController: NSObject {
             },
             toggleResizeMode: { [unowned self] in self.resizeMode.toggle() },
             toggleWindowHints: { [unowned self] in self.windowHints.toggle() },
-            reloadConfig: { [unowned self] in self.reloadFromDisk() }))
+            reloadConfig: { [unowned self] in self.reloadFromDisk() },
+            saveLayout: { [unowned self] name in self.saveLayout(name) },
+            applyLayout: { [unowned self] name in self.applyLayout(name) }))
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
         arrangementQuery = ArrangementQuery(
@@ -563,6 +568,38 @@ final class AgentController: NSObject {
             socketServer = nil
             log("zt-agent: automation disabled — IPC socket stopped")
         }
+    }
+
+    // MARK: - Layout snapshots
+
+    /// Current arrangement as value snapshots via the read-only query provider (0 AX).
+    private func currentArrangement() -> [WindowInfo] {
+        if case .arrangement(let windows) = arrangementQuery.answer(.arrangement) { return windows }
+        return []
+    }
+
+    /// Capture the current arrangement into a named snapshot and persist it.
+    private func saveLayout(_ name: String) -> ActionResult {
+        let snapshot = LayoutSnapshots.capture(name: name, from: currentArrangement())
+        layouts = layouts.upserting(snapshot)
+        resizeStorage.save("layouts", layouts)
+        log("zt-agent: saved layout '\(name)' (\(snapshot.assignments.count) windows)")
+        return .layoutSaved(name: name, windowCount: snapshot.assignments.count)
+    }
+
+    /// Restore a named snapshot: tile each matched window to its saved zone (window-targeted).
+    private func applyLayout(_ name: String) -> ActionResult {
+        guard let snapshot = layouts.snapshot(named: name) else {
+            log("zt-agent: apply-layout '\(name)' — no such layout")
+            return .failed(reason: .invalidParameter("name"))
+        }
+        let plan = LayoutSnapshots.restorePlan(snapshot, current: currentArrangement())
+        var moved = 0
+        for move in plan where coordinator.moveWindow(windowId: move.windowId, toZone: move.zone)?.applied == true {
+            moved += 1
+        }
+        log("zt-agent: applied layout '\(name)' (\(moved)/\(plan.count) moved)")
+        return .layoutApplied(name: name, moved: moved)
     }
 
     // MARK: - Display arrangement
