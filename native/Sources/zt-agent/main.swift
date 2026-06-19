@@ -124,7 +124,6 @@ final class AgentController: NSObject {
     private var resizeMode: ResizeModeController!
     private var windowHints: WindowHintsController!
     private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
-    private var nlBox: NLBoxController!                     // gated by [nl] enabled (on-device NL layout box)
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
@@ -275,8 +274,14 @@ final class AgentController: NSObject {
             scratchpad: { [unowned self] in self.scratchpad.toggle() },
             applyCluster: { [unowned self] name in self.applyCluster(name) },
             sandbox: { [unowned self] in self.sandbox.toggle() }))
-        commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
-        nlBox = NLBoxController(perform: { [unowned self] in self.dispatcher.perform($0) })
+        commandPalette = CommandPaletteController(
+            perform: { [unowned self] in self.dispatcher.perform($0) },
+            nlEnabled: { [unowned self] in self.config.nlEnabled },   // on-device NL fallback (merged in)
+            interpretNL: { [unowned self] text in
+                let prompt = NLCommand.systemPrompt(catalog: ActionParser.catalog)
+                if case .requests(let r) = await NLInterpreter.interpret(text, systemPrompt: prompt) { return r }
+                return []
+            })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },
@@ -936,16 +941,11 @@ final class AgentController: NSObject {
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.dispatcher.perform(.reloadConfig)
         }
-        // Command palette — opt-in: only bound when [command_palette] enabled.
+        // Command palette — opt-in: only bound when [command_palette] enabled. When [nl] is also on,
+        // the palette doubles as the natural-language box (type a request, ⏎ asks the on-device model).
         if config.commandPaletteEnabled {
             bindAction(config.resolvedHotkey("command_palette", in: config.systemHotkeys), label: "command_palette") { [weak self] in
                 self?.commandPalette.toggle()
-            }
-        }
-        // On-device NL layout box — opt-in: only bound when [nl] enabled (needs Apple Intelligence).
-        if config.nlEnabled {
-            bindAction(config.resolvedHotkey("nl", in: config.systemHotkeys), label: "nl") { [weak self] in
-                self?.nlBox.toggle()
             }
         }
     }
@@ -1039,7 +1039,6 @@ final class AgentController: NSObject {
 
     /// QA / debug entry point to show the command palette (the normal trigger is the gated hotkey).
     func showCommandPalette() { commandPalette.show() }
-    func showNLBox() { nlBox.show() }
 
     /// QA / debug entry point to force the zone HUD on (the normal trigger is the modifier hold).
     func showZoneHUDForQA() { zoneHUD.forceShow() }
@@ -1048,6 +1047,14 @@ final class AgentController: NSObject {
 
     /// Deterministic, windowless render of a visual overlay to a PNG (QA / Gemini visual grading).
     /// No app loop, no display capture — draws the overlay view into a bitmap over a neutral backdrop.
+    /// Deterministic render of a settings tab to PNG (QA / Gemini grading) via SwiftUI ImageRenderer.
+    func renderSettingsPNG(_ tab: String, to path: String) {
+        let model = SettingsModel(configURL: configURL, config: config, memory: learnedMemory)
+        let data = MainActor.assumeIsolated { SettingsRender.png(model: model, tab: tab) }
+        if let data, (try? data.write(to: URL(fileURLWithPath: path))) != nil { log("zt-agent: rendered settings '\(tab)' → \(path)") }
+        else { log("zt-agent: render settings '\(tab)' failed") }
+    }
+
     func renderOverlayPNG(_ which: String, to path: String) {
         guard let screen = screens.screenUnderMouse() ?? screens.mainScreen() else { log("render: no screen"); return }
         // Optional real-desktop backdrop (ZT_RENDER_BG=/path.png) so the dim is judged over content.
@@ -1100,7 +1107,6 @@ case "settings":  DispatchQueue.main.async { controller.openSettings() }
 case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
-case "nl":        DispatchQueue.main.async { controller.showNLBox() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
 case "break":     DispatchQueue.main.async { controller.breakScreenForQA() }
@@ -1110,6 +1116,12 @@ default: break
 if let render = ProcessInfo.processInfo.environment["ZT_RENDER"] {
     let parts = render.split(separator: ":", maxSplits: 1).map(String.init)
     if parts.count == 2 { controller.renderOverlayPNG(parts[0], to: parts[1]) }
+    exit(0)
+}
+// Deterministic settings-tab render for QA / Gemini grading: "ZT_RENDER_UI=features:/path.png".
+if let r = ProcessInfo.processInfo.environment["ZT_RENDER_UI"] {
+    let parts = r.split(separator: ":", maxSplits: 1).map(String.init)
+    if parts.count == 2 { controller.renderSettingsPNG(parts[0], to: parts[1]) }
     exit(0)
 }
 // Headless NL probe: "ZT_NL=tile this left" → run the on-device interpreter, print the resulting

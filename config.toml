@@ -415,9 +415,10 @@ prediction = true            # lead the outline to compensate for follow-lag
 # path = "~/.config/ZoneTilerWM/events.jsonl"   # default; one JSON line per layout change
 # interval_ms = 1000         # how often the arrangement is polled (CGWindowList, 0 AX)
 #
-# [nl]                       # on-device natural-language layout box (opt-in; needs Apple Intelligence)
-# enabled = true             # bind an `nl` hotkey under [system_hotkeys]; type a request, ⏎ to run.
-#                            # Uses the on-device model (FoundationModels) — 100% local, no network.
+# [nl]                       # natural language in the command palette (opt-in; needs Apple Intelligence)
+# enabled = true             # the command palette doubles as an NL box: type a request that matches
+#                            # no command, ⏎ asks the on-device model (FoundationModels — 100% local).
+#                            # Requires [command_palette] enabled.
 
 
 # =============================================================================

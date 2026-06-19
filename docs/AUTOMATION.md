@@ -224,18 +224,20 @@ imported state live (layouts replace; learned positions merge, imported winning 
 **Gated (opt-in):** does nothing unless `[sync] folder` is set; surfaced via the catalog
 (palette/CLI/MCP). Default off.
 
-## On-device NL layout box (`[nl]`)
+## Natural language in the command palette (`[nl]`)
 
-A natural-language box (bind an `nl` hotkey): type "tile this left, focus the next screen", press ⏎,
-and the **on-device** model (Apple FoundationModels — 100% local, no network) turns it into
-ActionRequests that run through the normal dispatch path. The model fills a `@Generable` command list
-shaped by a prompt built from the action catalog (`ZTCore.NLCommand`); each command is mapped back
-via the shared `ActionParser` and anything that doesn't validate is dropped. Verified end-to-end on
-the real model ("tile this left"→`tile`, "auto-tile the screen"→`autotile`). 0 AX for the
-interpretation (the resulting actions use the normal AX move path).
+When `[nl]` is on, the **command palette doubles as a natural-language box** (one panel, one
+interface — there is no separate NL box): type a request that matches no command (e.g. "put terminal
+left, focus the next screen"), press ⏎, and the **on-device** model (Apple FoundationModels — 100%
+local, no network) turns it into ActionRequests that run through the normal dispatch path. The model
+fills a `@Generable` command list shaped by a prompt built from the action catalog
+(`ZTCore.NLCommand`); each command is mapped back via the shared `ActionParser`, dropping anything
+invalid. Verified end-to-end on the real model ("tile this left"→`tile`, "auto-tile the
+screen"→`autotile`). 0 AX for interpretation (resulting actions use the normal AX move path).
 
-**Gated (opt-in):** `[nl] enabled` (default off). Requires **Apple Intelligence enabled + the model
-downloaded**; if not, the box shows the availability reason. Headless QA: `ZT_NL="…" zt-agent`.
+**Gated (opt-in):** `[nl] enabled` (default off) + `[command_palette] enabled`. Requires **Apple
+Intelligence enabled + the model downloaded**; if not, the palette shows the availability reason.
+Headless QA: `ZT_NL="…" zt-agent`.
 
 ## Arrangement event stream (`[events]`)
 

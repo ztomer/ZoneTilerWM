@@ -110,6 +110,22 @@ public final class SettingsModel: ObservableObject {
     public func setAudioHotkey(alias: String, key: String) { setOrAppend(section: "audio_switcher", key: "hotkey", rawValue: "[\"\(alias)\", \"\(key)\"]") }
     public func setAudioShortcut(_ s: String) { setOrAppend(section: "audio_switcher", key: "shortcut_callback", rawValue: "\"\(s)\"") }
 
+    // MARK: - Gated v3 features (all opt-in, default off) — persisted comment-preserving.
+    public func setCommandPaletteEnabled(_ on: Bool) { setOrAppend(section: "command_palette", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setZoneHUDEnabled(_ on: Bool) { setOrAppend(section: "zone_hud", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setZoneHUDHoldDelay(_ ms: Int) { setOrAppend(section: "zone_hud", key: "hold_delay_ms", rawValue: "\(ms)") }
+    public func setDragSnapEnabled(_ on: Bool) { setOrAppend(section: "drag_snap", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setBreakScreenEnabled(_ on: Bool) { setOrAppend(section: "break_screen", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setBreakScreenDuration(_ s: Int) { setOrAppend(section: "break_screen", key: "duration_sec", rawValue: "\(s)") }
+    public func setScratchpadApps(_ apps: [String]) { setOrAppend(section: "scratchpad", key: "apps", rawValue: tomlArray(apps)) }
+    public func setScratchpadAutoDismiss(_ on: Bool) { setOrAppend(section: "scratchpad", key: "auto_dismiss", rawValue: on ? "true" : "false") }
+    public func setFocusFollowsMouseEnabled(_ on: Bool) { setOrAppend(section: "focus_follows_mouse", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setFocusFollowsMouseDelay(_ ms: Int) { setOrAppend(section: "focus_follows_mouse", key: "delay_ms", rawValue: "\(ms)") }
+    public func setEventsEnabled(_ on: Bool) { setOrAppend(section: "events", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setEventsInterval(_ ms: Int) { setOrAppend(section: "events", key: "interval_ms", rawValue: "\(ms)") }
+    public func setNLEnabled(_ on: Bool) { setOrAppend(section: "nl", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setSyncFolder(_ path: String) { setOrAppend(section: "sync", key: "folder", rawValue: "\"\(path)\"") }
+
     // Window memory
     public func setWindowMemoryEnabled(_ on: Bool) { setOrAppend(section: "window_memory", key: "enabled", rawValue: on ? "true" : "false") }
     public func setExcludedApps(_ apps: [String]) { setOrAppend(section: "window_memory", key: "excluded_apps", rawValue: tomlArray(apps)) }
@@ -312,7 +328,7 @@ public struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     @State private var tab: String
     private let tabs = [("general", "General"), ("keys", "Keys"), ("apps", "Apps"),
-                        ("layouts", "Layouts"), ("pomodoro", "Pomodoro"),
+                        ("layouts", "Layouts"), ("pomodoro", "Pomodoro"), ("features", "Features"),
                         ("automation", "Automation"), ("advanced", "Advanced")]
     public init(model: SettingsModel) {
         self.model = model
@@ -341,6 +357,7 @@ public struct SettingsView: View {
                 case "apps": AppShortcutsView(model: model)
                 case "layouts": LayoutEditorView(model: model)
                 case "pomodoro": PomodoroTab(model: model)
+                case "features": FeaturesTab(model: model)
                 case "automation": AutomationTab(model: model)
                 case "advanced": AdvancedTab(model: model)
                 default: general

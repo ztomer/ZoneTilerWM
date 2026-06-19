@@ -6,6 +6,7 @@
 import SwiftUI
 import AppKit
 import ZTCore
+import ZTSystem
 
 private let colorNames = ["green", "red", "blue", "yellow", "orange", "purple", "white", "black", "gray"]
 
@@ -390,6 +391,131 @@ struct AutomationTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+// MARK: - Features (the gated v3 features, all opt-in)
+
+struct FeaturesTab: View {
+    @ObservedObject var model: SettingsModel
+    @State private var scratchApps: String = ""
+    @State private var syncFolder: String = ""
+    @State private var loaded = false
+
+    private func caption(_ s: String) -> some View {
+        Text(s).font(.caption).foregroundColor(.secondary)
+    }
+
+    var body: some View {
+        Form {
+            Section("Overlays") {
+                Toggle("Command palette (⌘K-style action search)", isOn: bind(\.commandPaletteEnabled, model.setCommandPaletteEnabled))
+                caption("Fuzzy-search and run any action. Bind its hotkey under Keys.")
+
+                Toggle("Zone HUD (modifier-held cheat-sheet)", isOn: bind(\.zoneHUDEnabled, model.setZoneHUDEnabled))
+                caption("Hold the tiling modifier to see each zone's key. Self-silences for quick chords.")
+                if model.config.zoneHUDEnabled {
+                    NumberRow(label: "Hold delay", value: Binding(
+                        get: { model.config.zoneHUDHoldDelayMs },
+                        set: { model.setZoneHUDHoldDelay($0) }), range: 120...2000, step: 20, suffix: "ms")
+                }
+
+                Toggle("Drag-to-snap (modifier + drag → zone)", isOn: bind(\.dragSnapEnabled, model.setDragSnapEnabled))
+                caption("Drag a window with the tiling modifier held; it snaps to the zone under the cursor on drop.")
+            }
+
+            Section("Focus & breaks") {
+                Toggle("Focus-follows-mouse", isOn: bind(\.focusFollowsMouseEnabled, model.setFocusFollowsMouseEnabled))
+                caption("Focus the window the cursor settles on. Note: this is the one feature that adds per-interaction Accessibility calls — keep it off unless you want it.")
+                if model.config.focusFollowsMouseEnabled {
+                    NumberRow(label: "Dwell", value: Binding(
+                        get: { model.config.focusFollowsMouseDelayMs },
+                        set: { model.setFocusFollowsMouseDelay($0) }), range: 50...2000, step: 25, suffix: "ms")
+                }
+
+                Toggle("Retro break screen (Pomodoro)", isOn: bind(\.breakScreenEnabled, model.setBreakScreenEnabled))
+                caption("A full-screen \"BREAK TIME\" overlay when a work period ends.")
+                if model.config.breakScreenEnabled {
+                    NumberRow(label: "Duration", value: Binding(
+                        get: { model.config.breakScreenDurationSec },
+                        set: { model.setBreakScreenDuration($0) }), range: 2...60, step: 1, suffix: "s")
+                }
+            }
+
+            Section("Scratchpad") {
+                LabeledContent("Apps") {
+                    TextField("Terminal, Notes", text: $scratchApps)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+                        .onSubmit { model.setScratchpadApps(splitList(scratchApps)) }
+                }
+                caption("Comma-separated apps summoned/dismissed together by the scratchpad action. Press ⏎ to save. Bind a hotkey under Keys.")
+                Toggle("Auto-dismiss when focus leaves the set", isOn: bind(\.scratchpadAutoDismiss, model.setScratchpadAutoDismiss))
+                    .disabled(model.config.scratchpadApps.isEmpty)
+            }
+
+            Section("On-device AI") {
+                Toggle("Natural language in the command palette", isOn: bind(\.nlEnabled, model.setNLEnabled))
+                caption("When on, the command palette doubles as a natural-language box: if your text matches no command, ⏎ asks the on-device model (\"put terminal left\"). 100% local — no network. Needs the command palette enabled + Apple Intelligence.")
+                LabeledContent("Model") { nlStatus }
+            }
+
+            Section("Integration") {
+                Toggle("Arrangement event stream", isOn: bind(\.eventsEnabled, model.setEventsEnabled))
+                caption("Append layout-change events to a file you can tail -f from scripts/status bars.")
+                if model.config.eventsEnabled {
+                    NumberRow(label: "Poll interval", value: Binding(
+                        get: { model.config.eventsIntervalMs },
+                        set: { model.setEventsInterval($0) }), range: 250...10000, step: 250, suffix: "ms")
+                }
+                LabeledContent("Sync folder") {
+                    TextField("~/Library/Mobile Documents/…", text: $syncFolder)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+                        .onSubmit { model.setSyncFolder(syncFolder) }
+                }
+                caption("A folder you already sync (iCloud/Dropbox) for sync-export / sync-import. Press ⏎ to save.")
+            }
+
+            Section("Profiles (edit in config.toml)") {
+                LabeledContent("App clusters") {
+                    Text(model.config.clusters.isEmpty ? "none" : model.config.clusters.map { $0.name }.joined(separator: ", "))
+                        .foregroundColor(.secondary)
+                }
+                LabeledContent("Display presets") {
+                    Text("\(model.config.displayPresets.count) configured").foregroundColor(.secondary)
+                }
+                caption("Named app→zone clusters and display-topology presets are list configs — edit them under [[clusters]] / [[display_presets]] in config.toml; they live-reload.")
+            }
+
+            Section("Action-only (bind a hotkey under Keys)") {
+                caption("Window peek — label the windows stacked in the focused zone, type to focus.  ·  Session sandbox — hide everything but the focused app, toggle to restore.  ·  Per-window float, swap / nudge / throw — fine-tune placement.")
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear {
+            guard !loaded else { return }
+            scratchApps = model.config.scratchpadApps.joined(separator: ", ")
+            syncFolder = model.config.syncFolder ?? ""
+            loaded = true
+        }
+    }
+
+    @ViewBuilder private var nlStatus: some View {
+        switch NLInterpreter.status {
+        case .available:
+            Label("available", systemImage: "checkmark.circle").foregroundColor(.green)
+        case .unavailable(let why):
+            Label(why, systemImage: "exclamationmark.triangle").foregroundColor(.orange)
+                .lineLimit(1).truncationMode(.tail)
+        }
+    }
+
+    /// Bool toggle binding: read a config flag, write via a model setter.
+    private func bind(_ keyPath: KeyPath<ConfigLoader.LoadedConfig, Bool>, _ setter: @escaping (Bool) -> Void) -> Binding<Bool> {
+        Binding(get: { model.config[keyPath: keyPath] }, set: { setter($0) })
+    }
+
+    private func splitList(_ s: String) -> [String] {
+        s.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 }
 

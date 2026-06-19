@@ -18,15 +18,25 @@ private final class FlippedView: NSView { override var isFlipped: Bool { true } 
 
 final class CommandPaletteController: NSObject, NSTextFieldDelegate {
     private let perform: (ActionRequest) -> ActionResult
+    /// Natural-language fallback (merged from the old NL box): when the typed text matches no
+    /// action and `nlEnabled()` is true, ⏎ asks the on-device model. nlEnabled is read live so a
+    /// config toggle takes effect without rebuilding the panel.
+    private let nlEnabled: () -> Bool
+    private let interpretNL: (String) async -> [ActionRequest]
     private var panel: KeyPanel?
     private var field: NSTextField!
     private var listStack: NSStackView!
     private var hintLabel: NSTextField!
     private var results: [ActionSpec] = []
     private var selection = 0
+    private var busy = false
 
-    init(perform: @escaping (ActionRequest) -> ActionResult) {
+    init(perform: @escaping (ActionRequest) -> ActionResult,
+         nlEnabled: @escaping () -> Bool = { false },
+         interpretNL: @escaping (String) async -> [ActionRequest] = { _ in [] }) {
         self.perform = perform
+        self.nlEnabled = nlEnabled
+        self.interpretNL = interpretNL
     }
 
     func toggle() {
@@ -80,7 +90,7 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
 
         field = NSTextField()
         field.font = .systemFont(ofSize: 20, weight: .regular)
-        field.placeholderString = "Run a command —  tile h · save-layout coding · audio · zen"
+        field.placeholderString = "Run a command, or describe a layout —  tile h · zen · \"put terminal left\""
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
@@ -162,7 +172,8 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
             row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true   // now share an ancestor
         }
         if results.isEmpty {
-            hintLabel.stringValue = "no matching command"
+            let typed = !field.stringValue.trimmingCharacters(in: .whitespaces).isEmpty
+            hintLabel.stringValue = (typed && nlEnabled()) ? "⏎ to ask the on-device model" : "no matching command"
         } else {
             let spec = results[min(selection, results.count - 1)]
             let params = spec.params.map { $0.required ? "<\($0.name)>" : "[\($0.name)]" }.joined(separator: " ")
@@ -218,8 +229,14 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
     }
 
     private func run() {
-        var input = field.stringValue.trimmingCharacters(in: .whitespaces)
-        if input.isEmpty { return }
+        let raw = field.stringValue.trimmingCharacters(in: .whitespaces)
+        if raw.isEmpty || busy { return }
+        // No fuzzy action match → fall back to the on-device model (if enabled) on the raw text.
+        if results.isEmpty {
+            if nlEnabled() { runNL(raw) }
+            return
+        }
+        var input = raw
         // Snap the action token to the highlighted result when the user typed a fuzzy prefix.
         if !results.isEmpty {
             let spec = results[min(selection, results.count - 1)]
@@ -238,6 +255,26 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
             field.stringValue = input
             field.currentEditor()?.selectedRange = NSRange(location: input.count, length: 0)
             refresh(input)
+        }
+    }
+
+    /// Ask the on-device model to turn free text into actions, then dispatch them. Async + slow, so
+    /// show a "thinking…" state and keep the panel up until it returns.
+    private func runNL(_ text: String) {
+        busy = true
+        hintLabel.stringValue = "thinking…"
+        Task { [weak self] in
+            let reqs = await self?.interpretNL(text) ?? []
+            await MainActor.run {
+                guard let self else { return }
+                self.busy = false
+                if reqs.isEmpty {
+                    self.hintLabel.stringValue = "no matching command, and the model found no action"
+                } else {
+                    self.hide()
+                    for r in reqs { _ = self.perform(r) }
+                }
+            }
         }
     }
 
