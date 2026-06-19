@@ -5,34 +5,38 @@ phase), this tracks everything that has NOT been run or live-validated yet. Clea
 focused pass and delete items as they're verified. See `docs/AUTOMATION.md` for the features.
 
 ## Unit tests — all RUN green
-- Full suite green at **233 tests** (incl. RulesEngine, RulesConfig, moveWindow, on-display-change
-  matching). The unrun-unit-test debt is cleared; keep running `make verify` each build (headless,
-  works with no GUI).
+- Full suite green at **236 tests** (incl. RulesEngine, RulesConfig, moveWindow, on-display-change
+  matching, hint deoverlap). The unrun-unit-test debt is cleared; keep running `make verify` each
+  build (headless).
 
-## Live / integration validation pending (needs GUI / the built .app — deferred)
-- **Rules engine (on-open)**: real new-window detection (CGWindowList id diff) fires the rule and
-  the tile lands on the *newly opened* (not focused) window; baseline-seed does NOT retro-fire on
-  pre-existing windows at startup or when a rule is added via live reload.
-- **Rules engine (on-focus)**: fires once when focus changes to the app's window (not every poll);
-  seed-skips the window focused at launch; tile re-applies on each focus change as documented.
-- **Rules engine (on-display-change)**: dock/undock re-places every current window of a matching
-  app (fires after monitors re-register).
-- **`zonetiler://` URL scheme**: only effective from the installed `.app`. Build it, then
-  `open "zonetiler://tile?zone=h"` and confirm dispatch. (So far: swift build green + the
-  generated Info.plist carries `CFBundleURLTypes(zonetiler)` — handler not exercised live.)
-- **`build_package.sh` helper bundling**: the full `xcodebuild` Release + copy
-  `zt-mcp`/`zonetiler-cli` into `Contents/MacOS` + re-sign path has NOT been run. Verify: bundle
-  launches, both helpers present and validly signed, Settings → Automation paths resolve to them.
-- **Settings → Automation pane** (deferred, UI in use): screenshot pass; toggle persists
-  `[automation] enabled`; the socket starts/stops on live reload; the capabilities list renders.
-- **App Intents**: only `swift build`-compiled so far. Needs the Xcode-built `.app` so the
-  AppIntents metadata extraction runs, then verify in **Shortcuts.app**: the intents appear
-  (Tile/Auto-Tile/Switch Audio/Toggle App/Zen/Focus Screen), parameters work, and `perform()`
-  forwards over the socket to the running agent (and reports a clean error when it's not running).
-  Risk: App Intents discovery in a plain LSUIElement agent target (not a SwiftUI `App`) can be
-  finicky — confirm the metadata processor runs and the App Shortcuts (Siri phrases) register.
-- Already live-validated (OK): MCP handshake/tools/resources + a real AX tile via MCP;
+## Validation pass — DONE (GUI session, this push)
+- ✅ **Packaging path** (`build_package.sh`): full xcodegen + xcodebuild Release built the `.app`;
+  the helper-bundling + re-sign step works — `Contents/MacOS/{zt-mcp,zonetiler-cli}` present and
+  validly signed, deep bundle signature OK.
+- ✅ **URL scheme registration**: built Info.plist carries `CFBundleURLTypes(zonetiler)`.
+- ✅ **App Intents discoverability**: the `.app` contains `Contents/Resources/Metadata.appintents`
+  (metadata extraction ran) → intents will surface in Shortcuts.
+- ✅ **Rules engine — on-open**: live-validated. A new Finder window fired
+  `rule Finder/on-open → tile h applied=true` and the arrangement confirmed it landed in zone h
+  while the pre-existing Finder window was left untouched (baseline-seed correct).
+- ✅ **Settings → Automation pane**: screenshot confirmed — Automation tab, enable toggle,
+  Status = Listening, MCP/CLI connect snippets + Copy, capabilities list.
+- ✅ **Menu bar icon + hint overlap** (commit c87c45c): GUI-validated.
+- ✅ Already validated earlier: MCP handshake/tools/resources + a real AX tile via MCP;
   `zonetiler-cli` actions + resources + exit codes.
+
+## Residual (low risk — optional, GUI/Shortcuts round-trips)
+- **`zonetiler://` dispatch round-trip**: registration + parse are confirmed and the dispatcher
+  path is validated (rules/MCP/CLI all use it); the GURL handler is trivial glue. A full
+  LaunchServices round-trip (`open "zonetiler://…"`) wasn't run — it needs the `.app` installed as
+  the sole handler (and would reset the ad-hoc grant). Worth one check after a real install.
+- **App Intents firing in Shortcuts.app**: metadata present (discoverable) and each intent just
+  forwards over the socket (same path as the validated CLI). Visual Shortcuts check is the last mile.
+- **Rules on-focus / on-display-change**: share the validated `apply()`/`moveWindow` path and the
+  tested matching logic; the trigger *detection* (focus-change / display-change) is unexercised
+  live (on-display-change needs a real dock/undock).
+- **Note on install**: the installed `.app` is ad-hoc signed; the new build uses `ZoneTilerWM Dev`,
+  so installing it resets the Accessibility grant (one-time re-grant) — see `INSTALL.txt`.
 
 ## Known polish
 - ✅ DONE: `QueryResult` enum cases now carry labels, so the MCP/CLI JSON is self-describing
