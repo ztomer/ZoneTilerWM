@@ -119,6 +119,17 @@ subsequence); remaining tokens are the action's params positionally. Pure matchi
 **Gated (opt-in):** off unless `[command_palette] enabled = true` AND a `command_palette` hotkey is
 set under `[system_hotkeys]`. Then it's just another front-end over the dispatcher.
 
+## Zone HUD (modifier-held cheat-sheet)
+
+Hold the tiling modifier past a short delay and a translucent overlay shows each zone key at its
+on-screen region — a learnable map so you don't have to memorize the keymap first. Pure layout is
+`ZTCore.ZoneHUD.layout(zones:)`; the agent shows it via a `flagsChanged` monitor + hold-delay
+timer. It's *display only* — the actual tiling stays the existing modifier+zone hotkey.
+
+**Gated (opt-in):** off unless `[zone_hud] enabled = true`. `hold_delay_ms` (default 400) means a
+quick, confident chord never triggers it; only a hesitant hold gets the map — self-silencing for
+experienced users.
+
 ## Settings → Automation pane
 
 The agent's Settings window has an **Automation** tab that surfaces this whole feature:

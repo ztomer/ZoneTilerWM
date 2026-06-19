@@ -67,6 +67,8 @@ public enum ConfigLoader {
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
         public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
+        public var zoneHUDEnabled: Bool                    // [zone_hud] enabled (opt-in, default off)
+        public var zoneHUDHoldDelayMs: Int                 // hold the modifier this long before the HUD shows
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -195,6 +197,7 @@ public enum ConfigLoader {
         var ui: RawUI?
         var automation: RawAutomation?
         var command_palette: RawCommandPalette?
+        var zone_hud: RawZoneHUD?
         var rules: [RawRule]?
     }
 
@@ -202,6 +205,7 @@ public enum ConfigLoader {
 
     private struct RawAutomation: Decodable { var enabled: Bool? }
     private struct RawCommandPalette: Decodable { var enabled: Bool? }
+    private struct RawZoneHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -317,6 +321,8 @@ public enum ConfigLoader {
                 prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
             automationEnabled: raw.automation?.enabled ?? true,  // on by default; the local socket is low-risk
             commandPaletteEnabled: raw.command_palette?.enabled ?? false,  // opt-in
+            zoneHUDEnabled: raw.zone_hud?.enabled ?? false,                // opt-in
+            zoneHUDHoldDelayMs: raw.zone_hud?.hold_delay_ms ?? 400,
             rules: parseRules(raw.rules))
     }
 

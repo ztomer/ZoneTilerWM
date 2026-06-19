@@ -32,11 +32,10 @@ zt-mcp serverVersion) → commit + push → tick this file.
 - [x] Command palette — v1.4.1
 - [x] Per-window float toggle — v1.4.2
 - [x] Swap / nudge / directional throw (actions) — v1.4.3
-- [~] Zone HUD (modifier-held overlay) — visual. **Pure core DONE** (`ZTCore/ZoneHUD.swift` +
-      tests: `layout(zones:)` → one labelled cell per zone at its bounding-box centre). REMAINING:
-      `[zone_hud] enabled`+`hold_delay_ms` config gate (default off), the overlay (label each zone
-      key at its centre, translucent, multi-screen), a `flagsChanged` global monitor + hold-delay
-      timer to show/hide on tiling-modifier hold, Gemini grade + 5-persona review, docs, version.
+- [x] Zone HUD (modifier-held overlay) — v1.4.4. IMPL DONE (ZoneHUD core + ZoneHUDOverlay +
+      ZoneHUDController flagsChanged/hold-delay, `[zone_hud]` gate default off, QA hook
+      ZT_OPEN_WINDOW=hud). **NEXT TICK before drag-to-snap: Gemini grade + 5-persona review→fix→
+      review→fix** (capture via the QA hook), then any fixes as a follow-up patch.
 - [ ] Drag-to-snap (CGEventTap; `[drag_snap] enabled` default off; EDR-sensitive) — visual
 - [ ] Window stacks / groups (gated)
 - [ ] Context-aware placement + layout suggestions (gated config)
