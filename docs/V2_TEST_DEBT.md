@@ -49,3 +49,10 @@ working (no re-grant). Confirmed:
 - `placement-stats` can surface empty app names from legacy store entries (shown as "(unknown)").
 - Possible future: retire legacy `zt-tile`/`zt-autotile` — but they're standalone (own coordinator,
   no agent needed), useful as a no-agent live AX test tool. Keep for now.
+
+## Pending visual grade (display asleep during overnight run)
+- **Zone HUD Gemini grade** — the redesign (deoverlapped key chips on a light dim, no amber wash)
+  could not be Gemini-graded: the 2am resume found the display asleep (screencapture = black). Code
+  was reviewed twice (5-persona pass) and fixed: 0-AX screen pick (screenUnderMouse), modifier
+  poll + screen/space-change dismissal (no orphan), hold-delay clamp, chip de-overlap, fade. Do a
+  Gemini visual pass in daylight via ZT_OPEN_WINDOW=hud.

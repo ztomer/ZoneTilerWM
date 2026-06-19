@@ -258,7 +258,7 @@ final class AgentController: NSObject {
             applyLayout: { [unowned self] name in self.applyLayout(name) }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
-            screens: screens, windowSystem: windowSystem, monitorManager: monitorManager,
+            screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },
             offset: { [weak resize] m, a, i in resize?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
             modifier: { [unowned self] in self.config.tilerModifier },

@@ -25,6 +25,14 @@ public final class NSScreenProvider: ScreenProvider {
         allScreens().first { $0.uuid == uuid }
     }
 
+    /// The screen under the mouse cursor (0 AX — pure AppKit), else the main screen. Lets callers
+    /// pick the active screen without an AX `focusedWindow()` round trip.
+    public func screenUnderMouse() -> ScreenSnapshot? {
+        let mouse = NSEvent.mouseLocation
+        let target = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+        return target.flatMap(snapshot(for:))
+    }
+
     // MARK: - Internals
 
     private func displayID(of screen: NSScreen) -> CGDirectDisplayID {

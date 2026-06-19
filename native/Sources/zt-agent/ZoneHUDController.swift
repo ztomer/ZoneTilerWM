@@ -1,8 +1,9 @@
 // ZoneHUDController.swift — shows the zone cheat-sheet while the tiling modifier is held past a
 // short delay (so a quick, confident chord never triggers it; a hesitant hold gets the map).
-// Gated by [zone_hud] enabled — the agent only start()s it when enabled. Reads config live so a
-// reload's enable/delay change takes effect. Listens via a global flagsChanged monitor (the agent
-// is an accessory app, so "global" catches the modifier whatever app is focused).
+// Gated by [zone_hud] enabled. Picks the active screen with ZERO AX (screen under the mouse, not
+// an AX focusedWindow() round trip). A modifier-state poll while shown is the safety net for a
+// missed flagsChanged "up" event (Space switch / app grabbing the event stream), and a
+// screen-change / space-change observer dismisses a stale overlay. All on the main run loop.
 
 import AppKit
 import ZTCore
@@ -10,7 +11,6 @@ import ZTSystem
 
 final class ZoneHUDController {
     private let screens: NSScreenProvider
-    private let windowSystem: AXWindowSystem
     private let monitorManager: MonitorManager
     private let zoneConfig: () -> ZoneConfig
     private let offset: (_ monitor: String, _ axis: String, _ index: Int) -> Double
@@ -19,14 +19,16 @@ final class ZoneHUDController {
 
     private let overlay = ZoneHUDOverlay()
     private var monitor: Any?
-    private var timer: Timer?
+    private var observers: [NSObjectProtocol] = []
+    private var armTimer: Timer?
+    private var pollTimer: Timer?
     private var shown = false
 
-    init(screens: NSScreenProvider, windowSystem: AXWindowSystem, monitorManager: MonitorManager,
+    init(screens: NSScreenProvider, monitorManager: MonitorManager,
          zoneConfig: @escaping () -> ZoneConfig,
          offset: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double,
          modifier: @escaping () -> [String], holdDelayMs: @escaping () -> Int) {
-        self.screens = screens; self.windowSystem = windowSystem; self.monitorManager = monitorManager
+        self.screens = screens; self.monitorManager = monitorManager
         self.zoneConfig = zoneConfig; self.offset = offset; self.modifier = modifier; self.holdDelayMs = holdDelayMs
     }
 
@@ -37,12 +39,20 @@ final class ZoneHUDController {
         monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handle(event.modifierFlags)
         }
+        // Dismiss a stale/orphaned overlay on display rearrange or Space switch.
+        let nc = NotificationCenter.default
+        observers.append(nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                        object: nil, queue: .main) { [weak self] _ in self?.dismiss() })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in self?.dismiss() })
     }
 
     func stop() {
         if let m = monitor { NSEvent.removeMonitor(m) }
         monitor = nil
-        cancelTimer(); hide()
+        observers.forEach { NotificationCenter.default.removeObserver($0); NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        observers = []
+        dismiss()
     }
 
     // MARK: - modifier tracking
@@ -51,32 +61,44 @@ final class ZoneHUDController {
         let current = flags.intersection([.command, .control, .option, .shift])
         let target = Self.nsFlags(for: modifier())
         if !target.isEmpty, current == target {
-            guard timer == nil, !shown else { return }   // already armed/shown
-            timer = Timer.scheduledTimer(withTimeInterval: Double(holdDelayMs()) / 1000.0, repeats: false) {
+            guard armTimer == nil, !shown else { return }
+            let ms = max(120, min(2000, holdDelayMs()))   // clamp: never instant, never effectively-off
+            armTimer = Timer.scheduledTimer(withTimeInterval: Double(ms) / 1000.0, repeats: false) {
                 [weak self] _ in self?.present()
             }
         } else {
-            cancelTimer(); hide()
+            dismiss()
         }
     }
 
-    /// QA/debug: force the HUD on now (the normal trigger is the modifier hold).
-    func forceShow() { present() }
+    /// QA/debug: force the HUD on now (no modifier-release poll — the normal trigger is the hold).
+    func forceShow() { showHUD(withPoll: false) }
 
-    private func present() {
-        timer = nil
-        guard let uuid = windowSystem.focusedWindow()?.screenUUID ?? screens.mainScreen()?.uuid,
-              let screen = screens.screen(uuid: uuid) else { return }
+    private func present() { armTimer = nil; showHUD(withPoll: true) }
+
+    private func showHUD(withPoll: Bool) {
+        if shown { return }
+        guard let screen = screens.screenUnderMouse() else { return }   // 0 AX
         let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
-        let key = String(monitorManager.id(forUUID: uuid))
+        let key = String(monitorManager.id(forUUID: screen.uuid))
         let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig(),
                                                 offsets: { [offset] axis, index in offset(key, axis, index) }).zones
         overlay.show(ZoneHUD.layout(zones: zones), screenCGFrame: screen.frame)
         shown = true
+        guard withPoll else { return }
+        // Safety net: if the "modifier released" flagsChanged is ever missed, this still hides it.
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let cur = NSEvent.modifierFlags.intersection([.command, .control, .option, .shift])
+            if cur != Self.nsFlags(for: self.modifier()) { self.dismiss() }
+        }
     }
 
-    private func hide() { if shown { overlay.hide(); shown = false } }
-    private func cancelTimer() { timer?.invalidate(); timer = nil }
+    private func dismiss() {
+        armTimer?.invalidate(); armTimer = nil
+        pollTimer?.invalidate(); pollTimer = nil
+        if shown { overlay.hide(); shown = false }
+    }
 
     private static func nsFlags(for names: [String]) -> NSEvent.ModifierFlags {
         var f: NSEvent.ModifierFlags = []
