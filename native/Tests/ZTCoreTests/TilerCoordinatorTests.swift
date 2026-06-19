@@ -154,6 +154,23 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(moves.first { $0.windowId == 1 }?.zoneKey, "j")
     }
 
+    func testAutoTileSkipsFloatedWindow() {
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "A", frame: ZTRect(x: 0, y: 0, w: 800, h: 600), screenUUID: "M1")
+        ws.onScreen = [ws.focused!,
+                       LiveWindow(id: 2, appName: "B", frame: ZTRect(x: 100, y: 100, w: 400, h: 400), screenUUID: "M1")]
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     isFloated: { $0 == 2 })   // window 2 is floated
+        let atConfig = AutoTiler.Config(centerZones: ["j"], workingSetTimeLimit: 1800,
+                                        workingSetMaxCapacity: 6, mode: "usage",
+                                        weights: CostWeights(), zoneConfig: zoneConfig())
+        let moves = coord.autoTileScreen(autoTilerConfig: atConfig, memory: [:], now: 10_000)
+        XCTAssertFalse(moves.contains { $0.windowId == 2 }, "floated window must be excluded from the plan")
+        XCTAssertFalse(ws.moved.contains { $0.id == 2 }, "floated window must not be moved")
+        XCTAssertTrue(moves.contains { $0.windowId == 1 }, "non-floated window still tiled")
+    }
+
     func testAutoTileFeedsRealFocusAgeIntoPlan() {
         // The Lua working-set cull (auto_tiler.lua) routes windows last-focused beyond
         // working_set.time_limit_sec to the limbo-stack pass instead of the solver — they're

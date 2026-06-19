@@ -34,6 +34,7 @@ public final class ActionDispatcher {
         public var pomodoro: (PomodoroCommand) -> ActionResult
         public var toggleResizeMode: () -> Void
         public var toggleWindowHints: () -> Void
+        public var toggleFloat: () -> ActionResult
         /// Returns whether the reload was applied (false = parse/validation failed, config kept).
         public var reloadConfig: () -> Bool
         /// Layout snapshots — agent-orchestrated (storage + arrangement capture + window-targeted
@@ -50,6 +51,7 @@ public final class ActionDispatcher {
                     pomodoro: @escaping (PomodoroCommand) -> ActionResult,
                     toggleResizeMode: @escaping () -> Void,
                     toggleWindowHints: @escaping () -> Void,
+                    toggleFloat: @escaping () -> ActionResult,
                     reloadConfig: @escaping () -> Bool,
                     saveLayout: @escaping (String) -> ActionResult,
                     applyLayout: @escaping (String) -> ActionResult) {
@@ -62,6 +64,7 @@ public final class ActionDispatcher {
             self.pomodoro = pomodoro
             self.toggleResizeMode = toggleResizeMode
             self.toggleWindowHints = toggleWindowHints
+            self.toggleFloat = toggleFloat
             self.reloadConfig = reloadConfig
             self.saveLayout = saveLayout
             self.applyLayout = applyLayout
@@ -108,6 +111,9 @@ public final class ActionDispatcher {
         case .toggleZen:
             hooks.coordinator().toggleZen()
             return .zenToggled
+
+        case .toggleFloat:
+            return hooks.toggleFloat()
 
         case .switchAudio(let target):
             return performAudio(target)

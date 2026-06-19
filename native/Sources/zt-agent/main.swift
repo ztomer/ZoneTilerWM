@@ -12,6 +12,17 @@ import ZTUI
 
 func log(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
 
+/// Runtime set of "floated" window ids (excluded from auto-tile). A reference type so the
+/// coordinator's isFloated closure can capture it without capturing the controller.
+final class FloatSet {
+    private var ids = Set<Int>()
+    func contains(_ id: Int) -> Bool { ids.contains(id) }
+    @discardableResult func toggle(_ id: Int) -> Bool {
+        if ids.contains(id) { ids.remove(id); return false }
+        ids.insert(id); return true
+    }
+}
+
 let home = FileManager.default.homeDirectoryForCurrentUser
 
 /// Resolve the config path. An explicit arg (CLI / `run.sh`) wins. Otherwise — the bundled
@@ -108,6 +119,7 @@ final class AgentController: NSObject {
     // shared with the coordinator's offsetProvider; the modal UI lives in ResizeModeController.
     private let resizeManager = ResizeManager()
     private let resizeStorage: Storage
+    private let floats = FloatSet()   // per-window float state (excluded from auto-tile)
     // The two modal sub-controllers (extracted from this composition root).
     private var resizeMode: ResizeModeController!
     private var windowHints: WindowHintsController!
@@ -188,7 +200,7 @@ final class AgentController: NSObject {
         coordinator = AgentController.makeCoordinator(config: config, windowSystem: windowSystem,
                                                       screens: screens, memory: memory,
                                                       monitorManager: monitorManager, storage: store,
-                                                      resizeManager: resize)
+                                                      resizeManager: resize, floats: floats)
         autoTilerConfig = config.autoTilerConfig()
         appSwitcher = config.appSwitcher
         rulesEngine = RulesEngine(rules: config.rules)
@@ -234,6 +246,12 @@ final class AgentController: NSObject {
             },
             toggleResizeMode: { [unowned self] in self.resizeMode.toggle() },
             toggleWindowHints: { [unowned self] in self.windowHints.toggle() },
+            toggleFloat: { [unowned self] in
+                guard let id = self.windowSystem.focusedWindow()?.id else { return .failed(reason: .noFocusedWindow) }
+                let floating = self.floats.toggle(id)
+                log("zt-agent: float window \(id) → \(floating)")
+                return .floatToggled(windowId: id, floating: floating)
+            },
             reloadConfig: { [unowned self] in self.reloadFromDisk() },
             saveLayout: { [unowned self] name in self.saveLayout(name) },
             applyLayout: { [unowned self] name in self.applyLayout(name) }))
@@ -266,12 +284,13 @@ final class AgentController: NSObject {
     private static func makeCoordinator(config: ConfigLoader.LoadedConfig, windowSystem: WindowSystem,
                                         screens: ScreenProvider, memory: WindowMemory?,
                                         monitorManager: MonitorManager, storage: Storage?,
-                                        resizeManager: ResizeManager) -> TilerCoordinator {
+                                        resizeManager: ResizeManager, floats: FloatSet) -> TilerCoordinator {
         TilerCoordinator(windowSystem: windowSystem, screenProvider: screens,
                          zoneConfig: config.zoneConfig, placementStrategy: config.placementStrategy,
                          offsetProvider: { [weak resizeManager] m, a, i in
                              resizeManager?.getOffset(monitor: m, axis: a, index: i) ?? 0
                          },
+                         isFloated: { [weak floats] in floats?.contains($0) ?? false },
                          memory: memory, monitorManager: monitorManager, storage: storage,
                          appZones: config.windowMemory.enabled ? config.windowMemory.appZones : [:])
     }
@@ -660,7 +679,7 @@ final class AgentController: NSObject {
         coordinator = AgentController.makeCoordinator(config: newConfig, windowSystem: windowSystem,
                                                       screens: screens, memory: learnedMemory,
                                                       monitorManager: monitorManager, storage: storage,
-                                                      resizeManager: resizeManager)
+                                                      resizeManager: resizeManager, floats: floats)
         autoTilerConfig = newConfig.autoTilerConfig()
         appSwitcher = newConfig.appSwitcher
         rulesEngine = RulesEngine(rules: newConfig.rules)
@@ -705,6 +724,10 @@ final class AgentController: NSObject {
         // Zen mode (minimize other windows on the focused screen).
         bindAction(config.resolvedHotkey("zen_mode", in: config.tilerHotkeys), label: "zen_mode") { [weak self] in
             self?.dispatcher.perform(.toggleZen)
+        }
+        // Float toggle (exclude focused window from auto-tile) — optional hotkey; also via palette/CLI/MCP.
+        bindAction(config.resolvedHotkey("float", in: config.tilerHotkeys), label: "float") { [weak self] in
+            self?.dispatcher.perform(.toggleFloat)
         }
         // System: toggle Activity Monitor.
         bindAction(config.resolvedHotkey("activity_monitor", in: config.systemHotkeys), label: "activity_monitor") { [weak self] in

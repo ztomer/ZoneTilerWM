@@ -29,6 +29,8 @@ public final class TilerCoordinator {
     // string (same key window memory uses). Default: no offsets.
     private let offsetProvider: (_ monitor: String, _ axis: String, _ index: Int) -> Double
     private let overlapThreshold: Double
+    // Per-window float: auto-tile skips windows for which this returns true. Default: none float.
+    private let isFloated: (_ windowId: Int) -> Bool
     private let focusCycler = FocusManager.Cycler()
     private let focusTracker = WindowFocusTracker()
 
@@ -48,6 +50,7 @@ public final class TilerCoordinator {
                 placementStrategy: String,
                 overlapThreshold: Double = 0.5,
                 offsetProvider: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double = { _, _, _ in 0 },
+                isFloated: @escaping (_ windowId: Int) -> Bool = { _ in false },
                 memory: WindowMemory? = nil,
                 monitorManager: MonitorManager? = nil,
                 storage: Storage? = nil,
@@ -58,6 +61,7 @@ public final class TilerCoordinator {
         self.strategy = PlacementStrategy.Strategy(config: placementStrategy)
         self.overlapThreshold = overlapThreshold
         self.offsetProvider = offsetProvider
+        self.isFloated = isFloated
         self.memory = memory
         self.monitorManager = monitorManager
         self.storage = storage
@@ -204,7 +208,7 @@ public final class TilerCoordinator {
         let uuid = windowSystem.focusedWindow()?.screenUUID ?? screenProvider.mainScreen()?.uuid
         guard let uuid, let screen = screenProvider.screen(uuid: uuid) else { return [] }
 
-        let live = windowSystem.windows(onScreen: uuid)   // front-to-back
+        let live = windowSystem.windows(onScreen: uuid).filter { !isFloated($0.id) }   // front-to-back, floats excluded
         // Feed real per-window focus times so the working-set age cull behaves like the Lua
         // (window_cache last_focused_time). Unseen windows fall back to `now`, matching the
         // Lua `info and info.last_focused_time or now`; baseline-seed them so they can age out.

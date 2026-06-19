@@ -18,6 +18,7 @@ final class ActionRequestTests: XCTestCase {
         .moveFocusedToMonitor(direction: .next),
         .moveFocusedToMonitor(direction: .previous),
         .toggleZen,
+        .toggleFloat,
         .switchAudio(device: .next),
         .switchAudio(device: .named("MacBook Pro Speakers")),
         .appToggle(app: "Finder"),

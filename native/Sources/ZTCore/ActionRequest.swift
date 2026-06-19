@@ -45,6 +45,7 @@ public enum ActionRequest: Codable, Equatable {
     case focusScreen(direction: NavDirection)
     case moveFocusedToMonitor(direction: NavDirection)
     case toggleZen
+    case toggleFloat   // exclude/include the focused window from auto-tile
 
     // Needs ZTSystem adapters (AudioDevices / AppController).
     case switchAudio(device: AudioTarget)

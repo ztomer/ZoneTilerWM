@@ -27,7 +27,7 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 ## Actions & resources
 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
-`focus-screen`, `move-monitor`, `zen`, `audio`, `app`, `pomodoro`, `resize-mode`,
+`focus-screen`, `move-monitor`, `zen`, `float`, `audio`, `app`, `pomodoro`, `resize-mode`,
 `window-hints`, `save-layout`, `apply-layout`, `reload`. Resources: `arrangement`, `zones`,
 `placement-stats`.
 

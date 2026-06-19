@@ -39,6 +39,8 @@ public enum ActionParser {
             return direction(params).map { .moveFocusedToMonitor(direction: $0) }
         case "zen":
             return .success(.toggleZen)
+        case "float":
+            return .success(.toggleFloat)
         case "audio":
             let device = params["device"]
             if device == nil || device == "next" { return .success(.switchAudio(device: .next)) }
@@ -96,6 +98,7 @@ public enum ActionParser {
         case .focusScreen(let dir):              return ("focus-screen", ["direction": dir.rawValue])
         case .moveFocusedToMonitor(let dir):     return ("move-monitor", ["direction": dir.rawValue])
         case .toggleZen:                         return ("zen", [:])
+        case .toggleFloat:                       return ("float", [:])
         case .switchAudio(let target):
             switch target {
             case .next:            return ("audio", ["device": "next"])
@@ -164,6 +167,7 @@ public extension ActionParser {
         ActionSpec(name: "move-monitor", description: "Move the focused window to the next/previous monitor.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "zen", description: "Toggle zen mode: minimize every other window on the focused screen."),
+        ActionSpec(name: "float", description: "Float the focused window — exclude it from auto-tile (toggle)."),
         ActionSpec(name: "audio", description: "Switch the system audio output device.",
                    params: [ActionParam(name: "device", required: false, description: "Device name, or 'next' to cycle (default).")]),
         ActionSpec(name: "app", description: "Launch, focus, or hide an application (toggle).",

@@ -20,6 +20,8 @@ public enum CLIFormat {
             return "moved window \(id) → monitor zone \(zone) tile \(tile) [\(applied ? "applied" : "not applied")] @ \(rect(target))"
         case .zenToggled:
             return "toggled zen mode"
+        case .floatToggled(let id, let floating):
+            return "window \(id) \(floating ? "floated (excluded from auto-tile)" : "unfloated")"
         case .audioSwitched(let name):
             return name.map { "switched audio output → \($0)" } ?? "no audio device switched"
         case .appToggled(let app):

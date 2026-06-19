@@ -52,6 +52,7 @@ public enum ActionResult: Codable, Equatable {
     case screenFocused(focusedWindowId: Int?)
     case monitorMoved(windowId: Int, zone: String, tileIndex: Int, target: ZTRect, applied: Bool)
     case zenToggled
+    case floatToggled(windowId: Int, floating: Bool)
     case audioSwitched(deviceName: String?)   // nil = nothing switched (e.g. <2 devices)
     case appToggled(app: String)
     case pomodoroUpdated(active: Bool, phase: String, timeLeftSec: Int)
