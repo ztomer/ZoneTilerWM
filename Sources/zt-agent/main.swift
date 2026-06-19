@@ -123,6 +123,7 @@ final class AgentController: NSObject {
     // The two modal sub-controllers (extracted from this composition root).
     private var resizeMode: ResizeModeController!
     private var windowHints: WindowHintsController!
+    private var expose: ExposeController!                   // custom exposé replacement (bound iff [system_hotkeys] expose set)
     private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
@@ -231,6 +232,7 @@ final class AgentController: NSObject {
             binder: binder, screens: screens, windowSystem: windowSystem,
             keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" },
             zoneConfig: { [weak self] in self?.config.zoneConfig ?? ZoneConfig(grids: [:], layouts: [:]) })
+        expose = ExposeController(binder: binder, screens: screens, windowSystem: windowSystem)
         // The action dispatcher: hooks read live state via `unowned self` (the dispatcher is owned
         // by self and never outlives it). The coordinator/config getters are closures so a live
         // reload is picked up automatically. The pomodoro hook also refreshes the menubar UI, so
@@ -967,6 +969,10 @@ final class AgentController: NSObject {
         // Session sandbox: hide-all-but-focused / restore (opt-in `sandbox` hotkey; also palette/CLI/MCP).
         bindAction(config.resolvedHotkey("sandbox", in: config.systemHotkeys), label: "sandbox") { [weak self] in
             self?.dispatcher.perform(.sandboxToggle)
+        }
+        // Exposé replacement: lay all windows out in a grid with jump labels (opt-in `expose` hotkey).
+        bindAction(config.resolvedHotkey("expose", in: config.systemHotkeys), label: "expose") { [weak self] in
+            self?.expose.toggle()
         }
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.dispatcher.perform(.reloadConfig)

@@ -187,6 +187,9 @@ struct KeybindEditorView: View {
               help: "Labels every window stacked in the focused zone; type a label to jump straight to that window."),
         .init(id: "sandbox", label: "Session sandbox", section: "system_hotkeys", key: "sandbox",
               help: "Hides every app except the focused one for distraction-free work; toggle again to restore them all."),
+        .init(id: "expose", label: "Exposé (window grid)", section: "system_hotkeys", key: "expose",
+              help: "Lays every open window out in a grid with a letter on each — press the letter to jump to that "
+                  + "window (Esc cancels). A self-contained replacement for Mission Control."),
         .init(id: "zen_mode", label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode",
               help: "Minimizes the other windows so only the focused one remains; toggle to bring them back."),
         .init(id: "float", label: "Toggle float", section: "tiler.hotkeys", key: "float",
