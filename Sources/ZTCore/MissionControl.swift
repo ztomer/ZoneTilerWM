@@ -6,6 +6,8 @@
 // CGS/SkyLight calls and lives in ZTSystem/the agent (see docs/V6_FEATURE_PLAN.md); it feeds the
 // tiles in here and draws what comes out. Value-in/value-out, fully unit-testable.
 
+import Foundation
+
 public enum MissionControl {
 
     /// An exposed window in the Mission Control layout (id + its on-screen rect, top-left CG).
@@ -13,6 +15,27 @@ public enum MissionControl {
         public let windowId: Int
         public let frame: ZTRect
         public init(windowId: Int, frame: ZTRect) { self.windowId = windowId; self.frame = frame }
+    }
+
+    /// Pack windows into a near-square grid of tiles within `screen` (inset by `margin`, `gap`
+    /// between cells), row-major. This is the layout for the custom exposé *replacement* — we
+    /// enumerate all standard windows (CGWindowList, 0 AX) and arrange our own grid, sidestepping
+    /// the private-API problem of reading macOS's real Mission Control layout. Pure + testable.
+    public static func gridTiles(windowIds: [Int], in screen: ZTRect,
+                                 margin: Double = 48, gap: Double = 24) -> [Tile] {
+        let n = windowIds.count
+        guard n > 0 else { return [] }
+        let cols = Int(ceil(Double(n).squareRoot()))
+        let rows = Int(ceil(Double(n) / Double(cols)))
+        let aw = screen.w - 2 * margin, ah = screen.h - 2 * margin
+        let cw = (aw - Double(cols - 1) * gap) / Double(cols)
+        let ch = (ah - Double(rows - 1) * gap) / Double(rows)
+        return windowIds.enumerated().map { i, id in
+            let c = i % cols, r = i / cols
+            return Tile(windowId: id, frame: ZTRect(
+                x: screen.x + margin + Double(c) * (cw + gap),
+                y: screen.y + margin + Double(r) * (ch + gap), w: cw, h: ch))
+        }
     }
 
     /// What to draw + hit-test for one exposed window.

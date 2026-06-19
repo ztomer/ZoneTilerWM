@@ -44,6 +44,24 @@ final class MissionControlTests: XCTestCase {
         XCTAssertTrue(MissionControl.matches(prefix: firstLabel, in: h).contains { $0.windowId == 10 })
     }
 
+    func testGridTilesPacksNearSquareRowMajor() {
+        let screen = ZTRect(x: 0, y: 0, w: 1000, h: 800)
+        let four = MissionControl.gridTiles(windowIds: [1, 2, 3, 4], in: screen, margin: 40, gap: 20)
+        XCTAssertEqual(four.map { $0.windowId }, [1, 2, 3, 4])      // row-major order preserved
+        // 4 → 2×2: cell w = (1000-80-20)/2 = 450, h = (800-80-20)/2 = 350
+        XCTAssertEqual(four[0].frame, ZTRect(x: 40, y: 40, w: 450, h: 350))           // top-left
+        XCTAssertEqual(four[1].frame, ZTRect(x: 40 + 450 + 20, y: 40, w: 450, h: 350)) // top-right
+        XCTAssertEqual(four[3].frame.x, 40 + 450 + 20)                                 // bottom-right col
+        XCTAssertEqual(four[3].frame.y, 40 + 350 + 20)                                 // bottom row
+        // 3 windows → 2 cols, 2 rows (one empty cell); all tiles inside the screen
+        let three = MissionControl.gridTiles(windowIds: [1, 2, 3], in: screen)
+        XCTAssertEqual(three.count, 3)
+        for t in three {
+            XCTAssertGreaterThanOrEqual(t.frame.x, 0); XCTAssertLessThanOrEqual(t.frame.x + t.frame.w, 1000)
+        }
+        XCTAssertTrue(MissionControl.gridTiles(windowIds: [], in: screen).isEmpty)
+    }
+
     func testCloseHitTestsTheCorrectWindow() {
         let h = MissionControl.hints(for: tiles())
         let c = h[1].close   // window 20's × button
