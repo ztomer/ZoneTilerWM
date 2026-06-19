@@ -5,6 +5,7 @@
 
 import Foundation
 import AppKit
+import ApplicationServices
 import ZTCore
 
 public enum AppController {
@@ -24,12 +25,53 @@ public enum AppController {
         case .launchOrFocus(let app):
             launchOrFocus(app)
         case .hide:
-            NSWorkspace.shared.frontmostApplication?.hide()
-        case .hideViaMenu:
-            // v1: AX "Hide <app>" menu traversal is deferred; hide() is a reasonable fallback
-            // for the workaround apps. The decision still distinguishes the cases.
-            NSWorkspace.shared.frontmostApplication?.hide()
+            hideFrontmost()
+        case .hideViaMenu(let menuItem):
+            hideFrontmost(preferredTitle: menuItem)
         }
+    }
+
+    /// Hide the frontmost app. Presses its app-menu "Hide <app>" item via Accessibility — the same
+    /// approach the original Lua used (`app:selectMenuItem('Hide <app>')`) — and only falls back to
+    /// NSRunningApplication.hide() if that fails. The menu route goes through the app's own Hide
+    /// command, so it's reliable for Electron apps (Discord/Slack/…) where the WindowServer hide()
+    /// is intermittently ignored. A handful of AX calls, only on an explicit toggle (not the
+    /// enumeration hot path), so it's within the AX budget.
+    @discardableResult
+    static func hideFrontmost(preferredTitle: String? = nil) -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return false }
+        if pressHideMenuItem(pid: app.processIdentifier, preferredTitle: preferredTitle) { return true }
+        app.hide()
+        return false
+    }
+
+    /// Find and press the "Hide <app>" item in the frontmost app's application menu (the 2nd
+    /// menu-bar menu, after the Apple menu). Matches `preferredTitle` exactly when given, else any
+    /// "Hide …" item that isn't "Hide Others". Returns false if the menu can't be walked.
+    private static func pressHideMenuItem(pid: pid_t, preferredTitle: String?) -> Bool {
+        func children(_ el: AXUIElement) -> [AXUIElement]? {
+            var ref: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &ref) == .success
+            else { return nil }
+            return ref as? [AXUIElement]
+        }
+        let appEl = AXUIElementCreateApplication(pid)
+        var mbRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appEl, kAXMenuBarAttribute as CFString, &mbRef) == .success,
+              let menuBar = mbRef, CFGetTypeID(menuBar) == AXUIElementGetTypeID() else { return false }
+        // menu-bar items: [Apple, <app>, File, …] → the application menu is index 1.
+        guard let topItems = children(menuBar as! AXUIElement), topItems.count > 1,
+              let appMenu = children(topItems[1])?.first,        // the AXMenu under the app menu item
+              let entries = children(appMenu) else { return false }
+        for item in entries {
+            var tRef: CFTypeRef?
+            AXUIElementCopyAttributeValue(item, kAXTitleAttribute as CFString, &tRef)
+            guard let title = tRef as? String else { continue }
+            let matches = preferredTitle.map { title == $0 } ?? false
+                || (title.hasPrefix("Hide ") && title != "Hide Others")
+            if matches { return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success }
+        }
+        return false
     }
 
     /// Summon a scratchpad set: launch/activate each app, ending with the first so it lands

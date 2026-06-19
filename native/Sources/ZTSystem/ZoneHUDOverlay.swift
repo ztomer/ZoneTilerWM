@@ -1,9 +1,10 @@
 // ZoneHUDOverlay.swift — the modifier-held zone cheat-sheet. One click-through window over the
-// target screen, lightly dimmed, with a small key chip at each zone's centre showing "press this
-// key → window lands roughly here". Chips are de-overlapped (reusing WindowHints.deoverlap) so
-// the heavily-overlapping keyboard-grid zones don't collapse their labels into one amber mush —
-// the earlier full-zone amber fills accumulated into a screen-wide wash and are gone. Purely
-// visual: the actual tiling is the existing modifier+zone hotkey.
+// target screen, lightly dimmed, that draws the actual zone GRID: each zone's real rectangle is
+// outlined at its true on-screen position with its key chip centred inside it, so it's obvious
+// where pressing that key lands a window. (Earlier this de-overlapped the chips, which drifted them
+// far from their zones — the rectangle outline is the honest mapping. Outlines are stroke-only so
+// heavily-overlapping keyboard-grid zones read as a grid instead of accumulating into an amber
+// wash.) Purely visual: the actual tiling is the existing modifier+zone hotkey.
 
 import AppKit
 import ZTCore
@@ -56,20 +57,17 @@ public final class ZoneHUDOverlay {
 }
 
 private final class ZoneHUDView: NSView {
-    private struct Chip { let key: String; let rect: ZTRect }   // screen-local, deoverlapped
-    private var chips: [Chip] = []
+    private struct Zone { let key: String; let rect: ZTRect }   // screen-local zone rectangle
+    private var zones: [Zone] = []
     override var isFlipped: Bool { true }   // top-left origin to match CG coords
 
-    /// Place a de-overlapped key chip at each zone's centre (screen-local coords).
+    /// Each zone's real rectangle in screen-local coords — drawn at its true position (no
+    /// de-overlap drift), with its key chip centred inside.
     func setCells(_ cells: [ZoneHUD.Cell], screenOrigin: (x: Double, y: Double)) {
-        let chipW = 52.0, chipH = 44.0
-        let wanted = cells.map { c -> ZTRect in
-            let cx = c.rect.x - screenOrigin.x + c.rect.w / 2
-            let cy = c.rect.y - screenOrigin.y + c.rect.h / 2
-            return ZTRect(x: cx - chipW / 2, y: cy - chipH / 2, w: chipW, h: chipH)
+        zones = cells.map { c in
+            Zone(key: c.key, rect: ZTRect(x: c.rect.x - screenOrigin.x, y: c.rect.y - screenOrigin.y,
+                                          w: c.rect.w, h: c.rect.h))
         }
-        let placed = WindowHints.deoverlap(wanted, gap: 6)
-        chips = zip(cells, placed).map { Chip(key: $0.0.key, rect: $0.1) }
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -85,21 +83,35 @@ private final class ZoneHUDView: NSView {
         while sy < bounds.height { NSRect(x: 0, y: sy, width: bounds.width, height: 1).fill(); sy += 3 }
 
         let amber = NSColor(red: 0.98, green: 0.70, blue: 0.20, alpha: 1.0)
-        for chip in chips {
-            let r = NSRect(x: chip.rect.x, y: chip.rect.y, width: chip.rect.w, height: chip.rect.h)
-            let bg = NSBezierPath(roundedRect: r, xRadius: 9, yRadius: 9)
-            // soft amber glow so each chip lifts off the dim
+
+        // 1) the zone grid — outline each zone's real rectangle so it's clear where the key lands.
+        //    Stroke-only + a 2pt inset so concentric/overlapping zones stay distinguishable instead
+        //    of accumulating into a wash.
+        for z in zones {
+            let r = NSRect(x: z.rect.x, y: z.rect.y, width: z.rect.w, height: z.rect.h).insetBy(dx: 2, dy: 2)
+            guard r.width > 4, r.height > 4 else { continue }
+            let path = NSBezierPath(roundedRect: r, xRadius: 6, yRadius: 6)
+            amber.withAlphaComponent(0.8).setStroke(); path.lineWidth = 1.5; path.stroke()
+        }
+
+        // 2) the key chips — centred IN each zone (true centre), so the label sits on the region it
+        //    targets. Drawn after the grid so chips stay legible over the outlines.
+        let chipW = 46.0, chipH = 38.0
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold),
+            .foregroundColor: amber,
+        ]
+        for z in zones {
+            let cx = z.rect.x + z.rect.w / 2, cy = z.rect.y + z.rect.h / 2
+            let r = NSRect(x: cx - chipW / 2, y: cy - chipH / 2, width: chipW, height: chipH)
+            let bg = NSBezierPath(roundedRect: r, xRadius: 8, yRadius: 8)
             NSGraphicsContext.saveGraphicsState()
-            let glow = NSShadow(); glow.shadowColor = amber.withAlphaComponent(0.45)
-            glow.shadowBlurRadius = 12; glow.shadowOffset = .zero; glow.set()
-            NSColor.black.withAlphaComponent(0.88).setFill(); bg.fill()
+            let glow = NSShadow(); glow.shadowColor = amber.withAlphaComponent(0.4)
+            glow.shadowBlurRadius = 10; glow.shadowOffset = .zero; glow.set()
+            NSColor.black.withAlphaComponent(0.9).setFill(); bg.fill()
             NSGraphicsContext.restoreGraphicsState()
-            amber.setStroke(); bg.lineWidth = 2; bg.stroke()
-            let label = chip.key.uppercased() as NSString
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedSystemFont(ofSize: 22, weight: .bold),
-                .foregroundColor: amber,
-            ]
+            amber.setStroke(); bg.lineWidth = 1.5; bg.stroke()
+            let label = z.key.uppercased() as NSString
             let size = label.size(withAttributes: attrs)
             label.draw(at: NSPoint(x: r.midX - size.width / 2, y: r.midY - size.height / 2), withAttributes: attrs)
         }

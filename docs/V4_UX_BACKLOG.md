@@ -3,8 +3,10 @@
 Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritized. Tick as done.
 
 ## A. Bugs (fix first)
-- [ ] **Zone HUD doesn't map to the actual zone location** — chips must sit at each zone's real
-      on-screen position (the deoverlap/coords are off in the live app, not just the render).
+- [x] **Zone HUD doesn't map to the actual zone location** — FIXED (v1.5.4). The HUD now draws the
+      real zone GRID: each zone's rectangle is outlined at its true position with its key chip centred
+      inside it, so it's obvious where a key lands. Root cause was `WindowHints.deoverlap` cascading
+      the chips downward, off their zones; removed it (the rectangle outline is the honest mapping).
 - [x] **Focus-follows-mouse raises the wrong window** — FIXED (v1.5.2). Was the per-display filter:
       `windows(onScreen:)` keeps only windows whose *centre* is on the cursor's display, so a window
       under the cursor whose centre sat on another display (or straddled two) was dropped and FFM
