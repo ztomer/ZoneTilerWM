@@ -7,7 +7,7 @@ import SwiftUI
 
 struct AboutView: View {
     private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.10"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.11"
     }
     // Load the real app icon from the bundled resource (works in the dev binary too, where
     // NSApplication.applicationIconImage is just the generic executable icon).
