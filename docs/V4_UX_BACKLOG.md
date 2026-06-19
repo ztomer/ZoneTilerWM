@@ -50,10 +50,12 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
       loads + binds for back-compat.
 - [x] **On-device AI is just a command-palette toggle** — grouped WITH the command palette under
       Automation (v1.5.3).
-- [ ] **Apps tab too narrow** — the app launcher + hyper apps overflow by ~20-30px (needs a little
-      horizontal scroll). Widen the window / fix the layout so it fits.
-- [ ] **Pomodoro: live preview** of the color bar (look + position), updating as params change.
-- [ ] **Break screen: live preview** once it's on the Pomodoro tab (also fills the empty space).
+- [x] **Apps tab too narrow** — addressed by the sidebar restructure (wider window) + the keymap's
+      existing horizontal scroll (v1.5.3). Verify on a live pass.
+- [x] **Pomodoro: live preview** of the color bar — DONE (v1.5.8): top-of-tab strip preview,
+      updating live as colours/opacity/height change.
+- [ ] **Break screen: live preview** once it's on the Pomodoro tab — NOT done (break screen is a
+      header toggle in Pomodoro, but there's no mini preview of the BREAK overlay yet).
 - [~] **Appearance section** (new): window borders + margins + selection overlay, with a **shared
       live preview**. DONE so far (v1.5.3 group + v1.5.7 preview): the Appearance group has window
       border + margins with a shared live preview (mock focused window reflecting colour/width/radius
@@ -61,13 +63,17 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
       colour picker — needs the selection-overlay feature itself.
 
 ## E. New features
-- [ ] **Mission Control overlay** — when Mission Control (expose) is open, overlay each window with
-      a keyboard shortcut to jump to it (reuse window-hints) + a small **(x)** to close it.
-- [ ] **Chrome sidebar tabs toggle** — when Chrome is in sidebar mode, ⌘S collapses/expands the tab
-      strip (there's a button but no shortcut). Niche, likely short-lived; keep it cheap + isolated.
+- [~] **Mission Control overlay** — BUILT as the *replacement* (v1.5.14/15): an `expose` hotkey lays
+      all windows in a grid with jump labels + a (×) per window (type/click to jump, × to close, Esc
+      to cancel). PENDING LIVE TEST (overlay layering + key/mouse capture). Float-over-native shelved
+      (private-API risk). See docs/V6_FEATURE_PLAN.md.
+- [~] **Chrome sidebar tabs toggle** — BUILT (v1.5.15): `chrome_tabs` hotkey AX-presses Chrome's
+      tab-strip button (best-effort selector + candidate logging). PENDING LIVE TEST + the literal-⌘S
+      CGEventTap is deferred until the AX toggle is confirmed. See docs/V6_FEATURE_PLAN.md.
 
 ## F. Structural / housekeeping
-- [ ] **Drop the `native/` folder** — there's no non-native code anymore; flatten the layout.
+- [x] **Drop the `native/` folder** — DONE: SwiftPM package flattened to the repo root (build/CI/
+      scripts/docs updated, test path-helpers fixed). Behavior unchanged.
 - [x] **Coverage ≥ 95%** — DONE: ZTCore is **95.17%** line coverage (3000 lines, 145 missed), up
       from 91.1%. Per the user's call, mocked the WindowSystem boundary: covered CLIFormat (100%),
       Pomodoro (100%), WindowMemory legacy-JSON shapes, and the TilerCoordinator directional ops
