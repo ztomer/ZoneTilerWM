@@ -22,6 +22,7 @@ final class ExposeController {
     private var active = false
     private var modalIDs: [UInt32] = []
     private var targets: [String: Int] = [:]
+    private var safety: Timer?   // force-exit if a key/Esc is ever missed, so single-letter binds can't get stuck
 
     init(binder: CarbonHotkeyBinder, screens: NSScreenProvider, windowSystem: AXWindowSystem) {
         self.binder = binder; self.screens = screens; self.windowSystem = windowSystem
@@ -46,6 +47,7 @@ final class ExposeController {
             },
             onDismiss: { [weak self] in self?.exit() })
         bindModal(labels: hints.map { $0.label })
+        safety = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in self?.exit() }
         log("zt-agent: exposé ON (\(hints.count) windows) — type a label / click to jump, click × to close, ESC cancels")
     }
 
@@ -55,6 +57,7 @@ final class ExposeController {
     func exit() {
         guard active else { return }
         active = false
+        safety?.invalidate(); safety = nil
         for id in modalIDs { binder.unbind(id) }
         modalIDs = []
         targets = [:]
