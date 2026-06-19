@@ -42,10 +42,11 @@ public enum MissionControl {
     public struct Hint: Equatable {
         public let windowId: Int
         public let label: String     // the key(s) to press to jump to this window
+        public let frame: ZTRect     // the tile's full rect (click anywhere in it to jump)
         public let badge: ZTRect     // where the label chip is drawn (centred in the tile)
         public let close: ZTRect     // the (×) close-button hit rect (tile's top-right corner)
-        public init(windowId: Int, label: String, badge: ZTRect, close: ZTRect) {
-            self.windowId = windowId; self.label = label; self.badge = badge; self.close = close
+        public init(windowId: Int, label: String, frame: ZTRect, badge: ZTRect, close: ZTRect) {
+            self.windowId = windowId; self.label = label; self.frame = frame; self.badge = badge; self.close = close
         }
     }
 
@@ -64,7 +65,7 @@ public enum MissionControl {
             let closeRect = ZTRect(x: t.frame.x + t.frame.w - cs - inset,
                                    y: t.frame.y + inset, w: cs, h: cs)
             return Hint(windowId: t.windowId, label: i < labels.count ? labels[i] : "",
-                        badge: badgeRect, close: closeRect)
+                        frame: t.frame, badge: badgeRect, close: closeRect)
         }
     }
 
@@ -86,6 +87,15 @@ public enum MissionControl {
         hints.first {
             x >= $0.close.x && x <= $0.close.x + $0.close.w &&
             y >= $0.close.y && y <= $0.close.y + $0.close.h
+        }?.windowId
+    }
+
+    /// The window whose tile frame contains the point (top-left CG), or nil — click-anywhere-to-jump.
+    /// Check `closeHit` first so a click on the × closes rather than jumps.
+    public static func tileHit(at x: Double, _ y: Double, in hints: [Hint]) -> Int? {
+        hints.first {
+            x >= $0.frame.x && x <= $0.frame.x + $0.frame.w &&
+            y >= $0.frame.y && y <= $0.frame.y + $0.frame.h
         }?.windowId
     }
 }

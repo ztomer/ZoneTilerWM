@@ -12,17 +12,24 @@ public final class MissionControlOverlay {
     private var window: NSWindow?
     public init() {}
 
-    public func show(_ hints: [MissionControl.Hint], screenCGFrame: ZTRect) {
+    /// Show the interactive overlay. Clicks are hit-tested (in MissionControl): × → onClose,
+    /// anywhere else in a tile → onJump, empty space → onDismiss. Pass nil callbacks for a passive
+    /// (display-only) overlay.
+    public func show(_ hints: [MissionControl.Hint], screenCGFrame: ZTRect,
+                     onJump: ((Int) -> Void)? = nil, onClose: ((Int) -> Void)? = nil,
+                     onDismiss: (() -> Void)? = nil) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.hideNow()
             let nsFrame = CoordConvert.nsFrame(fromCG: screenCGFrame)
             let w = NSWindow(contentRect: nsFrame, styleMask: .borderless, backing: .buffered, defer: false)
-            w.isOpaque = false; w.backgroundColor = .clear; w.ignoresMouseEvents = true
+            w.isOpaque = false; w.backgroundColor = .clear
+            w.ignoresMouseEvents = (onJump == nil && onClose == nil && onDismiss == nil)
             w.level = .statusBar; w.hasShadow = false
             w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
             let view = MissionControlView(frame: NSRect(origin: .zero, size: nsFrame.size))
             view.set(hints, screenOrigin: (screenCGFrame.x, screenCGFrame.y))
+            view.onJump = onJump; view.onClose = onClose; view.onDismiss = onDismiss
             w.contentView = view
             w.orderFrontRegardless()   // the agent isn't the active app
             self.window = w
@@ -48,10 +55,22 @@ public final class MissionControlOverlay {
 private final class MissionControlView: NSView {
     private var hints: [MissionControl.Hint] = []
     private var origin: (x: Double, y: Double) = (0, 0)
+    var onJump: ((Int) -> Void)?
+    var onClose: ((Int) -> Void)?
+    var onDismiss: (() -> Void)?
     override var isFlipped: Bool { true }   // top-left origin to match CG
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     func set(_ hints: [MissionControl.Hint], screenOrigin: (x: Double, y: Double)) {
         self.hints = hints; self.origin = screenOrigin
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)   // flipped (top-left) local
+        let cx = Double(p.x) + origin.x, cy = Double(p.y) + origin.y   // → CG global
+        if let id = MissionControl.closeHit(at: cx, cy, in: hints) { onClose?(id) }
+        else if let id = MissionControl.tileHit(at: cx, cy, in: hints) { onJump?(id) }
+        else { onDismiss?() }
     }
 
     private func local(_ r: ZTRect) -> NSRect {

@@ -139,6 +139,17 @@ public final class AXWindowSystem: WindowSystem {
         return AXUIElementSetAttributeValue(r.window, kAXMinimizedAttribute as CFString, value) == .success
     }
 
+    /// Close a window by pressing its AX close button (the exposé × button). Returns false if the
+    /// window or its close button can't be resolved.
+    @discardableResult
+    public func closeWindow(windowId: Int) -> Bool {
+        guard let r = resolveWindow(windowId: windowId) else { return false }
+        var btnRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(r.window, kAXCloseButtonAttribute as CFString, &btnRef) == .success,
+              let btn = btnRef, CFGetTypeID(btn) == AXUIElementGetTypeID() else { return false }
+        return AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString) == .success
+    }
+
     /// Resolve a CGWindowID to its AX window + owning app element via _AXUIElementGetWindow.
     private func resolveWindow(windowId: Int) -> (window: AXUIElement, app: AXUIElement, pid: pid_t)? {
         let target = CGWindowID(windowId)

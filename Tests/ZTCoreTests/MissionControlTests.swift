@@ -68,4 +68,12 @@ final class MissionControlTests: XCTestCase {
         XCTAssertEqual(MissionControl.closeHit(at: c.x + 2, c.y + 2, in: h), 20)
         XCTAssertNil(MissionControl.closeHit(at: 5, 295, in: h))   // empty corner of tile 1, no × there
     }
+
+    func testTileHitJumpsByClickAnywhereInTile() {
+        let h = MissionControl.hints(for: tiles())
+        XCTAssertEqual(h[0].frame, ZTRect(x: 0, y: 0, w: 400, h: 300))   // full tile carried on the hint
+        XCTAssertEqual(MissionControl.tileHit(at: 350, 280, in: h), 10)  // inside tile 1 (not on its ×)
+        XCTAssertEqual(MissionControl.tileHit(at: 700, 250, in: h), 20)  // inside tile 2
+        XCTAssertNil(MissionControl.tileHit(at: 790, 590, in: h))        // outside every tile
+    }
 }

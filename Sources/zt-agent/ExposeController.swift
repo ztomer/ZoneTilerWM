@@ -38,10 +38,19 @@ final class ExposeController {
         let hints = MissionControl.hints(for: tiles)
         targets = Dictionary(hints.map { ($0.label, $0.windowId) }, uniquingKeysWith: { a, _ in a })
         active = true
-        overlay.show(hints, screenCGFrame: screen.frame)
+        overlay.show(hints, screenCGFrame: screen.frame,
+            onJump: { [weak self] id in self?.windowSystem.focus(windowId: id); self?.exit() },
+            onClose: { [weak self] id in
+                self?.windowSystem.closeWindow(windowId: id)               // press the window's × via AX
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self?.refresh() }  // rebuild grid sans it
+            },
+            onDismiss: { [weak self] in self?.exit() })
         bindModal(labels: hints.map { $0.label })
-        log("zt-agent: exposé ON (\(hints.count) windows) — type a label, ESC cancels")
+        log("zt-agent: exposé ON (\(hints.count) windows) — type a label / click to jump, click × to close, ESC cancels")
     }
+
+    /// Rebuild the grid after a window closed (so the closed tile disappears + labels re-pack).
+    private func refresh() { guard active else { return }; exit(); enter() }
 
     func exit() {
         guard active else { return }
