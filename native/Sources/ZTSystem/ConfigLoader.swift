@@ -82,6 +82,7 @@ public enum ConfigLoader {
         public var eventsEnabled: Bool                     // [events] enabled — append arrangement-change events to a file
         public var eventsPath: String?                     // events file path (nil = cacheDir/events.jsonl)
         public var eventsIntervalMs: Int                   // arrangement poll interval
+        public var nlEnabled: Bool                         // [nl] enabled — on-device natural-language layout box
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -219,6 +220,7 @@ public enum ConfigLoader {
         var display_presets: [RawDisplayPreset]?
         var focus_follows_mouse: RawFocusFollowsMouse?
         var events: RawEvents?
+        var nl: RawNL?
         var rules: [RawRule]?
     }
 
@@ -239,6 +241,7 @@ public enum ConfigLoader {
     }
     private struct RawFocusFollowsMouse: Decodable { var enabled: Bool?; var delay_ms: Int? }
     private struct RawEvents: Decodable { var enabled: Bool?; var path: String?; var interval_ms: Int? }
+    private struct RawNL: Decodable { var enabled: Bool? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -369,6 +372,7 @@ public enum ConfigLoader {
             eventsEnabled: raw.events?.enabled ?? false,                           // opt-in
             eventsPath: raw.events?.path.flatMap { $0.isEmpty ? nil : $0 },
             eventsIntervalMs: raw.events?.interval_ms ?? 1000,
+            nlEnabled: raw.nl?.enabled ?? false,                                   // opt-in
             rules: parseRules(raw.rules))
     }
 

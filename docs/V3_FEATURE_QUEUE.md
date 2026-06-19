@@ -82,7 +82,12 @@ bump version → commit + push → tick this file.
 - [~] Predictive shadow-buffer — RECOMMEND SKIP (speculative; no gateable surface).
 - [~] Headless virtual-display layout prefetch — RECOMMEND SKIP (speculative; no gateable surface).
 ### Parked v2 item
-- [ ] On-device NL layout box (FoundationModels — available on this Mac; build real, gated [nl])
+- [x] On-device NL layout box — **v1.4.21 DONE** (built REAL — FoundationModels available on this
+      Mac). `[nl]` box (opt-in hotkey): type a request → on-device model → ActionRequests via the
+      catalog prompt + ActionParser (drop-invalid). Pure `NLCommand` TDD'd (3 tests); `NLInterpreter`
+      (FoundationModels, availability-gated 3 ways). **Verified end-to-end on the real model** via the
+      `ZT_NL=` headless probe (tile/autotile/focus-screen all correct). Box UI mirrors the validated
+      command palette; live box-render + multi-action chaining noted in V2_TEST_DEBT.md. 0 AX, 100% local.
 
 ## Final
 Consolidated `rm -rf native/.build && make verify`, rebuild + reinstall the `.app`, bump to v1.5.0,

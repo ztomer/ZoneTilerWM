@@ -72,6 +72,14 @@ working (no re-grant). Confirmed:
 - **No Gemini grade** — drag-to-snap adds no new visual surface (it reuses the existing tile move),
   so there is nothing to grade; N/A by design.
 
+## Live validation deferred — on-device NL box (v1.4.21)
+- **NL model path VERIFIED** end-to-end on the real on-device model via `ZT_NL="…"` (tile/autotile/
+  focus-screen mapped correctly). Deferred: (1) the box NSPanel *render* in real use (couldn't QA-
+  capture transiently — it uses makeKeyAndOrderFront/activate like the command palette, which is
+  validated; do a live `[nl] enabled` + hotkey check or Gemini-grade the panel in daylight); (2)
+  multi-action chaining — "do X then Y" sometimes yields only the first action; improve with prompt
+  tuning if needed (single-action requests work). Ships gated default-off.
+
 ## AX-budget validation REQUIRED before enabling — focus-follows-mouse (v1.4.19)
 - **focus-follows-mouse** is the only feature that adds per-interaction AX. Detection is 0 AX
   (passive monitor + CGWindowList + dwell), but each settle-on-a-new-window calls

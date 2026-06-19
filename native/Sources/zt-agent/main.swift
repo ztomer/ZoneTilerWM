@@ -124,6 +124,7 @@ final class AgentController: NSObject {
     private var resizeMode: ResizeModeController!
     private var windowHints: WindowHintsController!
     private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
+    private var nlBox: NLBoxController!                     // gated by [nl] enabled (on-device NL layout box)
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
@@ -275,6 +276,7 @@ final class AgentController: NSObject {
             applyCluster: { [unowned self] name in self.applyCluster(name) },
             sandbox: { [unowned self] in self.sandbox.toggle() }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
+        nlBox = NLBoxController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },
@@ -940,6 +942,12 @@ final class AgentController: NSObject {
                 self?.commandPalette.toggle()
             }
         }
+        // On-device NL layout box — opt-in: only bound when [nl] enabled (needs Apple Intelligence).
+        if config.nlEnabled {
+            bindAction(config.resolvedHotkey("nl", in: config.systemHotkeys), label: "nl") { [weak self] in
+                self?.nlBox.toggle()
+            }
+        }
     }
 
     /// The menubar mark: a 2x2 zone grid with the top-left zone filled (echoes the app icon).
@@ -1031,6 +1039,7 @@ final class AgentController: NSObject {
 
     /// QA / debug entry point to show the command palette (the normal trigger is the gated hotkey).
     func showCommandPalette() { commandPalette.show() }
+    func showNLBox() { nlBox.show() }
 
     /// QA / debug entry point to force the zone HUD on (the normal trigger is the modifier hold).
     func showZoneHUDForQA() { zoneHUD.forceShow() }
@@ -1091,6 +1100,7 @@ case "settings":  DispatchQueue.main.async { controller.openSettings() }
 case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
+case "nl":        DispatchQueue.main.async { controller.showNLBox() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
 case "break":     DispatchQueue.main.async { controller.breakScreenForQA() }
@@ -1100,6 +1110,21 @@ default: break
 if let render = ProcessInfo.processInfo.environment["ZT_RENDER"] {
     let parts = render.split(separator: ":", maxSplits: 1).map(String.init)
     if parts.count == 2 { controller.renderOverlayPNG(parts[0], to: parts[1]) }
+    exit(0)
+}
+// Headless NL probe: "ZT_NL=tile this left" → run the on-device interpreter, print the resulting
+// actions + exit. Verifies the FoundationModels path end-to-end without the UI / agent lifecycle.
+if let nlText = ProcessInfo.processInfo.environment["ZT_NL"] {
+    let prompt = NLCommand.systemPrompt(catalog: ActionParser.catalog)
+    let sem = DispatchSemaphore(value: 0)
+    Task {
+        switch await NLInterpreter.interpret(nlText, systemPrompt: prompt) {
+        case .requests(let r): print("NL → [\(r.map { ActionParser.canonical($0).name }.joined(separator: ", "))]")
+        case .error(let e):    print("NL error: \(e)")
+        }
+        sem.signal()
+    }
+    sem.wait()
     exit(0)
 }
 
