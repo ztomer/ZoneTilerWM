@@ -35,8 +35,11 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
       App Launcher = app cuts + hyper cuts + scratchpad; Tiling = tiling + Zone HUD + drag-to-snap;
       Appearance = window border + margins; Automation = command palette + on-device AI + integration
       + profiles + MCP/CLI.
-- [ ] Generate **Susan-Kare / Dieter-Rams-approved sidebar icons** — using SF Symbols as the baseline
-      for now; custom icons via the Gemini asset loop are the follow-up.
+- [x] Generate **Susan-Kare / Dieter-Rams-approved sidebar icons** — DONE (v1.5.13). Custom vector
+      glyphs authored as SwiftUI Canvas Paths (20-unit grid, ~1.7 stroke, one geometric line-language,
+      auto-tinting; no raster assets), replacing the SF Symbols. Driven through the Gemini
+      asset-grade loop: round 1 outlined Tiling (fixed the fill bifurcation) + redesigned Keys as a
+      literal key (was reading as a reticle). Most glyphs grade 8–9; further rounds optional.
 
 ## D. Settings content changes
 - [x] **Break screen** → moved to the **Pomodoro** tab; renamed to **"Break screen"** (v1.5.3).
