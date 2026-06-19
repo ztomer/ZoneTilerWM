@@ -15,19 +15,22 @@ public struct ArrangementQuery {
     private let zoneConfig: () -> ZoneConfig
     private let offset: (_ monitor: String, _ axis: String, _ index: Int) -> Double
     private let memory: () -> WindowMemory?
+    private let now: () -> Int   // epoch seconds, so suggestions rank by recency-decayed weight
 
     public init(windowSystem: WindowSystem,
                 screenProvider: ScreenProvider,
                 monitorManager: MonitorManager,
                 zoneConfig: @escaping () -> ZoneConfig,
                 offset: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double,
-                memory: @escaping () -> WindowMemory?) {
+                memory: @escaping () -> WindowMemory?,
+                now: @escaping () -> Int = { 0 }) {
         self.windowSystem = windowSystem
         self.screenProvider = screenProvider
         self.monitorManager = monitorManager
         self.zoneConfig = zoneConfig
         self.offset = offset
         self.memory = memory
+        self.now = now
     }
 
     public func answer(_ query: QueryRequest) -> QueryResult {
@@ -35,6 +38,7 @@ public struct ArrangementQuery {
         case .arrangement:    return .arrangement(windows: arrangement())
         case .zones:          return .zones(screens: zoneList())
         case .placementStats: return placementStats()
+        case .suggestions:    return suggestions()
         }
     }
 
@@ -72,6 +76,28 @@ public struct ArrangementQuery {
                           tile: $0.tile_index, count: $0.data.count)
         }
         return .placementStats(stats: prefs.sorted { ($0.app, $0.monitor, $0.zone) < ($1.app, $1.monitor, $1.zone) })
+    }
+
+    // MARK: suggestions (context-aware)
+
+    private func suggestions() -> QueryResult {
+        guard let mem = memory() else { return .unavailable(reason: "window memory disabled") }
+        // The live arrangement (0 AX) reused as the suggestion input.
+        let windows = arrangement().map {
+            PlacementSuggestions.Window(windowId: $0.windowId, app: $0.app, monitor: $0.monitor, currentZone: $0.zone)
+        }
+        // Resolver: the learned top-weighted ZONE for (app, monitor) — weights summed across the
+        // zone's tiles so a zone split over two tiles still outranks a single-tile rival.
+        let nowSec = now()
+        let resolve: (String, String) -> (zone: String, weight: Double)? = { app, monitor in
+            let ranked = mem.rankedPreferences(app: app, monitor: monitor, now: nowSec > 0 ? nowSec : nil)
+            guard !ranked.isEmpty else { return nil }
+            var byZone: [String: Double] = [:]
+            for r in ranked { byZone[r.zoneKey, default: 0] += r.weight }
+            // max weight, tie-break on zone key for determinism
+            return byZone.max { ($0.value, $1.key) < ($1.value, $0.key) }.map { ($0.key, $0.value) }
+        }
+        return .suggestions(suggestions: PlacementSuggestions.compute(windows: windows, preferredZone: resolve))
     }
 
     // MARK: helpers

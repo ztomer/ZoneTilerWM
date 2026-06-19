@@ -276,7 +276,8 @@ final class AgentController: NSObject {
             windowSystem: windowSystem, screenProvider: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },
             offset: { [weak resizeManager] m, a, i in resizeManager?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
-            memory: { [unowned self] in self.learnedMemory })
+            memory: { [unowned self] in self.learnedMemory },
+            now: { Int(Date().timeIntervalSince1970) })
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
         applyBorders(config)
     }

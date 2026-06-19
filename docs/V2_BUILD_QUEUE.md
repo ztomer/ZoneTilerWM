@@ -51,8 +51,15 @@ zt-mcp serverVersion) → commit + push → tick this file.
       `cycleFocus` (0-AX enumeration, 1 AX focus mutate). Surfaced in catalog (palette/CLI/MCP);
       opt-in hotkeys `stack_next`/`stack_prev` (no default). 5-persona review → ship. Live
       exercise + named persistent groups deferred (see V2_TEST_DEBT.md / future extension).
-- [ ] Context-aware placement + layout suggestions (gated config) ← NEXT
-- [ ] Retro break theme (Pomodoro break screen; opt-in default off) — visual
+- [x] Context-aware placement + layout suggestions — **v1.4.8 DONE**. New read-only `suggestions`
+      resource: cross-references the live arrangement vs learned WindowMemory prefs, lists windows
+      away from their usual zone (`currentZone → suggestedZone` + recency-decayed weight). Pure
+      `PlacementSuggestions.compute` TDD'd (5 tests); provider 0-AX (reuses arrangement() +
+      rankedPreferences). Surfaced via catalog (CLI `get suggestions` / MCP `zonetiler://suggestions`).
+      Gated behind window memory (returns `unavailable` when off). 5-persona review → fixed HIGH
+      (thread `now` so weight is recency-decayed, matching live placement) + round-trip coverage.
+      This is the read surface the LLM-assisted item consumes.
+- [ ] Retro break theme (Pomodoro break screen; opt-in default off) — visual ← NEXT
 - [ ] Universal binary (arm64 + x86_64) — build flag
 - [ ] Config + memory sync across machines (file-based; gated)
 - [ ] On-device NL layout box (Foundation Models; gated, capable Macs; STUB if SDK-gated) — visual

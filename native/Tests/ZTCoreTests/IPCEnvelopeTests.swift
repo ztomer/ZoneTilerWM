@@ -12,6 +12,7 @@ final class IPCEnvelopeTests: XCTestCase {
             .action(.switchAudio(device: .named("BlackHole"))),
             .query(.arrangement),
             .query(.placementStats),
+            .query(.suggestions),
         ]
         for c in cases {
             let data = try JSONEncoder().encode(c)
@@ -54,6 +55,7 @@ final class QueryRequestTests: XCTestCase {
             .arrangement(windows: [WindowInfo(windowId: 9, app: "Zen", frame: rect, monitor: "2", zone: nil)]),
             .zones(screens: [ScreenZones(monitor: "1", screenName: "Main", zones: ["h"])]),
             .placementStats(stats: [PlacementStat(app: "Zen", monitor: "2", zone: "k", tile: .string("4a"), count: 1)]),
+            .suggestions(suggestions: [PlacementSuggestion(windowId: 9, app: "Zen", monitor: "2", currentZone: "h", suggestedZone: "k", weight: 4.5)]),
             .unavailable(reason: "memory disabled"),
         ]
         for c in cases {

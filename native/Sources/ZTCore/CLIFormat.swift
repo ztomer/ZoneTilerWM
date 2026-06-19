@@ -58,6 +58,10 @@ public enum CLIFormat {
             if stats.isEmpty { return "(no learned placements)" }
             return stats.map { "\($0.app.isEmpty ? "(unknown)" : $0.app)  monitor \($0.monitor)  zone \($0.zone) tile \($0.tile.sortKey)  ×\($0.count)" }
                 .joined(separator: "\n")
+        case .suggestions(let suggestions):
+            if suggestions.isEmpty { return "(no suggestions — every window is in its usual zone)" }
+            return suggestions.map { "\($0.app.isEmpty ? "(unknown)" : $0.app)#\($0.windowId)  monitor \($0.monitor)  \($0.currentZone ?? "—") → \($0.suggestedZone)  (weight \(String(format: "%.1f", $0.weight)))" }
+                .joined(separator: "\n")
         case .unavailable(let why):
             return "unavailable: \(why)"
         }
@@ -112,6 +116,7 @@ public enum CLIFormat {
         case .arrangement:    return "arrangement"
         case .zones:          return "zones"
         case .placementStats: return "placement-stats"
+        case .suggestions:    return "suggestions"
         }
     }
 

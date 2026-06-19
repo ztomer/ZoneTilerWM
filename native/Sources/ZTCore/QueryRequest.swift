@@ -8,6 +8,7 @@ public enum QueryRequest: String, Codable, Equatable, CaseIterable {
     case arrangement      // current windows: app, frame, monitor, occupied zone
     case zones            // available zone keys per screen
     case placementStats   // the learned per-app placement preferences
+    case suggestions      // context-aware: windows sitting away from their learned-preferred zone
 
     /// Stable resource URI used by the MCP `resources/*` methods.
     public var uri: String { "zonetiler://\(rawValue)" }
@@ -22,6 +23,7 @@ public enum QueryRequest: String, Codable, Equatable, CaseIterable {
         case .arrangement:    return "Current window arrangement"
         case .zones:          return "Available zones"
         case .placementStats: return "Learned placement preferences"
+        case .suggestions:    return "Context-aware placement suggestions"
         }
     }
 
@@ -33,6 +35,8 @@ public enum QueryRequest: String, Codable, Equatable, CaseIterable {
             return "The zone keys available on each connected screen, given the active layout."
         case .placementStats:
             return "The app→zone placement preferences ZoneTilerWM has learned, with usage counts."
+        case .suggestions:
+            return "Windows currently sitting away from the zone they're usually placed in, with the suggested zone and a recency-weighted confidence — cross-references the live arrangement against learned preferences. Read-only; needs window memory."
         }
     }
 }
@@ -73,6 +77,22 @@ public struct PlacementStat: Codable, Equatable {
     }
 }
 
+/// A context-aware suggestion: a window that's currently in a different zone than the one its app
+/// is usually placed in on that monitor. `currentZone` is nil if it isn't in any zone right now.
+public struct PlacementSuggestion: Codable, Equatable {
+    public let windowId: Int
+    public let app: String
+    public let monitor: String
+    public let currentZone: String?
+    public let suggestedZone: String
+    public let weight: Double   // recency-decayed evidence for the suggested zone (higher = more confident)
+
+    public init(windowId: Int, app: String, monitor: String, currentZone: String?, suggestedZone: String, weight: Double) {
+        self.windowId = windowId; self.app = app; self.monitor = monitor
+        self.currentZone = currentZone; self.suggestedZone = suggestedZone; self.weight = weight
+    }
+}
+
 public enum QueryResult: Codable, Equatable {
     // Labeled associated values so the synthesized JSON is self-describing
     // (`{"zones":{"screens":[…]}}`) rather than `{"zones":{"_0":[…]}}` — this is the text an MCP
@@ -80,5 +100,6 @@ public enum QueryResult: Codable, Equatable {
     case arrangement(windows: [WindowInfo])
     case zones(screens: [ScreenZones])
     case placementStats(stats: [PlacementStat])
+    case suggestions(suggestions: [PlacementSuggestion])
     case unavailable(reason: String)   // e.g. a query that needs a subsystem that's disabled
 }

@@ -27,9 +27,16 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 ## Actions & resources
 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
-`focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`, `app`, `pomodoro`, `resize-mode`,
-`window-hints`, `save-layout`, `apply-layout`, `reload`. Resources: `arrangement`, `zones`,
-`placement-stats`.
+`stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
+`app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `reload`.
+Resources: `arrangement`, `zones`, `placement-stats`, `suggestions`.
+
+**`suggestions`** (context-aware placement) cross-references the live arrangement against the
+learned per-app preferences and lists every window sitting away from the zone its app usually
+occupies on that monitor — each with `currentZone → suggestedZone` and a recency-decayed weight
+(same decay the live auto-placement uses). Read-only, **0 AX**; returns `unavailable` when window
+memory is off. It's the read surface the LLM-assisted-suggestions front-end builds on:
+`zonetiler-cli get suggestions` (or the `zonetiler://suggestions` MCP resource).
 
 ## Transport: agent + Unix-domain socket
 
