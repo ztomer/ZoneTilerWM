@@ -8,7 +8,7 @@
 > inputs parse/compute identically), and `swift test --sanitize=address` runs clean
 > (148 tests, no AddressSanitizer reports). The text below is the original review record.
 
-A correctness, numerical, determinism, and robustness review of the pure-logic algorithms in `native/Sources/ZTCore/`, judged on their own merits (the Lua original has been removed; this is not a parity check). File:line citations refer to the `v2` working tree at review time.
+A correctness, numerical, determinism, and robustness review of the pure-logic algorithms in `Sources/ZTCore/`, judged on their own merits (the Lua original has been removed; this is not a parity check). File:line citations refer to the `v2` working tree at review time.
 
 ## Summary verdict
 

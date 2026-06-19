@@ -116,7 +116,7 @@ Keep `ZTRect` in **top-left CG coordinates** end-to-end (matches Lua, the AX API
 > as the record of *how* the port was validated; the per-module "diff_X N/N" results in the
 > Port-status table below are the frozen parity evidence. Today `make verify` runs the Swift
 > tests only, and the solver/zones Swift tests assert against the frozen golden corpus now in
-> `native/Tests/Fixtures/`. The Lua remains in git history + the `.hammerspoon` `origin` remote.
+> `Tests/Fixtures/`. The Lua remains in git history + the `.hammerspoon` `origin` remote.
 
 The Lua implementation was the spec. For each pure module we ran **both implementations on
 the same inputs and diffed**, including fuzz-generated inputs, so correctness was
@@ -128,7 +128,7 @@ are covered by visual validation (below).
 - `oracle_*.lua` — headless Lua oracles (no Hammerspoon): read a JSON scenario on stdin,
   run the real Lua module, emit JSON results. One per module: `oracle_solver`,
   `oracle_zones`, `oracle_memory`, `oracle_smartplacer`, `oracle_placement`.
-- `zt-oracle` (Swift executable, `native/Sources/zt-oracle`) — same JSON contract; mode
+- `zt-oracle` (Swift executable, `Sources/zt-oracle`) — same JSON contract; mode
   selected by argv: `solve` | `zones` | `memory` | `place` | `strategy`.
 - `gen_fuzz_*.lua` — seeded random scenario generators.
 - `cmp_*.lua` — result comparators implementing the comparison contract.
@@ -310,7 +310,7 @@ layer; the OS adapters / UI are validated by live screenshot QA + the post-move 
 readback rather than unit tests. See `REVIEW.md` for the full coverage breakdown and the
 engineering/performance/UX review.
 
-**Identity / assets** (`native/Assets/`): app icon in light + dark variants
+**Identity / assets** (`Assets/`): app icon in light + dark variants
 (`AppIcon-1024-light.png` / `-dark.png`, a zone-grid-with-top-left-filled mark) and the
 matching `menubar-glyph.svg`, generated with the `gemini-bridge` skill. The live menubar draws
 the mark programmatically as a colored image (amber accent zone; grid lines flip for light/dark

@@ -27,7 +27,7 @@ final class LayoutSolverTests: XCTestCase {
         let placed: Int
     }
 
-    /// native/Tests/Fixtures/solver — Lua-dumped golden corpus, now a static regression set.
+    /// Tests/Fixtures/solver — Lua-dumped golden corpus, now a static regression set.
     private func fixturesDir() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // ZTCoreTests

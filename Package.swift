@@ -1,7 +1,7 @@
 // swift-tools-version:5.9
 import PackageDescription
 
-// Native Swift port of ZoneTilerWM (v2). Lives under native/ to stay cleanly separated
+// Native Swift port of ZoneTilerWM (v2). Lives under  to stay cleanly separated
 // from the Lua source tree (modules/, tests/) which remains the executable spec.
 //
 //   ZTCore     — pure logic, NO AppKit/ApplicationServices import. Value snapshots.
