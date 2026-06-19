@@ -11,7 +11,6 @@ final class ConfigLoaderTests: XCTestCase {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // ZTSystemTests
             .deletingLastPathComponent()   // Tests
-            .deletingLastPathComponent()   // native
             .deletingLastPathComponent()   // repo root
             .appendingPathComponent("config.toml")
     }

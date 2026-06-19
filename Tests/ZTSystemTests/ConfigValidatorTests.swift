@@ -9,7 +9,7 @@ final class ConfigValidatorTests: XCTestCase {
     private func realConfig() throws -> ConfigLoader.LoadedConfig {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
             .appendingPathComponent("config.toml")
         return try ConfigLoader.load(tomlString: String(contentsOf: url, encoding: .utf8),
                                      homeDirectory: "/Users/test")

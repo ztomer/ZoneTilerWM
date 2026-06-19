@@ -10,7 +10,7 @@ final class RulesConfigTests: XCTestCase {
     private func repoConfig() throws -> String {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
             .appendingPathComponent("config.toml")
         return try String(contentsOf: url, encoding: .utf8)
     }

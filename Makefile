@@ -1,21 +1,21 @@
-# ZoneTilerWM — dev entry points. This is now a single native Swift product in native/;
-# the original Hammerspoon/Lua implementation and its differential oracle harness were
+# ZoneTilerWM — dev entry points. This is a single native Swift product (SwiftPM package at the
+# repo root); the original Hammerspoon/Lua implementation and its differential oracle harness were
 # retired once the port reached parity (they live on in git history + the `origin` remote).
 
 .PHONY: verify test-swift build app probe help
 
 help:
-	@echo "make verify      - swift unit + golden tests (native/)"
+	@echo "make verify      - swift unit + golden tests"
 	@echo "make test-swift  - alias for verify"
-	@echo "make build       - build the native package"
+	@echo "make build       - build the Swift package"
 	@echo "make app         - build ZoneTilerWM.app (Release, ad-hoc signed) via xcodegen"
 	@echo "make probe       - read-only system probe (screens/windows/audio)"
 
 verify test-swift:
-	@cd native && swift test
+	@swift test
 
 build:
-	@cd native && swift build
+	@swift build
 
 # Generate the Xcode project from project.yml and build the .app bundle. Needs xcodegen
 # (brew install xcodegen). Artifacts go to /tmp/ZoneTilerWM (out of the project tree).
@@ -32,4 +32,4 @@ app:
 	@echo "built: /tmp/ZoneTilerWM/DerivedData/Build/Products/Release/ZoneTilerWM.app"
 
 probe: build
-	@native/.build/debug/zt-probe
+	@.build/debug/zt-probe

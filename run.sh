@@ -15,4 +15,4 @@ pkill -x zt-agent 2>/dev/null || true
 sleep 0.3
 
 echo "zt-agent: launching (live config: ~/.config/ZoneTilerWM/config.toml; first-run seed: $SEED)"
-exec "$ROOT/native/.build/debug/zt-agent" "$SEED"
+exec "$ROOT/.build/debug/zt-agent" "$SEED"

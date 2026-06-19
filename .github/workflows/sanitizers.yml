@@ -23,11 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: AddressSanitizer
-        run: cd native && swift test --sanitize=address
+        run: swift test --sanitize=address
 
   thread:
     runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v4
       - name: ThreadSanitizer
-        run: cd native && swift test --sanitize=thread
+        run: swift test --sanitize=thread

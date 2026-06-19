@@ -1,5 +1,5 @@
-# XcodeGen spec for the ZoneTilerWM.app bundle. The Swift logic lives in the SwiftPM package
-# under native/; this app target links ZTUI/ZTSystem (+ ZTCore transitively) and compiles the
+# XcodeGen spec for the ZoneTilerWM.app bundle. The Swift logic lives in the SwiftPM package at the
+# repo root; this app target links ZTUI/ZTSystem (+ ZTCore transitively) and compiles the
 # zt-agent sources as its entry point (zt-agent/main.swift is top-level executable code).
 #
 # Regenerate the project with:  xcodegen generate
@@ -15,7 +15,7 @@ options:
 
 packages:
   ZoneTilerWM:
-    path: native
+    path: .
 
 targets:
   ZoneTilerWM:
@@ -23,8 +23,8 @@ targets:
     platform: macOS
     # Compile the agent's own sources; link the package libraries.
     sources:
-      - path: native/Sources/zt-agent
-      - path: native/Assets/AppIcon.icns
+      - path: Sources/zt-agent
+      - path: Assets/AppIcon.icns
         buildPhase: resources
       # Shipped default config, copied to ~/.config/ZoneTilerWM/config.toml on first run.
       - path: config.toml

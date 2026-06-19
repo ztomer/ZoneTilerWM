@@ -3,8 +3,8 @@
 tools/fuzz_failures/
 
 # SwiftPM build output
-native/.build/
 .build/
+.swiftpm/
 *.xcuserstate
 .DS_Store
 

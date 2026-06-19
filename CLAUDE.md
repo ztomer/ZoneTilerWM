@@ -1,7 +1,7 @@
 # ZoneTilerWM — project guide
 
-A macOS tiling window manager: a standalone native Swift menubar agent in `native/`
-(SwiftPM), no Hammerspoon dependency. It reads the existing `config.toml` and
+A macOS tiling window manager: a standalone native Swift menubar agent (a SwiftPM
+package at the repo root), no Hammerspoon dependency. It reads the existing `config.toml` and
 `~/.config/ZoneTilerWM/*.json`.
 
 > History: this began as a Hammerspoon/Lua config and was ported to Swift against the Lua
@@ -10,7 +10,7 @@ A macOS tiling window manager: a standalone native Swift menubar agent in `nativ
 > Lua/Hammerspoon implementation"). They remain recoverable in git history and on the
 > original `.hammerspoon` `origin` remote. The Swift unit + golden tests are now the spec.
 
-**Read `native/ARCHITECTURE.md`** for the full design and conventions. This file is the
+**Read `ARCHITECTURE.md`** for the full design and conventions. This file is the
 quick operational guide.
 
 ## Hard rules
@@ -25,13 +25,13 @@ quick operational guide.
 
 ## Verify / test
 
-- `make verify` — the Swift unit + golden tests (`native/`). One green/red answer.
+- `make verify` — the Swift unit + golden tests. One green/red answer.
 - `make build` / `make probe` for the rest.
 - Current baseline: 244 Swift tests green (v1.4); ~92% line coverage on the pure-logic `ZTCore`
   layer. The OS adapters / UI are validated by live screenshot QA + the post-move AX frame
-  readback rather than unit tests (see `native/REVIEW.md`).
+  readback rather than unit tests (see `REVIEW.md`).
 - The solver/zones Swift tests assert against a frozen golden corpus in
-  `native/Tests/Fixtures/` (originally dumped from the Lua; now a static regression set).
+  `Tests/Fixtures/` (originally dumped from the Lua; now a static regression set).
 
 ## Conventions / gotchas
 
@@ -42,7 +42,7 @@ quick operational guide.
   every Accessibility call, so cost is AX-round-trip *count*, not CPU. Reads/occupancy/
   z-order go through `CGWindowListCopyWindowInfo` (zero AX); AX is touched only to mutate +
   read the focused element; the EnhancedUI flag is memoized per app. Don't add per-window AX
-  reads for enumeration. See `docs/SENTINELONE_INVESTIGATION.md`, `native/REVIEW.md` §1.
+  reads for enumeration. See `docs/SENTINELONE_INVESTIGATION.md`, `REVIEW.md` §1.
 - **Coordinates:** top-left CG space everywhere (`ZTRect`), matching AX/CGWindowList. Convert
   only inside `NSScreenProvider` if reading `NSScreen.frame`.
 - **Two window value types (don't merge):** `WindowSnapshot` (solver input, opaque String
@@ -66,7 +66,7 @@ quick operational guide.
   mangle them). Push only to the `v2origin` remote (`ZoneTilerWMv2`), never to `origin`.
 - **Build gotcha:** changing a public `ZTCore` initializer/signature can leave the
   executables linking the old symbol ("Undefined symbols … TilerCoordinator.__allocating_init").
-  SwiftPM incremental misses it — `rm -rf native/.build && swift build` to recover.
+  SwiftPM incremental misses it — `rm -rf .build && swift build` to recover.
 
 ## Dev: accessibility
 

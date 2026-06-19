@@ -29,7 +29,7 @@ final class HotkeyConflictsTests: XCTestCase {
     func testRealConfigBindingsAreConsistentlyDetected() throws {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
             .appendingPathComponent("config.toml")
         let cfg = try ConfigLoader.load(tomlString: String(contentsOf: url, encoding: .utf8),
                                         homeDirectory: "/Users/test")

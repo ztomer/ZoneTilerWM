@@ -88,7 +88,7 @@ A tiny stdio shim the MCP client spawns; it speaks JSON-RPC (MCP) over stdin/std
 to the agent over the socket. Register it with Claude Code (agent must be running):
 
 ```sh
-claude mcp add zonetiler -- /ABS/PATH/ZoneTilerWM/native/.build/debug/zt-mcp
+claude mcp add zonetiler -- /ABS/PATH/ZoneTilerWM/.build/debug/zt-mcp
 ```
 
 Tools are generated from `ActionParser.catalog`; resources from `QueryRequest`. The shim holds
@@ -132,7 +132,7 @@ The bundled `.app` exposes typed **App Intents** — Tile Focused Window, Auto-T
 Audio Output, Toggle Application, Toggle Zen Mode, Focus Screen — usable in the Shortcuts editor
 and (for a couple) by voice via App Shortcuts. Each intent forwards its `ActionRequest` to the
 running agent over the same socket (so it works regardless of which process runs the intent, as
-long as the agent is up). Defined in `native/Sources/zt-agent/Intents.swift`; discovered via the
+long as the agent is up). Defined in `Sources/zt-agent/Intents.swift`; discovered via the
 App Intents metadata the Xcode build extracts.
 
 ## Layout snapshots (`save-layout` / `apply-layout`)

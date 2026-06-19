@@ -2,7 +2,7 @@
 
 ZoneTilerWM is a kinesthetic window manager for macOS that maps window placement to your keyboard layout. It learns your preferences to automate window arrangement, reducing cognitive load and making window management a matter of muscle memory.
 
-It is a standalone native Swift app — an `LSUIElement` menubar agent in `native/` (SwiftPM), with no Hammerspoon dependency. See [native/ARCHITECTURE.md](native/ARCHITECTURE.md).
+It is a standalone native Swift app — an `LSUIElement` menubar agent (SwiftPM package at the repo root), with no Hammerspoon dependency. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 > This project began as a Hammerspoon/Lua config and was ported to Swift against the Lua as an executable spec (validated with a Lua↔Swift differential-oracle harness). Once the port reached parity it became the product and the Lua was removed; it remains in git history and on the original `.hammerspoon` `origin` remote.
 
@@ -17,7 +17,7 @@ Multi-monitor: logical monitor ids are seeded from the display arrangement at st
 Remaining:
 
 - Productization polish: Developer ID signing + notarization (currently ad-hoc), launch-at-login (`SMAppService`), and first-run accessibility onboarding. The `.app` bundle + CI/CD exist (below).
-- UI/performance polish tracked in [native/REVIEW.md](native/REVIEW.md). None are correctness regressions.
+- UI/performance polish tracked in [REVIEW.md](REVIEW.md). None are correctness regressions.
 
 Develop, test, and build:
 
@@ -35,7 +35,7 @@ make app           # build ZoneTilerWM.app (Release) via xcodegen + xcodebuild
 > survives rebuilds — see [docs/DEV_SIGNING.md](docs/DEV_SIGNING.md). `build_dist.sh` forces
 > ad-hoc signing for builds you share (that cert is yours alone; ad-hoc grants work on any Mac).
 
-Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic core (`ZTCore`). The OS-adapter/UI layers are validated via live screenshot QA + the post-move AX frame readback rather than unit tests — see [native/REVIEW.md](native/REVIEW.md).
+Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic core (`ZTCore`). The OS-adapter/UI layers are validated via live screenshot QA + the post-move AX frame readback rather than unit tests — see [REVIEW.md](REVIEW.md).
 
 ### Packaging & CI/CD
 
@@ -78,7 +78,7 @@ Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic co
 ## Installation
 
 1. Clone this repository.
-2. Build and launch the agent: `./run.sh` (or `./build.sh` then run `native/.build/debug/zt-agent`).
+2. Build and launch the agent: `./run.sh` (or `./build.sh` then run `.build/debug/zt-agent`).
 3. Grant Accessibility permission to the binary when prompted (System Settings → Privacy & Security → Accessibility) — required to move other apps' windows.
 4. Edit `config.toml` to customize zones, keybindings, and apps; the agent live-reloads on save. The settings GUI (menubar → Settings…) edits the same file.
 
@@ -87,28 +87,27 @@ Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic co
 ## Project Structure
 
 ```text
-ZoneTilerWM/
+ZoneTilerWM/                 # the SwiftPM package lives at the repo root
 ├── config.toml              # Main configuration file (TOML) — read by the agent
 ├── build.sh / run.sh        # Build / build-and-launch helpers
 ├── Makefile                 # make verify (swift tests), build, probe
-├── native/                  # The Swift product (SwiftPM)
-│   ├── Package.swift
-│   ├── ARCHITECTURE.md      # Design, layering, conventions
-│   ├── REVIEW.md            # Engineering / perf / UX review + coverage
-│   ├── Sources/
-│   │   ├── ZTCore/          # Pure logic (no AppKit): solver, zones, placement,
-│   │   │                    #   memory, auto-tiler, focus, monitor mgr, …
-│   │   ├── ZTSystem/        # OS adapters: AX window control, CGWindowList enum,
-│   │   │                    #   NSScreen, Carbon hotkeys, CoreAudio, TOML, config
-│   │   ├── ZTUI/            # SwiftUI settings (6 tabs) + analytics window
-│   │   ├── zt-agent/        # The LSUIElement menubar agent (composition root)
-│   │   └── zt-probe / zt-tile / …  # small dev CLIs
-│   └── Tests/               # XCTest suites + Fixtures/ (frozen golden corpus)
+├── Package.swift
+├── ARCHITECTURE.md          # Design, layering, conventions
+├── REVIEW.md                # Engineering / perf / UX review + coverage
+├── Sources/
+│   ├── ZTCore/              # Pure logic (no AppKit): solver, zones, placement,
+│   │                        #   memory, auto-tiler, focus, monitor mgr, …
+│   ├── ZTSystem/            # OS adapters: AX window control, CGWindowList enum,
+│   │                        #   NSScreen, Carbon hotkeys, CoreAudio, TOML, config
+│   ├── ZTUI/                # SwiftUI settings (sidebar) + analytics window
+│   ├── zt-agent/            # The LSUIElement menubar agent (composition root)
+│   └── zt-probe / zt-tile / …  # small dev CLIs
+├── Tests/                   # XCTest suites + Fixtures/ (frozen golden corpus)
 ├── docs/                    # Design notes & references (some Hammerspoon-era history)
 └── Assets/                  # App icon (light/dark) + menubar glyph
 ```
 
-See [native/ARCHITECTURE.md](native/ARCHITECTURE.md) for the module map and the `ZTCore` /
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the module map and the `ZTCore` /
 `ZTSystem` / `ZTUI` layering rules.
 
 ---
@@ -231,15 +230,15 @@ You can extend the detection logic in `config.toml` under `[tiler.screen_detecti
 
 For detailed documentation, see the [docs/](docs/) folder:
 
-* **[Native Architecture](native/ARCHITECTURE.md)** - Design, layering (`ZTCore`/`ZTSystem`/`ZTUI`), conventions, feature status
-* **[Review](native/REVIEW.md)** - Engineering (Linus/Uncle Bob), performance (Carmack), and UI/UX (Rams/Kare) review plus the code-coverage breakdown
-* **[Tutorial / Getting Started](native/Sources/ZTUI/Resources/Tutorial.md)** - New-user walkthrough (also in the menubar → Tutorial)
+* **[Native Architecture](ARCHITECTURE.md)** - Design, layering (`ZTCore`/`ZTSystem`/`ZTUI`), conventions, feature status
+* **[Review](REVIEW.md)** - Engineering (Linus/Uncle Bob), performance (Carmack), and UI/UX (Rams/Kare) review plus the code-coverage breakdown
+* **[Tutorial / Getting Started](Sources/ZTUI/Resources/Tutorial.md)** - New-user walkthrough (also in the menubar → Tutorial)
 * **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
 * **[SentinelOne Performance](docs/SENTINELONE_INVESTIGATION.md)** - Why AX-call count is the primary perf constraint, and how the agent minimizes it (CGWindowList reads, memoized EnhancedUI toggle)
 * **[Auto-tiling Design](docs/auto-tiling_algorithmic_design.md)** - The cost-based backtracking solver and scoring
 * **[Spaces Research](docs/SPACES_RESEARCH.md)** - macOS Spaces implementation research (out of scope)
 
-Some files under `docs/` (and `native/REMAINING_PORT_PLAN.md`) are Hammerspoon-era history kept for reference.
+Some files under `docs/` (and `REMAINING_PORT_PLAN.md`) are Hammerspoon-era history kept for reference.
 
 ---
 
