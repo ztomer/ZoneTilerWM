@@ -89,9 +89,26 @@ bump version → commit + push → tick this file.
       `ZT_NL=` headless probe (tile/autotile/focus-screen all correct). Box UI mirrors the validated
       command palette; live box-render + multi-action chaining noted in V2_TEST_DEBT.md. 0 AX, 100% local.
 
-## Final
-Consolidated `rm -rf native/.build && make verify`, rebuild + reinstall the `.app`, bump to v1.5.0,
-update `docs/V2_ROADMAP.md` status, write a run summary here.
+## Final — DONE (v1.5.0)
+Consolidated `rm -rf native/.build && make verify` → **312 green from scratch**. Bumped to **v1.5.0**.
+
+### Run summary
+Approved Gemini feature plan implemented via the autonomous loop. **8 new gated features shipped**
+(all default-off, TDD'd pure cores, AX-budget-respected, committed + pushed to `v2origin`):
+- 1.4.14 Scratchpad Drawer · 1.4.15 App-Cluster Profiles · 1.4.16 Window Peek
+- 1.4.17 Session sandbox · 1.4.18 Display-topology presets · 1.4.19 Focus-follows-mouse (AX-reviewed)
+- 1.4.20 Arrangement event stream · 1.4.21 On-device NL layout box (model-verified end-to-end)
+Plus 1.4.13 (zone HUD + break screen Gemini-graded to excellence).
+
+**Not built, by design (documented above):** transactional-drag-snap (≡ shipped drag-snap),
+sticky-tiles (≡ resize-mode), JSON-macros common case (≡ clusters) — already covered; predictive
+shadow-buffer + headless prefetch — **recommend-skip** (no gateable surface, utility 2, speculative).
+
+### Remaining for a DAYLIGHT / packaging pass (see `docs/V2_TEST_DEBT.md`)
+- `./build_package.sh` to produce + reinstall the universal `.app` (slow + Dev signing; the lipo gate
+  self-verifies). Test count baseline: **312**.
+- Live checks: focus-follows-mouse AX trace (SentinelOne); NL box panel render + multi-action;
+  drag-snap / stacks / sync / cluster / scratchpad live exercise; Gemini grade the NL box panel.
 
 ## Resume note
 Fresh context: read this file + [GEMINI_FEATURE_IDEAS.md](GEMINI_FEATURE_IDEAS.md) + the
