@@ -82,6 +82,18 @@ zt-mcp serverVersion) → commit + push → tick this file.
       Documented the end-to-end LLM workflow in AUTOMATION.md. Self-reviewed (thin composition of
       the already-reviewed moveWindow + action spine).
 
+## Remaining — DAYLIGHT pass (needs an awake display for the mandated Gemini grade)
+The overnight run completed every headless-finishable item (1.4.5–1.4.11). The last two queue items
+are fundamentally **visual** and the Gemini visual gate the user mandated needs an awake display —
+impossible at ~4am. Do these in a short daylight session, building + Gemini-grading in one loop:
+- **Retro break theme** (Pomodoro break-screen overlay) — ~all aesthetic; build on `ZTCore.Pomodoro`
+  (`Phase.work/.rest`, `tick()` → `.workCompleted/.restCompleted`). Gate `[break_screen] enabled`
+  default off. Overlay infra: model it on `ZTSystem.ZoneHUDOverlay`.
+- **On-device NL layout box** (Foundation Models) — visual + SDK-gated; ship a best-effort
+  availability-gated STUB if the SDK is absent (parse NL → `ActionRequest` is the testable seam).
+Plus the **deferred validation cluster** in `docs/V2_TEST_DEBT.md`: Gemini-grade the zone HUD;
+live-exercise drag-to-snap, window stacks, sync round-trips; run `./build_package.sh` (lipo gate).
+
 ## Final (after the queue)
 - One consolidated `make verify`, rebuild + reinstall the complete `.app`, bump to a clean release
   (e.g. v1.5.0), update `docs/V2_ROADMAP.md` status, and write a run summary here.
