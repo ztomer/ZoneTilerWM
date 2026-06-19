@@ -77,6 +77,8 @@ public enum ConfigLoader {
         public var scratchpadAutoDismiss: Bool             // hide the set when focus leaves it
         public var clusters: [ClusterProfile]              // [[clusters]] — named app→zone profiles ([] = none)
         public var displayPresets: [DisplayPreset]         // [[display_presets]] — auto-action on display-set change
+        public var focusFollowsMouseEnabled: Bool          // [focus_follows_mouse] enabled (opt-in, default off; AX-sensitive)
+        public var focusFollowsMouseDelayMs: Int           // dwell: cursor must settle this long before focusing
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -212,6 +214,7 @@ public enum ConfigLoader {
         var scratchpad: RawScratchpad?
         var clusters: [RawCluster]?
         var display_presets: [RawDisplayPreset]?
+        var focus_follows_mouse: RawFocusFollowsMouse?
         var rules: [RawRule]?
     }
 
@@ -230,6 +233,7 @@ public enum ConfigLoader {
         var displays: [String]?; var action: String?
         var zone: String?; var direction: String?; var command: String?; var name: String?; var device: String?
     }
+    private struct RawFocusFollowsMouse: Decodable { var enabled: Bool?; var delay_ms: Int? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -355,6 +359,8 @@ public enum ConfigLoader {
             scratchpadAutoDismiss: raw.scratchpad?.auto_dismiss ?? true,
             clusters: parseClusters(raw.clusters),
             displayPresets: parseDisplayPresets(raw.display_presets),
+            focusFollowsMouseEnabled: raw.focus_follows_mouse?.enabled ?? false,   // opt-in; AX-sensitive
+            focusFollowsMouseDelayMs: raw.focus_follows_mouse?.delay_ms ?? 250,
             rules: parseRules(raw.rules))
     }
 

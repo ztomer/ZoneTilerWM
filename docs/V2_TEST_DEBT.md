@@ -72,6 +72,16 @@ working (no re-grant). Confirmed:
 - **No Gemini grade** — drag-to-snap adds no new visual surface (it reuses the existing tile move),
   so there is nothing to grade; N/A by design.
 
+## AX-budget validation REQUIRED before enabling — focus-follows-mouse (v1.4.19)
+- **focus-follows-mouse** is the only feature that adds per-interaction AX. Detection is 0 AX
+  (passive monitor + CGWindowList + dwell), but each settle-on-a-new-window calls
+  `windowSystem.focus`, which resolves the AX element by reading the app's window list (~3 + N AX).
+  The dwell bounds frequency, not per-focus cost. **Before enabling beyond opt-in dev use, capture a
+  real SentinelOne AX trace** while using it normally and confirm the AX volume is acceptable.
+  Also note (deferred, acceptable for v1): `lastFocused` isn't invalidated when focus changes
+  externally (click) without a mouse move — a tiny jiggle over the same window won't re-focus until
+  the cursor moves to another window first. Gated HARD (default off), so it ships dormant.
+
 ## Live validation deferred — settings sync (v1.4.10)
 - **sync-export / sync-import live round-trip** — pure `SyncPlan` is unit-tested (5 cases) and the
   `SyncEngine` two-phase stage→atomic-commit was 5-persona reviewed (data-loss CRITICAL/HIGH fixed:

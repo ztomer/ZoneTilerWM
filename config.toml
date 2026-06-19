@@ -405,6 +405,10 @@ prediction = true            # lead the outline to compensate for follow-lag
 # displays = ["DELL U3223QE"]  # all must be present; first match wins; omit/[] = matches always
 # action = "apply-layout"      # any action name + its params (e.g. apply-layout name=…, autotile)
 # name = "docked"            # e.g. re-apply your docked layout when the external monitor appears
+#
+# [focus_follows_mouse]      # focus the window the cursor settles on (opt-in; AX-sensitive)
+# enabled = true             # passive monitor (0 AX); focuses only after the cursor rests on a NEW
+# delay_ms = 250             # window for delay_ms — one Accessibility focus per settle, not per move
 
 
 # =============================================================================

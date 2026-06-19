@@ -52,7 +52,13 @@ bump version → commit + push → tick this file.
 ### Phase C — interaction polish (check AX)
 - [ ] Transactional drag-snap tap (refine drag-to-snap onto one transactional write)
 - [ ] Sticky Tiles (coupled-resize of adjacent tiles)
-- [ ] Focus-follows-mouse (gated HARD, default off — only feature adding per-interaction AX)
+- [x] Focus-follows-mouse — **v1.4.19 DONE** (gated HARD, default off). Passive `.mouseMoved`
+      monitor (0 AX) → dwell timer → on settle, CGWindowList hit-test (`FocusFollowsMouse.topWindow`,
+      TDD'd 3 tests) → focus the window under cursor if changed. **5-persona review (AX-sensitive) →
+      fixed:** honest AX-cost comments (focus is ~3+N AX, not 1; dwell bounds frequency not cost),
+      single coordinate space via `screen(containing:)` (was a bottom-left/top-left mismatch),
+      exclude own-app windows, oscillation guard documented. **AX-trace validation required before
+      enabling widely — see V2_TEST_DEBT.md.**
 ### Phase D — internal (deferred by Gemini utility, but user said everything)
 - [ ] Predictive shadow-buffer (verify layout math headless before mutating)
 - [ ] Headless virtual-display layout prefetch

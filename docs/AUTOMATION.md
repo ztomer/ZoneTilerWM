@@ -224,6 +224,20 @@ imported state live (layouts replace; learned positions merge, imported winning 
 **Gated (opt-in):** does nothing unless `[sync] folder` is set; surfaced via the catalog
 (palette/CLI/MCP). Default off.
 
+## Focus-follows-mouse (`[focus_follows_mouse]`)
+
+Focus the window the cursor **settles** on. A passive `NSEvent` mouse monitor (0 AX) re-arms a
+`delay_ms` dwell timer on every move; only when the cursor rests does it hit-test the window under it
+(`ZTCore.FocusFollowsMouse.topWindow`, CGWindowList = 0 AX) and focus it **if it changed**. Passing
+the cursor over windows costs nothing — only a deliberate rest on a *new* window focuses.
+
+**AX note (important):** detection is 0 AX, but the focus itself is *not* free — resolving the AX
+element reads the target app's window list (~3 + N AX). The dwell bounds the *frequency* (one focus
+per rest-on-a-new-window), not the per-focus cost. So this is the only feature that adds
+per-interaction AX — **gated HARD, default off**, and you should validate the AX budget on a real
+SentinelOne trace before relying on it (see `docs/V2_TEST_DEBT.md`). `[focus_follows_mouse] enabled`
++ `delay_ms` (default 250, clamped 50–2000).
+
 ## Display-topology presets (`[[display_presets]]`)
 
 Auto-run an action when the connected display set changes (dock/undock, plug a monitor). Each preset

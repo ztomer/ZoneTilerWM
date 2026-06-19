@@ -129,6 +129,7 @@ final class AgentController: NSObject {
     private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
     private var scratchpad: ScratchpadController!           // gated by [scratchpad] apps
     private let sandbox = SandboxController()               // session sandbox (toggle action)
+    private var ffm: FocusFollowsMouseController!           // gated by [focus_follows_mouse] enabled
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -292,6 +293,9 @@ final class AgentController: NSObject {
         scratchpad = ScratchpadController(
             apps: { [unowned self] in self.config.scratchpadApps },
             autoDismiss: { [unowned self] in self.config.scratchpadAutoDismiss })
+        ffm = FocusFollowsMouseController(
+            windowSystem: windowSystem, screens: screens,
+            delayMs: { [unowned self] in self.config.focusFollowsMouseDelayMs })
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
         arrangementQuery = ArrangementQuery(
@@ -620,6 +624,12 @@ final class AgentController: NSObject {
         if config.dragSnapEnabled { dragSnap.start() } else { dragSnap.stop() }
     }
 
+    /// Start the focus-follows-mouse monitor iff [focus_follows_mouse] enabled. Idempotent; reconciled on reload.
+    func setupFocusFollowsMouse() { reconcileFocusFollowsMouse() }
+    private func reconcileFocusFollowsMouse() {
+        if config.focusFollowsMouseEnabled { ffm.start() } else { ffm.stop() }
+    }
+
     func setupIPCServer() { reconcileIPCServer() }
 
     /// Start/stop the IPC socket to match `[automation] enabled`. Idempotent — safe to call on
@@ -820,6 +830,7 @@ final class AgentController: NSObject {
         reconcileIPCServer()        // start/stop the MCP/CLI socket if [automation] enabled changed
         reconcileZoneHUD()          // start/stop the zone HUD if [zone_hud] enabled changed
         reconcileDragSnap()         // start/stop drag-to-snap if [drag_snap] enabled changed
+        reconcileFocusFollowsMouse()  // start/stop focus-follows-mouse if [focus_follows_mouse] changed
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
     }
@@ -1053,6 +1064,7 @@ controller.setupIPCServer()        // MCP shim talks to the agent over this sock
 controller.setupURLHandler()       // zonetiler:// scheme (effective in the bundled .app)
 controller.setupZoneHUD()          // modifier-held zone cheat-sheet (gated by [zone_hud] enabled)
 controller.setupDragSnap()         // drag-to-snap mouse monitor (gated by [drag_snap] enabled)
+controller.setupFocusFollowsMouse()  // focus-follows-mouse (gated by [focus_follows_mouse] enabled)
 controller.showOnboardingIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
