@@ -32,7 +32,12 @@ public enum SettingsRender {
 
     @ViewBuilder
     private static func tabView(_ tab: String, _ model: SettingsModel) -> some View {
-        // Render one sidebar group's detail pane in isolation (same view the live window shows).
-        SettingsGroupDetail(model: model, id: tab)
+        // "icons" → the custom sidebar-glyph montage (for the Gemini asset-grade loop).
+        if tab == "icons" {
+            IconMontage()
+        } else {
+            // Render one sidebar group's detail pane in isolation (same view the live window shows).
+            SettingsGroupDetail(model: model, id: tab)
+        }
     }
 }

@@ -383,7 +383,7 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationSplitView {
             List(groups, selection: $sel) { g in
-                Label(g.title, systemImage: g.icon).tag(g.id)
+                Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
             }
             .navigationSplitViewColumnWidth(196)
             .listStyle(.sidebar)
