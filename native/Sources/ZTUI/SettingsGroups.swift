@@ -282,8 +282,10 @@ private let configSwatch: [String: Color] = [
     "purple": .purple, "white": .white, "black": .black, "gray": .gray,
 ]
 
-/// A live mock of a focused window so border colour/width/corner-radius + margins are visible as you
-/// change them (the live review asked for "a live preview … margins can use the same preview").
+/// A live mock of a 2×2 tiled desktop so BOTH the window border and the margins are visible as you
+/// change them: the top-left window is "focused" (shows the border colour/width/radius), and the
+/// gaps between the four windows + the screen edge are the margin size (the review asked to "show 4
+/// windows … to preview margins as well … clarify what the border does").
 struct AppearancePreview: View {
     @ObservedObject var model: SettingsModel
 
@@ -291,27 +293,35 @@ struct AppearancePreview: View {
         let b = model.config.borders
         let m = model.config.zoneConfig.margins
         let marginsOn = m?.enabled ?? false
-        let marginInset = CGFloat(min(max(m?.size ?? 0, 0), 40)) * 0.5
+        let gap = marginsOn ? CGFloat(min(max(m?.size ?? 0, 0), 40)) * 0.45 + 3 : 3
+        let edge = (marginsOn && (m?.screen_edge ?? false)) ? gap : 6
         let color = b.enabled ? (configSwatch[b.color] ?? .accentColor) : .clear
         return VStack(spacing: 6) {
             ZStack {
-                // "desktop"
-                RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.30))
-                // "focused window" with the configured border, inset by the margin when enabled
-                RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius))
-                    .fill(Color.white.opacity(0.06))
-                    .overlay(RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius))
-                        .strokeBorder(color, lineWidth: CGFloat(b.width)))
-                    .overlay(Text("focused window").font(.caption2).foregroundColor(.secondary))
-                    .padding(12 + (marginsOn ? marginInset : 0))
+                RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.30))   // desktop
+                Grid(horizontalSpacing: gap, verticalSpacing: gap) {
+                    GridRow { tile(focused: true, color: color, b: b); tile(focused: false, color: color, b: b) }
+                    GridRow { tile(focused: false, color: color, b: b); tile(focused: false, color: color, b: b) }
+                }
+                .padding(edge)
             }
-            .frame(height: 132)
-            Text(marginsOn ? "Preview · margins \(Int(m?.size ?? 0))px"
-                           : "Preview · margins off")
+            .frame(height: 150)
+            Text(marginsOn ? "Preview · 2×2 tiling, margins \(Int(m?.size ?? 0))px"
+                           : "Preview · 2×2 tiling, margins off")
                 .font(.caption2).foregroundColor(.secondary)
         }
         .listRowInsets(EdgeInsets())
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func tile(focused: Bool, color: Color, b: ConfigLoader.Borders) -> some View {
+        RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius))
+            .fill(Color.white.opacity(focused ? 0.10 : 0.05))
+            .overlay(focused
+                     ? RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius)).strokeBorder(color, lineWidth: CGFloat(b.width))
+                     : nil)
+            .overlay(focused ? Text("focused").font(.caption2).foregroundColor(.secondary) : nil)
     }
 }
 
