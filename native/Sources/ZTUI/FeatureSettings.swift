@@ -283,6 +283,7 @@ struct PomodoroTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
+            Section("Preview") { PomodoroBarPreview(model: model) }
             PomodoroSettings(model: model)
             Section("Break screen") {
                 Toggle("Show a full-screen break overlay", isOn: Binding(

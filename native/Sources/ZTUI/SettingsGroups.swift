@@ -233,6 +233,42 @@ struct AppearancePreview: View {
     }
 }
 
+/// Live mock of the Pomodoro color bar — a top-edge strip (used on the left, remaining on the
+/// right) across a mock screen, reflecting the colours / opacity / height as you change them (the
+/// review asked to "see a preview of how the bar will look and where, updated live").
+struct PomodoroBarPreview: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        let on = model.config.pomodoroEnableColorBar
+        let heightRatio = model.config.pomodoroIndicatorHeight        // 0…1 of the menubar
+        let alpha = model.config.pomodoroIndicatorAlpha
+        let used = configSwatch[model.config.pomodoroColorUsed] ?? .red
+        let remaining = configSwatch[model.config.pomodoroColorRemaining] ?? .green
+        let barH = max(3.0, 26.0 * heightRatio)                       // scale onto a ~26pt mock menubar
+        return VStack(spacing: 6) {
+            ZStack(alignment: .top) {
+                RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.30))   // mock screen
+                if on {
+                    HStack(spacing: 0) {
+                        Rectangle().fill(used.opacity(alpha)).frame(width: 90)       // ~35% elapsed
+                        Rectangle().fill(remaining.opacity(alpha))
+                    }
+                    .frame(height: barH)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                    .padding(.horizontal, 1).padding(.top, 1)
+                }
+            }
+            .frame(height: 120)
+            Text(on ? "Preview · strip across the top of the screen (used │ remaining)"
+                    : "Color bar off")
+                .font(.caption2).foregroundColor(.secondary)
+        }
+        .listRowInsets(EdgeInsets())
+        .padding(.vertical, 4)
+    }
+}
+
 struct AppearanceTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
