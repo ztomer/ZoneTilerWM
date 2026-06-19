@@ -87,15 +87,26 @@ zt-mcp serverVersion) → commit + push → tick this file.
       Documented the end-to-end LLM workflow in AUTOMATION.md. Self-reviewed (thin composition of
       the already-reviewed moveWindow + action spine).
 
-## Remaining — DAYLIGHT pass (needs an awake display for the mandated Gemini grade)
-The overnight run completed every headless-finishable item (1.4.5–1.4.11). The last two queue items
-are fundamentally **visual** and the Gemini visual gate the user mandated needs an awake display —
-impossible at ~4am. Do these in a short daylight session, building + Gemini-grading in one loop:
-- **Retro break theme** (Pomodoro break-screen overlay) — ~all aesthetic; build on `ZTCore.Pomodoro`
-  (`Phase.work/.rest`, `tick()` → `.workCompleted/.restCompleted`). Gate `[break_screen] enabled`
-  default off. Overlay infra: model it on `ZTSystem.ZoneHUDOverlay`.
-- **On-device NL layout box** (Foundation Models) — visual + SDK-gated; ship a best-effort
-  availability-gated STUB if the SDK is absent (parse NL → `ActionRequest` is the testable seam).
+## Remaining — ONE item left (best done in a FRESH session)
+The run completed everything through 1.4.12 (the retro break theme landed in daylight, visually
+self-validated). **Sole remaining feature: the on-device NL layout box.**
+
+- **On-device NL layout box** (Foundation Models) — type "firefox left, terminal right" → on-device
+  LLM → tiling actions. **De-risked: `FoundationModels.framework` IS available on this machine
+  (macOS 26.5.1, `canImport(FoundationModels)` == true) → build it REAL, not a stub** (still gate
+  behind a runtime `SystemLanguageModel.default.availability` check + a fresh `[nl] enabled` flag;
+  Apple Intelligence must be enabled/downloaded to actually exercise it). Design notes:
+  - Testable pure seam (`ZTCore`): map the model's structured output (a list of {name, params}) →
+    `[ActionRequest]` via `ActionParser.parse(name:params:)`; build the system prompt from
+    `ActionParser.catalog` so the model knows the vocabulary. Unit-test the mapping (no model).
+  - System boundary (`ZTSystem`, `@available(macOS 26,*)` + `#if canImport(FoundationModels)`):
+    a `LanguageModelSession` with a `@Generable` output type; `await session.respond(...)`.
+  - **Architectural wrinkle:** the model call is async but `ActionDispatcher.perform` is sync.
+    Don't force it through `perform`. Handle `nl` in the agent: run the model async, then dispatch
+    the resulting `ActionRequest`s synchronously on main. The visual "box" UI can follow the
+    capability (ship the action/CLI/MCP path first; grade the box with Gemini when built).
+
+After it lands: the **Final** pass below (consolidated verify, rebuild+reinstall, v1.5.0, summary).
 Plus the **deferred validation cluster** in `docs/V2_TEST_DEBT.md`: Gemini-grade the zone HUD;
 live-exercise drag-to-snap, window stacks, sync round-trips; run `./build_package.sh` (lipo gate).
 
