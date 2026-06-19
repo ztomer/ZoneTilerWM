@@ -75,6 +75,7 @@ public enum ConfigLoader {
         public var breakScreenDurationSec: Int             // how long the break overlay stays up
         public var scratchpadApps: [String]                // [scratchpad] apps — summon/dismiss together ([] = off)
         public var scratchpadAutoDismiss: Bool             // hide the set when focus leaves it
+        public var clusters: [ClusterProfile]              // [[clusters]] — named app→zone profiles ([] = none)
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -208,6 +209,7 @@ public enum ConfigLoader {
         var sync: RawSync?
         var break_screen: RawBreakScreen?
         var scratchpad: RawScratchpad?
+        var clusters: [RawCluster]?
         var rules: [RawRule]?
     }
 
@@ -220,6 +222,8 @@ public enum ConfigLoader {
     private struct RawSync: Decodable { var folder: String? }
     private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
     private struct RawScratchpad: Decodable { var apps: [String]?; var auto_dismiss: Bool? }
+    private struct RawCluster: Decodable { var name: String?; var windows: [RawClusterWindow]? }
+    private struct RawClusterWindow: Decodable { var app: String?; var zone: String?; var monitor: String? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -343,6 +347,7 @@ public enum ConfigLoader {
             breakScreenDurationSec: raw.break_screen?.duration_sec ?? 6,
             scratchpadApps: raw.scratchpad?.apps ?? [],                     // empty = scratchpad off
             scratchpadAutoDismiss: raw.scratchpad?.auto_dismiss ?? true,
+            clusters: parseClusters(raw.clusters),
             rules: parseRules(raw.rules))
     }
 
@@ -365,6 +370,20 @@ public enum ConfigLoader {
             out.append(Rule(app: app, trigger: trigger, action: action))
         }
         return out
+    }
+
+    /// Build [ClusterProfile] from the raw [[clusters]] entries (each with [[clusters.windows]]).
+    /// Entries missing a name, or with no valid app→zone windows, are dropped.
+    private static func parseClusters(_ raw: [RawCluster]?) -> [ClusterProfile] {
+        guard let raw else { return [] }
+        return raw.compactMap { c -> ClusterProfile? in
+            guard let name = c.name, !name.isEmpty else { return nil }
+            let placements = (c.windows ?? []).compactMap { w -> ClusterPlacement? in
+                guard let app = w.app, !app.isEmpty, let zone = w.zone, !zone.isEmpty else { return nil }
+                return ClusterPlacement(app: app, zone: zone, monitor: w.monitor)
+            }
+            return placements.isEmpty ? nil : ClusterProfile(name: name, placements: placements)
+        }
     }
 
     public static func load(contentsOf url: URL) throws -> LoadedConfig {

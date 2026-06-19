@@ -29,8 +29,14 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
 `app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `sync-export`,
-`sync-import`, `apply-suggestions`, `scratchpad`, `reload`. Resources: `arrangement`, `zones`,
-`placement-stats`, `suggestions`.
+`sync-import`, `apply-suggestions`, `scratchpad`, `cluster`, `reload`. Resources: `arrangement`,
+`zones`, `placement-stats`, `suggestions`.
+
+**`cluster name=<name>`** arranges a named **app-cluster profile** (`[[clusters]]`, default none):
+launches any of the cluster's apps that aren't running, then tiles each running matching window to
+its configured zone. 0-AX enumeration (CGWindowList) + one move per window (the vetted rules-engine
+path). Apps launched this pass land on a subsequent `cluster` apply (or pair with a `[[rules]]`
+on-open). Surface via palette/CLI/MCP/URL.
 
 **`scratchpad`** summons/dismisses a configured set of utility apps together (`[scratchpad] apps`,
 default empty = off). If a scratchpad app is frontmost it hides the set; otherwise it activates them

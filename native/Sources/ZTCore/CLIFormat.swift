@@ -49,6 +49,8 @@ public enum CLIFormat {
             return (["applied \(moves.count) suggestion\(moves.count == 1 ? "" : "s")"] + detail).joined(separator: "\n")
         case .scratchpadToggled(let summoned, let apps):
             return "scratchpad \(summoned ? "summoned" : "dismissed"): \(apps.joined(separator: ", "))"
+        case .clusterApplied(let name, let moves):
+            return "cluster '\(name)': arranged \(moves.count) window\(moves.count == 1 ? "" : "s")"
         case .failed(let reason):
             return "error: \(describe(reason))"
         }

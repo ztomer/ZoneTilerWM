@@ -266,7 +266,8 @@ final class AgentController: NSObject {
                 return r
             },
             applySuggestions: { [unowned self] in self.applyPlacementSuggestions() },
-            scratchpad: { [unowned self] in self.scratchpad.toggle() }))
+            scratchpad: { [unowned self] in self.scratchpad.toggle() },
+            applyCluster: { [unowned self] name in self.applyCluster(name) }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
@@ -683,6 +684,28 @@ final class AgentController: NSObject {
         }
         log("zt-agent: applied \(moves.count)/\(suggestions.count) placement suggestion(s)")
         return .suggestionsApplied(moves: moves)
+    }
+
+    /// Arrange a named app-cluster profile: launch any of its apps not running (0 AX), then tile
+    /// each running matching window to its zone (CGWindowList enumerate = 0 AX; one move per window).
+    private func applyCluster(_ name: String) -> ActionResult {
+        guard let profile = config.clusters.first(where: { $0.name.lowercased() == name.lowercased() }) else {
+            return .failed(reason: .invalidParameter("unknown cluster '\(name)'"))
+        }
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap { $0.localizedName?.lowercased() })
+        let missing = ClusterPlan.apps(profile).filter { !running.contains($0.lowercased()) }
+        if !missing.isEmpty { AppController.summon(missing) }   // best-effort launch; placed on a later apply
+        guard case .arrangement(let windows) = arrangementQuery.answer(.arrangement) else {
+            return .failed(reason: .unsupportedAction)
+        }
+        var moves: [TiledMove] = []
+        for m in ClusterPlan.match(profile: profile, windows: windows.map { ($0.windowId, $0.app) }) {
+            if let o = coordinator.moveWindow(windowId: m.windowId, toZone: m.zone) {
+                moves.append(TiledMove(windowId: o.windowId, zone: o.zoneKey, tileIndex: .int(o.tileIndex), rect: o.target))
+            }
+        }
+        log("zt-agent: cluster '\(profile.name)' arranged \(moves.count) window(s), launched \(missing.count)")
+        return .clusterApplied(name: profile.name, moves: moves)
     }
 
     private func saveLayout(_ name: String) -> ActionResult {

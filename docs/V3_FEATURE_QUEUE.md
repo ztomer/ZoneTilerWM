@@ -28,7 +28,10 @@ bump version → commit + push → tick this file.
       (default off). Summon/dismiss a configured app set together; auto-dismiss on focus loss. Pure
       `Scratchpad.decide` TDD'd (3 tests); 0 AX (NSWorkspace activate/hide); `ScratchpadController`
       owns state + the didActivateApplication observer. Self-reviewed (5 lenses).
-- [ ] App-Cluster Profiles — apply a whole multi-screen layout for a named context ([[clusters]])
+- [x] App-Cluster Profiles — **v1.4.15 DONE**. `cluster name=<n>` action + `[[clusters]]` config
+      (name + [[clusters.windows]] app/zone). Launches missing apps (0 AX) + tiles matching windows
+      via moveWindow (0-AX enumerate + bounded moves). Pure `ClusterPlan.match` TDD'd (4 tests).
+      monitor hint deferred (places on current screen). Self-reviewed (5 lenses).
 - [ ] Visual Window Peek — CoreAnimation/overlay grid of windows stacked in a zone; pick by key
 ### Phase B — power-user automation (cheap, gated)
 - [ ] State-diff event stream on the agent socket (subscribe to CGWindowList diffs)

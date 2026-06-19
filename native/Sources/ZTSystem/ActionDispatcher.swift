@@ -48,6 +48,8 @@ public final class ActionDispatcher {
         public var applySuggestions: () -> ActionResult
         /// Summon/dismiss the scratchpad app set (the controller owns state + auto-dismiss).
         public var scratchpad: () -> ActionResult
+        /// Arrange a named app-cluster profile (launch missing apps + tile matching windows).
+        public var applyCluster: (String) -> ActionResult
 
         public init(coordinator: @escaping () -> TilerCoordinator,
                     autoTilerConfig: @escaping () -> AutoTiler.Config,
@@ -65,7 +67,8 @@ public final class ActionDispatcher {
                     syncExport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
                     syncImport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
                     applySuggestions: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
-                    scratchpad: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
+                    scratchpad: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
+                    applyCluster: @escaping (String) -> ActionResult = { _ in .failed(reason: .unsupportedAction) }) {
             self.coordinator = coordinator
             self.autoTilerConfig = autoTilerConfig
             self.appSwitcherConfig = appSwitcherConfig
@@ -83,6 +86,7 @@ public final class ActionDispatcher {
             self.syncImport = syncImport
             self.applySuggestions = applySuggestions
             self.scratchpad = scratchpad
+            self.applyCluster = applyCluster
         }
     }
 
@@ -168,6 +172,9 @@ public final class ActionDispatcher {
 
         case .scratchpad:
             return hooks.scratchpad()
+
+        case .applyCluster(let name):
+            return hooks.applyCluster(name)
 
         case .syncExport:
             return hooks.syncExport()
