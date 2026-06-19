@@ -45,14 +45,18 @@ public final class SettingsModel: ObservableObject {
         setValue(section: "tiler.layouts.\"\(grid)\"", key: zone, rawValue: raw)
     }
 
-    /// Replace a hotkey binding, e.g. [tiler.hotkeys] resize_mode = ["HYPER", "r"].
+    /// Set a hotkey binding, e.g. [tiler.hotkeys] resize_mode = ["HYPER", "r"]. Uses setOrAppend so a
+    /// binding the user's config doesn't have YET (e.g. the opt-in Feature actions: expose,
+    /// command_palette, peek, …) is created rather than silently dropped — setValue only replaces
+    /// existing keys.
     public func setHotkey(section: String, key: String, alias: String, keyName: String) {
-        setValue(section: section, key: key, rawValue: "[\"\(alias)\", \"\(keyName)\"]")
+        setOrAppend(section: section, key: key, rawValue: "[\"\(alias)\", \"\(keyName)\"]")
     }
 
-    /// Replace a scalar modifier alias, e.g. [tiler] modifier = "mash".
+    /// Set a scalar modifier alias, e.g. [tiler] modifier = "mash" (setOrAppend so a missing key is
+    /// created, not dropped).
     public func setModifierAlias(key: String, alias: String) {
-        setValue(section: "tiler", key: key, rawValue: "\"\(alias)\"")
+        setOrAppend(section: "tiler", key: key, rawValue: "\"\(alias)\"")
     }
 
     // MARK: - General settings
