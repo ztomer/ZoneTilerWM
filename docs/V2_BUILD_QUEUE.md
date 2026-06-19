@@ -19,15 +19,24 @@ autonomous loop** — update the checklist as features land so a fresh context c
   push each to `v2origin` as a patch bump `1.4.x`. Exclude notarization / Sparkle / Developer ID.
 
 ## Per-feature loop
-implement (gated) → `swift build` + `make verify` → Gemini UI grade (visual) + apply sound fixes
-→ update docs (`AUTOMATION.md` / `V2_ROADMAP.md` / `config.toml` template) → bump version
-(project.yml + AboutWindow fallback + zt-mcp serverVersion) → commit + push → tick this file.
+implement (gated) → `swift build` + `make verify` (`rm -rf native/.build` first if public ZTCore
+enums/inits changed) → Gemini UI grade (visual) + apply sound fixes → **multi-persona review →
+fix → review again → fix** (Linus: systems rigor / correctness / data-structures / simplicity;
+Uncle Bob: clean code, naming, small functions, no duplication; Carmack: pragmatism, perf, the
+AX-call budget, no over-abstraction; Kare: visual clarity/iconography [visual features]; Rams:
+as-little-design-as-possible, unobtrusive [visual features]) → update docs (`AUTOMATION.md` /
+`V2_ROADMAP.md` / `config.toml` template) → bump version (project.yml + AboutWindow fallback +
+zt-mcp serverVersion) → commit + push → tick this file.
 
 ## Queue (ordered)
 - [x] Command palette — v1.4.1
 - [x] Per-window float toggle — v1.4.2
 - [x] Swap / nudge / directional throw (actions) — v1.4.3
-- [ ] Zone HUD (modifier-held overlay; `[zone_hud] enabled` + hold-delay) — visual
+- [~] Zone HUD (modifier-held overlay) — visual. **Pure core DONE** (`ZTCore/ZoneHUD.swift` +
+      tests: `layout(zones:)` → one labelled cell per zone at its bounding-box centre). REMAINING:
+      `[zone_hud] enabled`+`hold_delay_ms` config gate (default off), the overlay (label each zone
+      key at its centre, translucent, multi-screen), a `flagsChanged` global monitor + hold-delay
+      timer to show/hide on tiling-modifier hold, Gemini grade + 5-persona review, docs, version.
 - [ ] Drag-to-snap (CGEventTap; `[drag_snap] enabled` default off; EDR-sensitive) — visual
 - [ ] Window stacks / groups (gated)
 - [ ] Context-aware placement + layout suggestions (gated config)
