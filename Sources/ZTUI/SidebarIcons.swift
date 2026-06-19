@@ -32,16 +32,20 @@ struct SidebarGlyph: View {
         func dot(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path { Path(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)) }
 
         switch id {
-        case "tiling":            // 2×2 filled squares
+        case "tiling":            // 2×2 outlined squares (stroked to match the set's line language)
             for (x, y) in [(2.5, 2.5), (10.5, 2.5), (2.5, 10.5), (10.5, 10.5)] {
-                fill(rrect(x, y, 7, 7, 1.6))
+                line(rrect(x, y, 7, 7, 1.6))
             }
         case "layouts":           // main + sidebar split (a layout)
             line(rrect(3, 3, 4.5, 14, 1.2))
             line(rrect(9, 3, 8, 14, 1.2))
-        case "keys":              // keycap: rounded square + inner pip
-            line(rrect(3, 3, 14, 14, 3))
-            fill(rrect(8, 8, 4, 4, 1))
+        case "keys":              // a literal key (bow + shaft + teeth) — unambiguous, not a reticle
+            line(Path(ellipseIn: CGRect(x: 5.5, y: 3, width: 7.5, height: 7.5)))   // bow
+            var key = Path()
+            key.move(to: .init(x: 9.25, y: 10.3)); key.addLine(to: .init(x: 9.25, y: 17))   // shaft
+            key.move(to: .init(x: 9.25, y: 13.5)); key.addLine(to: .init(x: 12, y: 13.5))    // tooth 1
+            key.move(to: .init(x: 9.25, y: 16)); key.addLine(to: .init(x: 11.2, y: 16))      // tooth 2
+            line(key)
         case "io":                // up / down arrows (input + output)
             var up = Path(); up.move(to: .init(x: 6, y: 15)); up.addLine(to: .init(x: 6, y: 5))
             up.move(to: .init(x: 3.5, y: 7.5)); up.addLine(to: .init(x: 6, y: 5)); up.addLine(to: .init(x: 8.5, y: 7.5))
@@ -92,10 +96,12 @@ struct IconMontage: View {
                     Spacer()
                 }
                 .padding(10)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.12)))
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+                .foregroundStyle(.white)
             }
         }
         .padding(24)
         .frame(width: 720)
+        .background(Color(white: 0.13))   // match the app's dark sidebar so contrast is judged fairly
     }
 }
