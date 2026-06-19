@@ -46,6 +46,8 @@ public final class ActionDispatcher {
         public var syncImport: () -> ActionResult
         /// Apply the context-aware placement suggestions (move flagged windows to their zones).
         public var applySuggestions: () -> ActionResult
+        /// Summon/dismiss the scratchpad app set (the controller owns state + auto-dismiss).
+        public var scratchpad: () -> ActionResult
 
         public init(coordinator: @escaping () -> TilerCoordinator,
                     autoTilerConfig: @escaping () -> AutoTiler.Config,
@@ -62,7 +64,8 @@ public final class ActionDispatcher {
                     applyLayout: @escaping (String) -> ActionResult,
                     syncExport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
                     syncImport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
-                    applySuggestions: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
+                    applySuggestions: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
+                    scratchpad: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
             self.coordinator = coordinator
             self.autoTilerConfig = autoTilerConfig
             self.appSwitcherConfig = appSwitcherConfig
@@ -79,6 +82,7 @@ public final class ActionDispatcher {
             self.syncExport = syncExport
             self.syncImport = syncImport
             self.applySuggestions = applySuggestions
+            self.scratchpad = scratchpad
         }
     }
 
@@ -161,6 +165,9 @@ public final class ActionDispatcher {
 
         case .applySuggestions:
             return hooks.applySuggestions()
+
+        case .scratchpad:
+            return hooks.scratchpad()
 
         case .syncExport:
             return hooks.syncExport()

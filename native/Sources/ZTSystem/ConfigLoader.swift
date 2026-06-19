@@ -73,6 +73,8 @@ public enum ConfigLoader {
         public var syncFolder: String?                     // [sync] folder — a synced dir for export/import (nil = off)
         public var breakScreenEnabled: Bool                // [break_screen] enabled (opt-in, default off)
         public var breakScreenDurationSec: Int             // how long the break overlay stays up
+        public var scratchpadApps: [String]                // [scratchpad] apps — summon/dismiss together ([] = off)
+        public var scratchpadAutoDismiss: Bool             // hide the set when focus leaves it
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -205,6 +207,7 @@ public enum ConfigLoader {
         var drag_snap: RawDragSnap?
         var sync: RawSync?
         var break_screen: RawBreakScreen?
+        var scratchpad: RawScratchpad?
         var rules: [RawRule]?
     }
 
@@ -216,6 +219,7 @@ public enum ConfigLoader {
     private struct RawDragSnap: Decodable { var enabled: Bool? }
     private struct RawSync: Decodable { var folder: String? }
     private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
+    private struct RawScratchpad: Decodable { var apps: [String]?; var auto_dismiss: Bool? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -337,6 +341,8 @@ public enum ConfigLoader {
             syncFolder: raw.sync?.folder.flatMap { $0.isEmpty ? nil : $0 },  // nil/empty = sync disabled
             breakScreenEnabled: raw.break_screen?.enabled ?? false,         // opt-in
             breakScreenDurationSec: raw.break_screen?.duration_sec ?? 6,
+            scratchpadApps: raw.scratchpad?.apps ?? [],                     // empty = scratchpad off
+            scratchpadAutoDismiss: raw.scratchpad?.auto_dismiss ?? true,
             rules: parseRules(raw.rules))
     }
 

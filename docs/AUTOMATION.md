@@ -29,8 +29,14 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
 `app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `sync-export`,
-`sync-import`, `apply-suggestions`, `reload`. Resources: `arrangement`, `zones`, `placement-stats`,
-`suggestions`.
+`sync-import`, `apply-suggestions`, `scratchpad`, `reload`. Resources: `arrangement`, `zones`,
+`placement-stats`, `suggestions`.
+
+**`scratchpad`** summons/dismisses a configured set of utility apps together (`[scratchpad] apps`,
+default empty = off). If a scratchpad app is frontmost it hides the set; otherwise it activates them
+(first one frontmost). With `auto_dismiss = true` (default) the set hides the moment focus leaves it.
+0 AX (NSWorkspace activate/hide). Bind a `scratchpad` hotkey under `[system_hotkeys]`, or call the
+action via palette/CLI/MCP.
 
 **`suggestions`** (context-aware placement) cross-references the live arrangement against the
 learned per-app preferences and lists every window sitting away from the zone its app usually

@@ -37,6 +37,8 @@ public enum ActionParser {
             return direction(params).map { .cycleZoneStack(direction: $0) }
         case "apply-suggestions":
             return .success(.applySuggestions)
+        case "scratchpad":
+            return .success(.scratchpad)
         case "focus-screen":
             return direction(params).map { .focusScreen(direction: $0) }
         case "move-monitor":
@@ -111,6 +113,7 @@ public enum ActionParser {
         case .cycleFocus(let zone):              return ("focus-cycle", ["zone": zone])
         case .cycleZoneStack(let dir):           return ("stack-cycle", ["direction": dir.rawValue])
         case .applySuggestions:                  return ("apply-suggestions", [:])
+        case .scratchpad:                        return ("scratchpad", [:])
         case .focusScreen(let dir):              return ("focus-screen", ["direction": dir.rawValue])
         case .moveFocusedToMonitor(let dir):     return ("move-monitor", ["direction": dir.rawValue])
         case .nudge(let dir):                    return ("nudge", ["direction": dir.rawValue])
@@ -193,6 +196,7 @@ public extension ActionParser {
         ActionSpec(name: "stack-cycle", description: "Cycle focus through the windows stacked in the focused window's zone.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "apply-suggestions", description: "Move every window the 'suggestions' resource flags into its learned-preferred zone."),
+        ActionSpec(name: "scratchpad", description: "Summon or dismiss the configured scratchpad app set ([scratchpad] apps)."),
         ActionSpec(name: "focus-screen", description: "Focus the same app's window on the next/previous screen.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "move-monitor", description: "Move the focused window to the next/previous monitor.",

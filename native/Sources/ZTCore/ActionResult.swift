@@ -64,5 +64,6 @@ public enum ActionResult: Codable, Equatable {
     case layoutApplied(name: String, moved: Int)
     case synced(direction: String, files: [String])   // file-based settings sync export/import
     case suggestionsApplied(moves: [TiledMove])        // windows moved into their learned-preferred zones
+    case scratchpadToggled(summoned: Bool, apps: [String])   // scratchpad drawer summoned (true) or dismissed
     case failed(reason: ActionError)
 }

@@ -32,6 +32,21 @@ public enum AppController {
         }
     }
 
+    /// Summon a scratchpad set: launch/activate each app, ending with the first so it lands
+    /// frontmost. 0 AX (NSWorkspace activation).
+    public static func summon(_ apps: [String]) {
+        for name in apps.reversed() { launchOrFocus(name) }
+    }
+
+    /// Hide every running app in the set (the scratchpad dismiss). 0 AX.
+    public static func hideApps(_ apps: [String]) {
+        let lower = Set(apps.map { $0.lowercased() })
+        for r in NSWorkspace.shared.runningApplications
+        where lower.contains((r.localizedName ?? "").lowercased()) {
+            r.hide()
+        }
+    }
+
     /// Launch the app if not running, else activate it (à la hs.application.launchOrFocus).
     private static func launchOrFocus(_ name: String) {
         if let running = NSWorkspace.shared.runningApplications.first(where: {

@@ -47,6 +47,8 @@ public enum CLIFormat {
             if moves.isEmpty { return "no suggestions to apply (every window is in its usual zone)" }
             let detail = moves.map { "  window \($0.windowId) → \($0.zone) \($0.tileIndex.sortKey)" }
             return (["applied \(moves.count) suggestion\(moves.count == 1 ? "" : "s")"] + detail).joined(separator: "\n")
+        case .scratchpadToggled(let summoned, let apps):
+            return "scratchpad \(summoned ? "summoned" : "dismissed"): \(apps.joined(separator: ", "))"
         case .failed(let reason):
             return "error: \(describe(reason))"
         }

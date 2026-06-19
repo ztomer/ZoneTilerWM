@@ -383,6 +383,10 @@ prediction = true            # lead the outline to compensate for follow-lag
 # [break_screen]             # retro full-screen overlay when a Pomodoro work period ends (opt-in)
 # enabled = true
 # duration_sec = 6           # how long the "BREAK TIME" overlay stays up (click to dismiss sooner)
+#
+# [scratchpad]               # summon/dismiss a set of utility apps together (opt-in)
+# apps = ["Terminal"]        # bind a `scratchpad` hotkey under [system_hotkeys], or use the
+# auto_dismiss = true        # `scratchpad` action; auto_dismiss hides the set when focus leaves it
 
 
 # =============================================================================

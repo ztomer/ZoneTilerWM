@@ -127,6 +127,7 @@ final class AgentController: NSObject {
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
+    private var scratchpad: ScratchpadController!           // gated by [scratchpad] apps
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -264,7 +265,8 @@ final class AgentController: NSObject {
                 if case .synced = r { self.adoptImportedSettings() }
                 return r
             },
-            applySuggestions: { [unowned self] in self.applyPlacementSuggestions() }))
+            applySuggestions: { [unowned self] in self.applyPlacementSuggestions() },
+            scratchpad: { [unowned self] in self.scratchpad.toggle() }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
@@ -282,6 +284,9 @@ final class AgentController: NSObject {
             screens: screens,
             enabled: { [unowned self] in self.config.breakScreenEnabled },
             durationSec: { [unowned self] in self.config.breakScreenDurationSec })
+        scratchpad = ScratchpadController(
+            apps: { [unowned self] in self.config.scratchpadApps },
+            autoDismiss: { [unowned self] in self.config.scratchpadAutoDismiss })
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
         arrangementQuery = ArrangementQuery(
@@ -814,6 +819,11 @@ final class AgentController: NSObject {
         // System: toggle Activity Monitor.
         bindAction(config.resolvedHotkey("activity_monitor", in: config.systemHotkeys), label: "activity_monitor") { [weak self] in
             self?.dispatcher.perform(.appToggle(app: "Activity Monitor"))
+        }
+        // Scratchpad drawer: summon/dismiss the configured app set (opt-in — only bound when the
+        // scratchpad hotkey is set AND [scratchpad] apps is non-empty; also via palette/CLI/MCP).
+        bindAction(config.resolvedHotkey("scratchpad", in: config.systemHotkeys), label: "scratchpad") { [weak self] in
+            self?.dispatcher.perform(.scratchpad)
         }
         // Resize mode: toggle the grid-line adjustment modal.
         bindAction(config.resolvedHotkey("resize_mode", in: config.tilerHotkeys), label: "resize_mode") { [weak self] in
