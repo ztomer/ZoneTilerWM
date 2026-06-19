@@ -302,7 +302,7 @@ final class AgentController: NSObject {
             apps: { [unowned self] in self.config.scratchpadApps },
             autoDismiss: { [unowned self] in self.config.scratchpadAutoDismiss })
         ffm = FocusFollowsMouseController(
-            windowSystem: windowSystem, screens: screens,
+            windowSystem: windowSystem,
             delayMs: { [unowned self] in self.config.focusFollowsMouseDelayMs })
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.

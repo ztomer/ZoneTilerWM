@@ -91,6 +91,20 @@ public final class AXWindowSystem: WindowSystem {
         }
     }
 
+    /// All standard (layer-0) on-screen windows, front-to-back (CGWindowList z-order). Unlike
+    /// windows(onScreen:), this does NOT filter by which display the window's center is on — used by
+    /// focus-follows-mouse, which hit-tests the cursor point against the global front-to-back order
+    /// (filtering by center wrongly drops a window under the cursor whose centre is on another
+    /// display, so FFM would focus the window beneath it). 0 AX (CGWindowList).
+    public func allWindows() -> [LiveWindow] {
+        Self.onScreenWindows().filter { $0.layer == 0 }.map { w in
+            LiveWindow(id: Int(w.windowID), appName: w.ownerName,
+                       frame: ZTRect(x: w.bounds.origin.x, y: w.bounds.origin.y,
+                                     w: w.bounds.size.width, h: w.bounds.size.height),
+                       screenUUID: nil)
+        }
+    }
+
     @discardableResult
     public func moveFocusedWindow(to rect: ZTRect) -> Bool {
         guard let app = NSWorkspace.shared.frontmostApplication,

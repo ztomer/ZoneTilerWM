@@ -14,15 +14,14 @@ import ZTSystem
 
 final class FocusFollowsMouseController {
     private let windowSystem: AXWindowSystem
-    private let screens: NSScreenProvider
     private let delayMs: () -> Int
 
     private var monitor: Any?
     private var dwell: Timer?
     private var lastFocused: Int?
 
-    init(windowSystem: AXWindowSystem, screens: NSScreenProvider, delayMs: @escaping () -> Int) {
-        self.windowSystem = windowSystem; self.screens = screens; self.delayMs = delayMs
+    init(windowSystem: AXWindowSystem, delayMs: @escaping () -> Int) {
+        self.windowSystem = windowSystem; self.delayMs = delayMs
     }
 
     var isRunning: Bool { monitor != nil }
@@ -54,9 +53,13 @@ final class FocusFollowsMouseController {
         // window frames AND screen(containing:) (avoids the bottom-left NSEvent.mouseLocation mismatch).
         guard let loc = CGEvent(source: nil)?.location else { return }
         let point = (x: Double(loc.x), y: Double(loc.y))
-        guard let screen = screens.screen(containing: point) else { return }
         let mine = NSRunningApplication.current.localizedName
-        let wins = windowSystem.windows(onScreen: screen.uuid)
+        // Hit-test ALL on-screen windows in global front-to-back order — NOT the per-display set.
+        // windows(onScreen:) filters by which display the window's CENTER sits on, which wrongly
+        // drops a window under the cursor whose centre is on another display (or one that straddles
+        // two displays), so FFM would then focus the window *beneath* it. allWindows() keeps the raw
+        // CGWindowList z-order so topWindow() picks the genuinely frontmost window at the point. 0 AX.
+        let wins = windowSystem.allWindows()
             .filter { $0.appName != mine }                       // never steal focus to our own windows
             .map { (id: $0.id, frame: $0.frame) }                // 0 AX (CGWindowList)
         // The `wid != lastFocused` guard is load-bearing: focus() raises the window (changes z-order),

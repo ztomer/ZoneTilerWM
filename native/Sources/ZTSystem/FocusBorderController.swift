@@ -100,6 +100,11 @@ public final class FocusBorderController {
     private var lastFocusedID: Int?
     private var lastRendered: ZTRect?
     private var lastTick: CFTimeInterval = 0
+    // While a window plays its minimize/unminimize (genie) animation the CGWindowList frame shrinks
+    // toward / grows from the Dock; gluing the border to that looks broken. On the AX miniaturize/
+    // deminiaturize notification we mute renders until this deadline, then resume on the next tick.
+    private var suppressUntil: CFTimeInterval = 0
+    private let animateSuppressSeconds = 0.6   // covers the default genie duration with margin
     private let tickInterval = 1.0 / 60.0   // fallback poll (event-driven path does the tight work)
     private let leadSeconds = 0.012         // velocity lead when prediction is on (~1 frame)
 
@@ -188,7 +193,8 @@ public final class FocusBorderController {
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         for n in [kAXWindowMovedNotification, kAXWindowResizedNotification,
                   kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification,
-                  kAXApplicationActivatedNotification] {
+                  kAXApplicationActivatedNotification,
+                  kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification] {
             AXObserverAddNotification(obs, el, n as CFString, refcon)
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
@@ -199,6 +205,7 @@ public final class FocusBorderController {
     /// CGWindowList (zero AX) and renders it (raw 1:1, plus the optional lead). Coalesced by the
     /// skip-when-unchanged check, so duplicate event+timer fires don't double-draw.
     fileprivate func update() {
+        if CACurrentMediaTime() < suppressUntil { return }   // muted during a minimize/unminimize animation
         guard let cur = Self.focusedWindowFrame() else {
             if lastRendered != nil { renderer?.render(frame: nil, style: style); lastRendered = nil }
             return
@@ -211,6 +218,13 @@ public final class FocusBorderController {
         if let last = lastRendered, framesEqual(last, target) { return }
         renderer?.render(frame: target, style: style)
         lastRendered = target
+    }
+
+    /// A window started its minimize/unminimize animation: hide the border now and stay muted for
+    /// the genie's duration so it doesn't chase the shrinking/growing frame. update() resumes after.
+    fileprivate func suppressForAnimation() {
+        suppressUntil = CACurrentMediaTime() + animateSuppressSeconds
+        if lastRendered != nil { renderer?.render(frame: nil, style: style); lastRendered = nil }
     }
 
     private func framesEqual(_ a: ZTRect, _ b: ZTRect) -> Bool {
@@ -236,5 +250,11 @@ public final class FocusBorderController {
 private func axBorderObserverCallback(_ observer: AXObserver, _ element: AXUIElement,
                                       _ notification: CFString, _ refcon: UnsafeMutableRawPointer?) {
     guard let refcon else { return }
-    Unmanaged<FocusBorderController>.fromOpaque(refcon).takeUnretainedValue().update()
+    let controller = Unmanaged<FocusBorderController>.fromOpaque(refcon).takeUnretainedValue()
+    switch notification as String {
+    case kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification:
+        controller.suppressForAnimation()
+    default:
+        controller.update()
+    }
 }
