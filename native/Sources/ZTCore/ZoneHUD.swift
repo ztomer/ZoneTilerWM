@@ -10,12 +10,18 @@ public enum ZoneHUD {
         public init(key: String, rect: ZTRect) { self.key = key; self.rect = rect }
     }
 
-    /// One cell per zone key (excluding the "default" marker), each the bounding box of that
-    /// zone's tiles. Deterministic (keys sorted).
+    /// One cell per zone key (excluding the "default" marker), positioned at the zone's PRIMARY
+    /// placement — its first tile. Deterministic (keys sorted).
+    ///
+    /// A zone key is a *cycle* of placements: e.g. `"y" = [a1, a1:a2, a1:b1]` (top-left cell →
+    /// left-half → top-half) — press it repeatedly to cycle. The bounding box of the whole cycle
+    /// spans most of the screen, which mis-centred the chip (the live-review bug: "y is top-left but
+    /// shows in the middle"). The first tile is where pressing the key *once* lands the window, so
+    /// that's where the chip belongs.
     public static func layout(zones: [String: [ZTRect]]) -> [Cell] {
         zones.keys.sorted().compactMap { key in
-            guard key != "default", let tiles = zones[key], !tiles.isEmpty else { return nil }
-            return Cell(key: key, rect: boundingBox(tiles))
+            guard key != "default", let first = zones[key]?.first else { return nil }
+            return Cell(key: key, rect: first)
         }
     }
 
