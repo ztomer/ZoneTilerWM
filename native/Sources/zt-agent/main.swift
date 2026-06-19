@@ -764,7 +764,19 @@ final class AgentController: NSObject {
             log("zt-agent: display arrangement changed — re-registering monitors")
             self?.seedMonitors()
             self?.evaluateDisplayChangeRules()
+            self?.applyDisplayPreset()
         }
+    }
+
+    /// Environment/topology presets: when the connected display set changes, run the first matching
+    /// [[display_presets]] action (e.g. apply a docked layout when an external monitor appears).
+    /// Gated — no-op unless presets are configured. 0 AX (display names from NSScreen; the action
+    /// itself uses the standard dispatch path).
+    private func applyDisplayPreset() {
+        guard !config.displayPresets.isEmpty else { return }
+        let names = screens.allScreens().map { $0.name }
+        guard let action = DisplayPresetEngine.match(current: names, presets: config.displayPresets) else { return }
+        log("zt-agent: display preset matched (\(names.joined(separator: ", "))) → \(dispatcher.perform(action))")
     }
 
     @discardableResult

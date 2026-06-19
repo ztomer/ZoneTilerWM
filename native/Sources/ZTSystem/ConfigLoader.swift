@@ -76,6 +76,7 @@ public enum ConfigLoader {
         public var scratchpadApps: [String]                // [scratchpad] apps — summon/dismiss together ([] = off)
         public var scratchpadAutoDismiss: Bool             // hide the set when focus leaves it
         public var clusters: [ClusterProfile]              // [[clusters]] — named app→zone profiles ([] = none)
+        public var displayPresets: [DisplayPreset]         // [[display_presets]] — auto-action on display-set change
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -210,6 +211,7 @@ public enum ConfigLoader {
         var break_screen: RawBreakScreen?
         var scratchpad: RawScratchpad?
         var clusters: [RawCluster]?
+        var display_presets: [RawDisplayPreset]?
         var rules: [RawRule]?
     }
 
@@ -224,6 +226,10 @@ public enum ConfigLoader {
     private struct RawScratchpad: Decodable { var apps: [String]?; var auto_dismiss: Bool? }
     private struct RawCluster: Decodable { var name: String?; var windows: [RawClusterWindow]? }
     private struct RawClusterWindow: Decodable { var app: String?; var zone: String?; var monitor: String? }
+    private struct RawDisplayPreset: Decodable {
+        var displays: [String]?; var action: String?
+        var zone: String?; var direction: String?; var command: String?; var name: String?; var device: String?
+    }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -348,6 +354,7 @@ public enum ConfigLoader {
             scratchpadApps: raw.scratchpad?.apps ?? [],                     // empty = scratchpad off
             scratchpadAutoDismiss: raw.scratchpad?.auto_dismiss ?? true,
             clusters: parseClusters(raw.clusters),
+            displayPresets: parseDisplayPresets(raw.display_presets),
             rules: parseRules(raw.rules))
     }
 
@@ -383,6 +390,23 @@ public enum ConfigLoader {
                 return ClusterPlacement(app: app, zone: zone, monitor: w.monitor)
             }
             return placements.isEmpty ? nil : ClusterProfile(name: name, placements: placements)
+        }
+    }
+
+    /// Build [DisplayPreset] from [[display_presets]]; the action is parsed via the shared
+    /// ActionParser (same vocabulary as rules/CLI). Entries with an unparseable action are dropped.
+    private static func parseDisplayPresets(_ raw: [RawDisplayPreset]?) -> [DisplayPreset] {
+        guard let raw else { return [] }
+        return raw.compactMap { p -> DisplayPreset? in
+            guard let actionName = p.action else { return nil }
+            var params: [String: String] = [:]
+            if let v = p.zone { params["zone"] = v }
+            if let v = p.direction { params["direction"] = v }
+            if let v = p.command { params["command"] = v }
+            if let v = p.name { params["name"] = v }
+            if let v = p.device { params["device"] = v }
+            guard case .success(let action) = ActionParser.parse(name: actionName, params: params) else { return nil }
+            return DisplayPreset(displays: p.displays ?? [], action: action)
         }
     }
 

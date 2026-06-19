@@ -44,7 +44,11 @@ bump version → commit + push → tick this file.
       non-focused app (remember the set) → restore on toggle. Distinct from zen (minimize). Pure
       `Sandbox.appsToHide` TDD'd (3 tests); 0 AX (NSWorkspace hide/unhide); SandboxController owns
       state. Self-reviewed (5 lenses).
-- [ ] Environment/topology presets (auto-switch layout on display-set / Wi-Fi SSID change)
+- [x] Environment/topology presets — **v1.4.18 DONE** (display topology; Wi-Fi SSID deferred —
+      needs a location entitlement). `[[display_presets]]` (displays must-all-be-present + action
+      parsed via ActionParser); on display-set change the first match fires. Pure
+      `DisplayPresetEngine.match` TDD'd (5 tests); 0 AX; reuses the existing didChangeScreenParameters
+      observer. No new action (it's a trigger). Self-reviewed (5 lenses).
 ### Phase C — interaction polish (check AX)
 - [ ] Transactional drag-snap tap (refine drag-to-snap onto one transactional write)
 - [ ] Sticky Tiles (coupled-resize of adjacent tiles)

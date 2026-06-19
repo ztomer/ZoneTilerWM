@@ -400,6 +400,11 @@ prediction = true            # lead the outline to compensate for follow-lag
 # Session sandbox (hide all but the focused app, toggle to restore) and window peek (label the
 # windows in the focused zone) are actions — bind `sandbox` / `peek` under [system_hotkeys], or
 # trigger via the command palette / CLI / MCP. No config block needed.
+#
+# [[display_presets]]        # auto-run an action when the connected display set changes (opt-in)
+# displays = ["DELL U3223QE"]  # all must be present; first match wins; omit/[] = matches always
+# action = "apply-layout"      # any action name + its params (e.g. apply-layout name=…, autotile)
+# name = "docked"            # e.g. re-apply your docked layout when the external monitor appears
 
 
 # =============================================================================

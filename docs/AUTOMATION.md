@@ -224,6 +224,16 @@ imported state live (layouts replace; learned positions merge, imported winning 
 **Gated (opt-in):** does nothing unless `[sync] folder` is set; surfaced via the catalog
 (palette/CLI/MCP). Default off.
 
+## Display-topology presets (`[[display_presets]]`)
+
+Auto-run an action when the connected display set changes (dock/undock, plug a monitor). Each preset
+lists the display names that must all be present; on `didChangeScreenParameters` the first matching
+preset (config order) fires its action — e.g. re-apply your docked layout when the external monitor
+appears. An empty/omitted `displays` matches always (a fallback). Matching is pure
+(`ZTCore.DisplayPresetEngine`); the action is parsed via the shared `ActionParser` (same vocabulary
+as rules/CLI). 0 AX (display names from NSScreen). Gated: no-op unless presets are configured.
+Wi-Fi-SSID presets are deferred (would need a location entitlement).
+
 ## Settings → Automation pane
 
 The agent's Settings window has an **Automation** tab that surfaces this whole feature:
