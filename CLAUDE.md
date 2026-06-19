@@ -27,7 +27,7 @@ quick operational guide.
 
 - `make verify` — the Swift unit + golden tests (`native/`). One green/red answer.
 - `make build` / `make probe` for the rest.
-- Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic `ZTCore`
+- Current baseline: 244 Swift tests green (v1.4); ~92% line coverage on the pure-logic `ZTCore`
   layer. The OS adapters / UI are validated by live screenshot QA + the post-move AX frame
   readback rather than unit tests (see `native/REVIEW.md`).
 - The solver/zones Swift tests assert against a frozen golden corpus in

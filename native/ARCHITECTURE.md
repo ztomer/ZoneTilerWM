@@ -303,9 +303,9 @@ last-resort — no latency benefit, the lag is polling not drawing]; focused
 frame sampled from CGWindowList = zero AX, smoothed by `ZTCore.FrameMotionPredictor` [One Euro]),
 `ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
-Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **142 Swift tests,
-all green** (the Lua + differential harness were retired post-parity — see the banner at the
-top of "Differential oracle testing" below). Line coverage is ~92% for the pure-logic `ZTCore`
+Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **244 Swift tests,
+all green** (v1.4; the Lua + differential harness were retired post-parity — see the banner at
+the top of "Differential oracle testing" below). Line coverage is ~92% for the pure-logic `ZTCore`
 layer; the OS adapters / UI are validated by live screenshot QA + the post-move AX frame
 readback rather than unit tests. See `REVIEW.md` for the full coverage breakdown and the
 engineering/performance/UX review.

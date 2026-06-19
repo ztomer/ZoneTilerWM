@@ -371,19 +371,21 @@ struct AutomationTab: View {
 
             Section("Capabilities — actions") {
                 ForEach(ActionParser.catalog, id: \.name) { spec in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(spec.name).font(.system(.body, design: .monospaced))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(spec.name).font(.system(.body, design: .monospaced)).fontWeight(.medium)
                         Text(spec.description).font(.caption).foregroundColor(.secondary)
                     }
+                    .padding(.vertical, 2)
                 }
             }
 
             Section("Capabilities — resources") {
                 ForEach(QueryRequest.allCases, id: \.self) { q in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(CLIFormat.cliName(q)).font(.system(.body, design: .monospaced))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(CLIFormat.cliName(q)).font(.system(.body, design: .monospaced)).fontWeight(.medium)
                         Text(q.description).font(.caption).foregroundColor(.secondary)
                     }
+                    .padding(.vertical, 2)
                 }
             }
         }
