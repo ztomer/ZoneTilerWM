@@ -49,4 +49,33 @@ public enum WindowHints {
         }
         return result
     }
+
+    /// De-overlap badge rects so stacked/overlapping windows don't hide each other's hint. Each
+    /// rect keeps its position unless it would overlap one already placed (within `gap`); if so it
+    /// is nudged straight down past the lowest overlapper. Input order is preserved, and earlier
+    /// rects win their spot (pass front-to-back so the frontmost window's hint stays put).
+    /// Top-left CG coords (y increases downward), matching ZTRect everywhere else.
+    public static func deoverlap(_ rects: [ZTRect], gap: Double = 6) -> [ZTRect] {
+        var placed: [ZTRect] = []
+        var result: [ZTRect] = []
+        for original in rects {
+            var r = original
+            var guardCount = 0
+            while guardCount <= placed.count {
+                let bottoms = placed.filter { intersects($0, r, gap: gap) }.map { $0.y + $0.h }
+                guard let lowest = bottoms.max() else { break }   // no overlap → keep position
+                r = ZTRect(x: r.x, y: lowest + gap, w: r.w, h: r.h)
+                guardCount += 1
+            }
+            placed.append(r)
+            result.append(r)
+        }
+        return result
+    }
+
+    /// Rect overlap with a `gap` margin (rects closer than `gap` count as overlapping).
+    private static func intersects(_ a: ZTRect, _ b: ZTRect, gap: Double) -> Bool {
+        a.x - gap < b.x + b.w && a.x + a.w + gap > b.x &&
+        a.y - gap < b.y + b.h && a.y + a.h + gap > b.y
+    }
 }

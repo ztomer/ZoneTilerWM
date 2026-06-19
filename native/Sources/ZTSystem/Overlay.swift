@@ -91,11 +91,16 @@ public final class HintOverlay {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.clear()
-            for h in hints {
+            // Build each badge + its desired center-anchored rect first, then de-overlap so badges
+            // for stacked/overlapping windows don't hide one another (they dodge downward).
+            let built = hints.map { h -> (badge: NSView, rect: ZTRect) in
                 let (badge, size) = HintOverlay.makeBadge(label: h.label, app: h.app, icon: h.icon)
-                let origin = ZTRect(x: h.center.x - size.width / 2, y: h.center.y - size.height / 2,
-                                    w: size.width, h: size.height)
-                let w = NSWindow(contentRect: CoordConvert.nsFrame(fromCG: origin),
+                return (badge, ZTRect(x: h.center.x - size.width / 2, y: h.center.y - size.height / 2,
+                                      w: size.width, h: size.height))
+            }
+            let placed = WindowHints.deoverlap(built.map { $0.rect })
+            for (item, rect) in zip(built, placed) {
+                let w = NSWindow(contentRect: CoordConvert.nsFrame(fromCG: rect),
                                  styleMask: .borderless, backing: .buffered, defer: false)
                 w.isOpaque = false
                 w.backgroundColor = .clear
@@ -103,7 +108,7 @@ public final class HintOverlay {
                 w.level = .statusBar
                 w.hasShadow = true
                 w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-                w.contentView = badge
+                w.contentView = item.badge
                 w.orderFront(nil)
                 self.windows.append(w)
             }

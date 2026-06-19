@@ -698,27 +698,28 @@ final class AgentController: NSObject {
         }
     }
 
-    /// The menubar mark: a 2x2 zone grid with the top-left zone in an amber accent (matches the
-    /// app icon). Colored (not a template), so the grid lines flip for light/dark menubars while
-    /// the accent stays — call updateMenubarGlyph() on appearance change.
-    private static func menubarGlyph(dark: Bool) -> NSImage {
+    /// The menubar mark: a 2x2 zone grid with the top-left zone filled (echoes the app icon).
+    /// A **template** image — macOS renders it in the correct ink for the *actual* menu-bar
+    /// appearance (white on a dark menu bar, black on a light one), including the tricky case of
+    /// a translucent menu bar darkened by the wallpaper while the system is in Light mode. That
+    /// case is exactly what broke the old colored/manually-flipped glyph (the appearance signal
+    /// didn't fire, so the black lines vanished on dark). Monochrome, so the amber accent lives
+    /// in the app icon + hint badges rather than the menu bar.
+    private static func menubarGlyph() -> NSImage {
         let s: CGFloat = 18
-        let lineColor = dark ? NSColor.white.withAlphaComponent(0.92) : NSColor.black.withAlphaComponent(0.82)
-        let amber = NSColor(red: 0.98, green: 0.70, blue: 0.20, alpha: 1)
         let img = NSImage(size: NSSize(width: s, height: s), flipped: false) { _ in
             let inset: CGFloat = 2.5
             let rect = NSRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
             let cx = rect.midX, cy = rect.midY
             let lw: CGFloat = 1.4
+            let ink = NSColor.black   // template: used as the alpha mask; macOS recolors it
             let outline = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
-            // Amber top-left quadrant, clipped to the rounded outline.
+            // Filled top-left quadrant (the accent zone), clipped to the rounded outline.
             NSGraphicsContext.saveGraphicsState()
             outline.addClip()
-            amber.set()
+            ink.set()
             NSBezierPath(rect: NSRect(x: rect.minX, y: cy, width: cx - rect.minX, height: rect.maxY - cy)).fill()
             NSGraphicsContext.restoreGraphicsState()
-            // Outline + cross lines in the appearance-appropriate ink.
-            lineColor.set()
             outline.lineWidth = lw; outline.stroke()
             let cross = NSBezierPath()
             cross.move(to: NSPoint(x: cx, y: rect.minY)); cross.line(to: NSPoint(x: cx, y: rect.maxY))
@@ -726,28 +727,15 @@ final class AgentController: NSObject {
             cross.lineWidth = lw; cross.stroke()
             return true
         }
-        img.isTemplate = false   // keep the amber accent; we manage light/dark ourselves
+        img.isTemplate = true   // let AppKit adapt it to the menu-bar appearance
         return img
-    }
-
-    private func isDarkMenubar() -> Bool {
-        let appearance = statusItem?.button?.effectiveAppearance ?? NSApp.effectiveAppearance
-        return appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-    }
-
-    @objc func updateMenubarGlyph() {
-        statusItem?.button?.image = AgentController.menubarGlyph(dark: isDarkMenubar())
     }
 
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
-        item.button?.image = AgentController.menubarGlyph(dark: isDarkMenubar())
+        item.button?.image = AgentController.menubarGlyph()   // template adapts automatically
         item.button?.title = ""
-        // Re-render the colored glyph when the system appearance flips.
-        DistributedNotificationCenter.default.addObserver(
-            self, selector: #selector(updateMenubarGlyph),
-            name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "ZoneTilerWM", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())

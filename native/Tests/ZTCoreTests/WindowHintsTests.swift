@@ -40,4 +40,43 @@ final class WindowHintsTests: XCTestCase {
         XCTAssertEqual(many.count, WindowHints.alphabet.count)
         XCTAssertEqual(Set(many).count, many.count)
     }
+
+    // MARK: - deoverlap (badge dodging so hints don't hide each other)
+
+    private func anyOverlap(_ rects: [ZTRect], gap: Double = 6) -> Bool {
+        for i in rects.indices {
+            for j in rects.indices where j > i {
+                let a = rects[i], b = rects[j]
+                if a.x - gap < b.x + b.w && a.x + a.w + gap > b.x &&
+                   a.y - gap < b.y + b.h && a.y + a.h + gap > b.y { return true }
+            }
+        }
+        return false
+    }
+
+    func testDeoverlapLeavesNonOverlappingRectsUnchanged() {
+        let rects = [ZTRect(x: 0, y: 0, w: 100, h: 40), ZTRect(x: 400, y: 400, w: 100, h: 40)]
+        XCTAssertEqual(WindowHints.deoverlap(rects), rects)
+    }
+
+    func testDeoverlapDodgesIdenticalAnchors() {
+        // Three windows stacked at the same center → three identical badge rects.
+        let r = ZTRect(x: 500, y: 500, w: 120, h: 38)
+        let out = WindowHints.deoverlap([r, r, r], gap: 6)
+        XCTAssertEqual(out[0], r)                       // first keeps its spot
+        XCTAssertFalse(anyOverlap(out))                 // none overlap after dodging
+        XCTAssertTrue(out[1].y > out[0].y)              // pushed downward
+        XCTAssertTrue(out[2].y > out[1].y)
+        // x preserved, sizes preserved.
+        XCTAssertEqual(out.map { $0.x }, [500, 500, 500])
+        XCTAssertEqual(out.map { $0.w }, [120, 120, 120])
+    }
+
+    func testDeoverlapResolvesPartialOverlap() {
+        let a = ZTRect(x: 0, y: 0, w: 100, h: 40)
+        let b = ZTRect(x: 10, y: 10, w: 100, h: 40)   // overlaps a
+        let out = WindowHints.deoverlap([a, b])
+        XCTAssertEqual(out[0], a)
+        XCTAssertFalse(anyOverlap(out))
+    }
 }
