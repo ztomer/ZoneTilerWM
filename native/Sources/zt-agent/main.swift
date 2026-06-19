@@ -111,6 +111,7 @@ final class AgentController: NSObject {
     // The two modal sub-controllers (extracted from this composition root).
     private var resizeMode: ResizeModeController!
     private var windowHints: WindowHintsController!
+    private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -236,6 +237,7 @@ final class AgentController: NSObject {
             reloadConfig: { [unowned self] in self.reloadFromDisk() },
             saveLayout: { [unowned self] name in self.saveLayout(name) },
             applyLayout: { [unowned self] name in self.applyLayout(name) }))
+        commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
         arrangementQuery = ArrangementQuery(
@@ -733,6 +735,12 @@ final class AgentController: NSObject {
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.dispatcher.perform(.reloadConfig)
         }
+        // Command palette — opt-in: only bound when [command_palette] enabled.
+        if config.commandPaletteEnabled {
+            bindAction(config.resolvedHotkey("command_palette", in: config.systemHotkeys), label: "command_palette") { [weak self] in
+                self?.commandPalette.toggle()
+            }
+        }
     }
 
     /// The menubar mark: a 2x2 zone grid with the top-left zone filled (echoes the app icon).
@@ -822,6 +830,9 @@ final class AgentController: NSObject {
         tutorial?.show()
     }
 
+    /// QA / debug entry point to show the command palette (the normal trigger is the gated hotkey).
+    func showCommandPalette() { commandPalette.show() }
+
     /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
     /// need it). No-op when already trusted.
     func showOnboardingIfNeeded() {
@@ -849,6 +860,7 @@ case "analytics": DispatchQueue.main.async { controller.openAnalytics() }
 case "settings":  DispatchQueue.main.async { controller.openSettings() }
 case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
+case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 default: break
 }
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")

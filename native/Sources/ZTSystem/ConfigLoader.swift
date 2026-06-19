@@ -66,6 +66,7 @@ public enum ConfigLoader {
         public var keyboardLayout: String                 // [ui] keyboard_layout: auto/qwerty/dvorak/colemak
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
+        public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -193,12 +194,14 @@ public enum ConfigLoader {
         var system_hotkeys: [String: [String]]?
         var ui: RawUI?
         var automation: RawAutomation?
+        var command_palette: RawCommandPalette?
         var rules: [RawRule]?
     }
 
     private struct RawUI: Decodable { var keyboard_layout: String? }
 
     private struct RawAutomation: Decodable { var enabled: Bool? }
+    private struct RawCommandPalette: Decodable { var enabled: Bool? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -313,6 +316,7 @@ public enum ConfigLoader {
                 cornerRadius: Double(raw.borders?.corner_radius ?? 9),
                 prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
             automationEnabled: raw.automation?.enabled ?? true,  // on by default; the local socket is low-risk
+            commandPaletteEnabled: raw.command_palette?.enabled ?? false,  // opt-in
             rules: parseRules(raw.rules))
     }
 

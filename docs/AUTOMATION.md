@@ -108,6 +108,17 @@ Persisted to `~/.config/ZoneTilerWM/layouts.json`. Best-effort by design (app-na
 re-identification) — single-main-window apps restore reliably; multi-window/Electron apps are
 approximate (roadmap risk register). Available over MCP and the URL scheme too, same as any action.
 
+## Command palette (in-app ⌘K)
+
+An in-app, keyboard-driven fuzzy launcher over the same action vocabulary. Bind a hotkey, type a
+command — `tile h`, `save-layout coding`, `audio`, `zen` — with live fuzzy matches (↑/↓ select,
+⏎ run, Tab complete, ⎋ close). The first token resolves to an action (exact / unique-prefix /
+subsequence); remaining tokens are the action's params positionally. Pure matching/resolve is
+`ZTCore.CommandPalette`; the overlay is the agent.
+
+**Gated (opt-in):** off unless `[command_palette] enabled = true` AND a `command_palette` hotkey is
+set under `[system_hotkeys]`. Then it's just another front-end over the dispatcher.
+
 ## Settings → Automation pane
 
 The agent's Settings window has an **Automation** tab that surfaces this whole feature:

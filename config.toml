@@ -97,6 +97,7 @@ vscodium = "VSCodium"
 window_hints = ["HYPER", "-"]
 activity_monitor = ["HYPER", "="]
 reload = ["mash_shift", "R"]
+# command_palette = ["HYPER", "space"]   # uncomment + set [command_palette] enabled to use it
 
 
 # =============================================================================
@@ -362,6 +363,9 @@ prediction = true            # lead the outline to compensate for follow-lag
 # =============================================================================
 # [automation]
 # enabled = true             # set false to disable the MCP/CLI control socket entirely
+#
+# [command_palette]          # in-app ⌘K fuzzy command launcher (opt-in; also set the
+# enabled = true             # command_palette hotkey under [system_hotkeys] above)
 
 
 # =============================================================================
