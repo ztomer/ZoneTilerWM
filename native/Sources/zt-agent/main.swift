@@ -126,6 +126,7 @@ final class AgentController: NSObject {
     private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
+    private var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -277,6 +278,10 @@ final class AgentController: NSObject {
             offset: { [weak resize] m, a, i in resize?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
             modifier: { [unowned self] in self.config.tilerModifier },
             snap: { [unowned self] zone in _ = self.dispatcher.perform(.tileFocusedToZone(zone: zone)) })
+        breakScreen = BreakScreenController(
+            screens: screens,
+            enabled: { [unowned self] in self.config.breakScreenEnabled },
+            durationSec: { [unowned self] in self.config.breakScreenDurationSec })
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
         arrangementQuery = ArrangementQuery(
@@ -506,8 +511,11 @@ final class AgentController: NSObject {
         pomodoroItem = item
         pomodoroTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
-            _ = self.pomodoro.tick()
+            let event = self.pomodoro.tick()
             self.refreshPomodoro()
+            // Retro break overlay on work→break (gated by [break_screen]). timeLeft was just set to
+            // the rest period; workCount was just incremented.
+            self.breakScreen.handle(event, restSec: self.pomodoro.timeLeft, workCount: self.pomodoro.workCount)
         }
     }
 
@@ -941,6 +949,7 @@ final class AgentController: NSObject {
     /// QA / debug entry point to force the zone HUD on (the normal trigger is the modifier hold).
     func showZoneHUDForQA() { zoneHUD.forceShow() }
     func dragSnapForQA() { dragSnap.forceSnap() }
+    func breakScreenForQA() { breakScreen.forceShow() }
 
     /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
     /// need it). No-op when already trusted.
@@ -974,6 +983,7 @@ case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
+case "break":     DispatchQueue.main.async { controller.breakScreenForQA() }
 default: break
 }
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")

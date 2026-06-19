@@ -71,6 +71,8 @@ public enum ConfigLoader {
         public var zoneHUDHoldDelayMs: Int                 // hold the modifier this long before the HUD shows
         public var dragSnapEnabled: Bool                   // [drag_snap] enabled (opt-in, default off; EDR-sensitive)
         public var syncFolder: String?                     // [sync] folder — a synced dir for export/import (nil = off)
+        public var breakScreenEnabled: Bool                // [break_screen] enabled (opt-in, default off)
+        public var breakScreenDurationSec: Int             // how long the break overlay stays up
         public var rules: [Rule]                           // [[rules]] — declarative window rules
 
         /// Resolve a config hotkey pair [modifierAlias, key] into (resolved modifier, key).
@@ -202,6 +204,7 @@ public enum ConfigLoader {
         var zone_hud: RawZoneHUD?
         var drag_snap: RawDragSnap?
         var sync: RawSync?
+        var break_screen: RawBreakScreen?
         var rules: [RawRule]?
     }
 
@@ -212,6 +215,7 @@ public enum ConfigLoader {
     private struct RawZoneHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int? }
     private struct RawDragSnap: Decodable { var enabled: Bool? }
     private struct RawSync: Decodable { var folder: String? }
+    private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
 
     /// `[[rules]]` — declarative window rules. `action` + its params mirror the CLI/MCP contract
     /// (so a rule's action is parsed through the same ActionParser). Known param keys only.
@@ -331,6 +335,8 @@ public enum ConfigLoader {
             zoneHUDHoldDelayMs: raw.zone_hud?.hold_delay_ms ?? 400,
             dragSnapEnabled: raw.drag_snap?.enabled ?? false,              // opt-in; installs a passive mouse monitor
             syncFolder: raw.sync?.folder.flatMap { $0.isEmpty ? nil : $0 },  // nil/empty = sync disabled
+            breakScreenEnabled: raw.break_screen?.enabled ?? false,         // opt-in
+            breakScreenDurationSec: raw.break_screen?.duration_sec ?? 6,
             rules: parseRules(raw.rules))
     }
 

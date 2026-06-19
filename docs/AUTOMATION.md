@@ -174,6 +174,17 @@ an ordinary window drag is never hijacked. Default off (it installs a global mou
 opt-in for the EDR-conscious). QA hook: `ZT_OPEN_WINDOW=dragsnap` snaps the focused window to the
 zone under the cursor without a real drag.
 
+## Retro break screen (Pomodoro)
+
+When a Pomodoro work period ends, a full-screen retro overlay (amber CRT terminal: glowing
+monospace "BREAK TIME", scanlines, the rest length + session count) prompts you to step away. It
+auto-dismisses after `duration_sec` (default 6) or on a click. Trigger + copy are pure
+(`ZTCore.BreakScreen`); the overlay (`ZTSystem.BreakScreenOverlay`) is purely visual and **0 AX**
+(screen picked via `screenUnderMouse`). Driven off the existing Pomodoro tick — fires only on
+work→break.
+
+**Gated (opt-in):** off unless `[break_screen] enabled = true`. QA hook: `ZT_OPEN_WINDOW=break`.
+
 ## Settings sync (`sync-export` / `sync-import`)
 
 Carry your config + learned state across machines through a folder you already sync (iCloud Drive,

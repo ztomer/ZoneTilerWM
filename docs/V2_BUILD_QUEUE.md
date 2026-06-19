@@ -59,7 +59,12 @@ zt-mcp serverVersion) → commit + push → tick this file.
       Gated behind window memory (returns `unavailable` when off). 5-persona review → fixed HIGH
       (thread `now` so weight is recency-decayed, matching live placement) + round-trip coverage.
       This is the read surface the LLM-assisted item consumes.
-- [ ] Retro break theme (Pomodoro break screen; opt-in default off) — visual ← NEXT
+- [x] Retro break theme (Pomodoro break screen; opt-in default off) — **v1.4.12 DONE**. Full-screen
+      amber-CRT overlay ("BREAK TIME" + scanlines + rest/session) on work→break, auto-dismiss
+      (clamped 2–60s) or click. Pure `BreakScreen` TDD'd (2 tests); `BreakScreenOverlay` 0-AX
+      (screenUnderMouse), modeled on the validated ZoneHUDOverlay. **Visually self-validated** via
+      ZT_OPEN_WINDOW=break (display awake in daylight) — renders correctly, on-brand amber retro
+      look. Full Gemini multi-round grade optional/deferred. Self-reviewed (5 lenses).
 - [x] Universal binary (arm64 + x86_64) — **v1.4.9 DONE** (build config, not a runtime feature →
       no gating/persona-review). `build_package.sh`: xcodebuild `ARCHS="arm64 x86_64"
       ONLY_ACTIVE_ARCH=NO`; helper tools built `--arch arm64 --arch x86_64` (land under
