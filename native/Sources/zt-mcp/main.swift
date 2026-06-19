@@ -17,7 +17,7 @@ let server = MCPServer()
 
 let context = MCPServer.Context(
     serverName: "zonetiler",
-    serverVersion: "1.5.2",
+    serverVersion: "1.5.3",
     perform: { request in
         switch client.send(.action(request)) {
         case .action(let result): return result

@@ -22,19 +22,23 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
 - [ ] **Keys → modifier aliases**: define + assign aliases (mash, mash_shift, HYPER, …) from the UI.
 
 ## C. Settings restructure → SIDEBAR (top tabs are getting too complex)
-- [ ] Move settings from top segmented tabs to a **sidebar layout**.
-- [ ] Proposed groups (user's): **Tiling**, **I/O** (keyboard layout, audio, focus-follows-mouse),
-      **App Launcher** (app cuts + hyper cuts + app groups), **Pomodoro**, **Appearance**,
-      **Automation**, **Keys**, **Advanced**.
-- [ ] Generate **Susan-Kare / Dieter-Rams-approved sidebar icons** for each group.
+- [x] Move settings from top segmented tabs to a **sidebar layout** (v1.5.3) — `NavigationSplitView`,
+      groups: General · Tiling · Layouts · Keys · Input & Output · App Launcher · Pomodoro ·
+      Appearance · Automation · Advanced. The old "Features" catch-all is dissolved (each toggle now
+      lives with the feature it configures).
+- [x] Proposed groups (user's) — adopted (v1.5.3). I/O = keyboard layout + audio + focus-follows-mouse;
+      App Launcher = app cuts + hyper cuts + scratchpad; Tiling = tiling + Zone HUD + drag-to-snap;
+      Appearance = window border + margins; Automation = command palette + on-device AI + integration
+      + profiles + MCP/CLI.
+- [ ] Generate **Susan-Kare / Dieter-Rams-approved sidebar icons** — using SF Symbols as the baseline
+      for now; custom icons via the Gemini asset loop are the follow-up.
 
 ## D. Settings content changes
-- [ ] **Break screen** → move from Features to the **Pomodoro** tab; rename "Retro break screen" →
-      just **"Break screen"** (drop "retro").
+- [x] **Break screen** → moved to the **Pomodoro** tab; renamed to **"Break screen"** (v1.5.3).
 - [ ] **Scratchpad → "App groups"**: it's really grouped apps. Make it a standalone feature with a
       **per-group hotkey** assignment (multiple named groups, each its own shortcut).
-- [ ] **On-device AI is just a command-palette toggle** — group the NL toggle WITH the command
-      palette (already merged in code; reflect in the UI grouping).
+- [x] **On-device AI is just a command-palette toggle** — grouped WITH the command palette under
+      Automation (v1.5.3).
 - [ ] **Apps tab too narrow** — the app launcher + hyper apps overflow by ~20-30px (needs a little
       horizontal scroll). Widen the window / fix the layout so it fits.
 - [ ] **Pomodoro: live preview** of the color bar (look + position), updating as params change.

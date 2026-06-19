@@ -1,0 +1,218 @@
+// SettingsGroups.swift — the v4 sidebar group containers. The Settings window moved from a row of
+// top segmented tabs to a sidebar (NavigationSplitView, see SettingsView). Each group is a Form
+// composing the same section-emitting views and setters as before, just re-bucketed into the v4
+// taxonomy the user asked for:
+//   General · Tiling · Layouts · Keys · Input & Output · App Launcher · Pomodoro · Appearance ·
+//   Automation · Advanced
+// The old "Features" catch-all tab is dissolved: its sections live with the feature they configure
+// (Zone HUD / drag-snap → Tiling, focus-follows-mouse → I/O, break screen → Pomodoro, command
+// palette + on-device AI → Automation, scratchpad → App Launcher).
+
+import SwiftUI
+import AppKit
+import ZTCore
+import ZTSystem
+
+// MARK: - small shared helpers
+
+/// A muted caption line (the same style the dissolved FeaturesTab used).
+private func caption(_ s: String) -> some View { Text(s).font(.caption).foregroundColor(.secondary) }
+
+private func splitList(_ s: String) -> [String] {
+    s.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+}
+
+// MARK: - General
+
+struct GeneralTab: View {
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            Section("Startup") {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
+                    .disabled(!model.launchAtLoginAvailable)
+                if !model.launchAtLoginAvailable {
+                    caption("Available when running the installed ZoneTilerWM.app (not the dev binary).")
+                }
+            }
+            Section("Config") {
+                LabeledContent("File") {
+                    HStack(spacing: 8) {
+                        Text(model.configURL.lastPathComponent).foregroundColor(.secondary)
+                        Button("Reveal") { model.revealConfigInFinder() }
+                        Button("Open") { model.openConfigInEditor() }
+                    }
+                }
+                LabeledContent("Version", value: model.config.version)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Tiling
+
+struct TilingTab: View {
+    @ObservedObject var model: SettingsModel
+    @State private var centerZonesEdit = ""
+
+    private func commitCenterZones() {
+        model.setCenterZones(splitList(centerZonesEdit))
+    }
+
+    var body: some View {
+        Form {
+            Section("Tiling") {
+                Picker("Placement strategy", selection: Binding(
+                    get: { model.config.placementStrategy },
+                    set: { model.setValue(section: "tiler", key: "placement_strategy", rawValue: "\"\($0)\"") })) {
+                    Text("rotate").tag("rotate")
+                    Text("largest free space").tag("largest_free_space")
+                    Text("hybrid").tag("hybrid")
+                }
+                Picker("Auto-tiling mode", selection: Binding(
+                    get: { model.config.autoTilingMode },
+                    set: { model.setValue(section: "tiler", key: "auto_tiling_mode", rawValue: "\"\($0)\"") })) {
+                    Text("usage").tag("usage")
+                    Text("session").tag("session")
+                }
+                NumberRow(label: "Working-set capacity", value: Binding(
+                    get: { model.config.workingSetMaxCapacity },
+                    set: { model.setWorkingSetCapacity($0) }), range: 1...12)
+                NumberRow(label: "Working-set staleness", value: Binding(
+                    get: { model.config.workingSetTimeLimit / 60 },
+                    set: { model.setWorkingSetMinutes($0) }), range: 1...240, suffix: "min")
+                LabeledContent("Auto-tile center zones") {
+                    HStack(spacing: 8) {
+                        TextField("e.g. j, center, 0", text: $centerZonesEdit).textFieldStyle(.roundedBorder)
+                            .frame(width: 200).onSubmit { commitCenterZones() }
+                        Button("Save") { commitCenterZones() }
+                    }
+                }
+            }
+
+            Section("Zone HUD") {
+                Toggle("Zone HUD (modifier-held cheat-sheet)", isOn: Binding(
+                    get: { model.config.zoneHUDEnabled }, set: { model.setZoneHUDEnabled($0) }))
+                caption("Hold the tiling modifier to see each zone's key. Self-silences for quick chords.")
+                if model.config.zoneHUDEnabled {
+                    NumberRow(label: "Hold delay", value: Binding(
+                        get: { model.config.zoneHUDHoldDelayMs },
+                        set: { model.setZoneHUDHoldDelay($0) }), range: 120...2000, step: 20, suffix: "ms")
+                }
+            }
+
+            Section("Drag-to-snap") {
+                Toggle("Drag-to-snap (modifier + drag → zone)", isOn: Binding(
+                    get: { model.config.dragSnapEnabled }, set: { model.setDragSnapEnabled($0) }))
+                caption("Hold the tiling modifier while dragging a window; it snaps to the zone under the "
+                        + "cursor on drop. (Uses the same modifier as your tiling hotkeys.)")
+            }
+
+            Section("Action-only (bind a hotkey under Keys)") {
+                caption("Window peek — label the windows stacked in the focused zone, type to focus.  ·  "
+                        + "Session sandbox — hide everything but the focused app, toggle to restore.  ·  "
+                        + "Per-window float, swap / nudge / throw — fine-tune placement.")
+            }
+
+            if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
+        }
+        .formStyle(.grouped)
+        .onAppear { centerZonesEdit = model.config.autoTileCenterZones.joined(separator: ", ") }
+    }
+}
+
+// MARK: - Input & Output (keyboard layout, audio, focus-follows-mouse)
+
+struct IOTab: View {
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            Section("Keyboard layout") {
+                Picker("Layout", selection: Binding(
+                    get: { model.keyboardChoice },
+                    set: { model.setKeyboardLayout($0) })) {
+                    Text("Auto (\(model.detectedKeyboard))").tag("auto")
+                    ForEach(KeyboardLayout.presets, id: \.self) { Text($0).tag($0) }
+                }
+                caption("Used to render the Apps and Layouts key maps. Auto follows the active macOS input source.")
+            }
+            AudioSettings(model: model)
+            Section("Focus follows mouse") {
+                Toggle("Focus the window under the cursor", isOn: Binding(
+                    get: { model.config.focusFollowsMouseEnabled },
+                    set: { model.setFocusFollowsMouseEnabled($0) }))
+                caption("Focus the window the cursor settles on. Note: this is the one feature that adds "
+                        + "per-interaction Accessibility calls — keep it off unless you want it.")
+                if model.config.focusFollowsMouseEnabled {
+                    NumberRow(label: "Dwell", value: Binding(
+                        get: { model.config.focusFollowsMouseDelayMs },
+                        set: { model.setFocusFollowsMouseDelay($0) }), range: 50...2000, step: 25, suffix: "ms")
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - App Launcher (app cuts + hyper cuts + scratchpad)
+
+struct AppLauncherTab: View {
+    @ObservedObject var model: SettingsModel
+    @State private var scratchApps = ""
+    @State private var loaded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            AppShortcutsView(model: model).padding(16)
+            Divider()
+            Form {
+                Section("Scratchpad") {
+                    LabeledContent("Apps") {
+                        TextField("Terminal, Notes", text: $scratchApps)
+                            .textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+                            .onSubmit { model.setScratchpadApps(splitList(scratchApps)) }
+                    }
+                    caption("Comma-separated apps summoned/dismissed together by the scratchpad action. "
+                            + "Press ⏎ to save. Bind a hotkey under Keys.")
+                    Toggle("Auto-dismiss when focus leaves the set", isOn: Binding(
+                        get: { model.config.scratchpadAutoDismiss },
+                        set: { model.setScratchpadAutoDismiss($0) }))
+                        .disabled(model.config.scratchpadApps.isEmpty)
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .onAppear {
+            guard !loaded else { return }
+            scratchApps = model.config.scratchpadApps.joined(separator: ", ")
+            loaded = true
+        }
+    }
+}
+
+// MARK: - Appearance (window border + margins; selection-overlay + live preview are follow-ups)
+
+struct AppearanceTab: View {
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            BordersSettings(model: model)
+            Section("Margins") {
+                Toggle("Enable margins", isOn: Binding(
+                    get: { model.config.zoneConfig.margins?.enabled ?? false },
+                    set: { model.setMarginsEnabled($0) }))
+                NumberRow(label: "Size", value: Binding(
+                    get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
+                    set: { model.setMarginsSize($0) }), range: 0...40, suffix: "px")
+                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
+                Toggle("Apply margin at screen edges", isOn: Binding(
+                    get: { model.config.zoneConfig.margins?.screen_edge ?? false },
+                    set: { model.setMarginsScreenEdge($0) }))
+                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
+            }
+        }
+        .formStyle(.grouped)
+    }
+}

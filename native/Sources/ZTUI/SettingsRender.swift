@@ -32,11 +32,7 @@ public enum SettingsRender {
 
     @ViewBuilder
     private static func tabView(_ tab: String, _ model: SettingsModel) -> some View {
-        switch tab {
-        case "features":   FeaturesTab(model: model)
-        case "automation": AutomationTab(model: model)
-        case "pomodoro":   PomodoroTab(model: model)
-        default:           FeaturesTab(model: model)
-        }
+        // Render one sidebar group's detail pane in isolation (same view the live window shows).
+        SettingsGroupDetail(model: model, id: tab)
     }
 }

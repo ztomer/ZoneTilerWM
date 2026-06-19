@@ -326,136 +326,63 @@ public final class SettingsModel: ObservableObject {
 
 public struct SettingsView: View {
     @ObservedObject var model: SettingsModel
-    @State private var tab: String
-    private let tabs = [("general", "General"), ("keys", "Keys"), ("apps", "Apps"),
-                        ("layouts", "Layouts"), ("pomodoro", "Pomodoro"), ("features", "Features"),
-                        ("automation", "Automation"), ("advanced", "Advanced")]
+    @State private var sel: String
+
+    /// The sidebar groups, in display order. SF Symbols stand in for the Kare/Rams custom icons
+    /// (those are generated via the Gemini asset loop as a follow-up — see V4_UX_BACKLOG.md).
+    private struct Group: Identifiable { let id: String; let title: String; let icon: String }
+    private let groups: [Group] = [
+        .init(id: "general",    title: "General",        icon: "gearshape"),
+        .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3"),
+        .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group"),
+        .init(id: "keys",       title: "Keys",           icon: "keyboard"),
+        .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3"),
+        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2"),
+        .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer"),
+        .init(id: "appearance", title: "Appearance",     icon: "paintbrush"),
+        .init(id: "automation", title: "Automation",     icon: "terminal"),
+        .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver"),
+    ]
+
     public init(model: SettingsModel) {
         self.model = model
-        // QA hook: ZT_SETTINGS_TAB opens a specific tab directly (for screenshot review).
-        _tab = State(initialValue: ProcessInfo.processInfo.environment["ZT_SETTINGS_TAB"] ?? "general")
+        // QA hook: ZT_SETTINGS_TAB opens a specific group directly (for screenshot review).
+        _sel = State(initialValue: ProcessInfo.processInfo.environment["ZT_SETTINGS_TAB"] ?? "general")
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // The tab bar sits IN the transparent titlebar, vertically aligned with the close
-            // button (which floats at the left); the segmented tabs are centered. The titlebar
-            // band height (~28pt) is reclaimed via .ignoresSafeArea below.
-            Picker("", selection: $tab) {
-                ForEach(tabs, id: \.0) { Text($0.1).tag($0.0) }
+        NavigationSplitView {
+            List(groups, selection: $sel) { g in
+                Label(g.title, systemImage: g.icon).tag(g.id)
             }
-            .pickerStyle(.segmented).labelsHidden()
-            .frame(maxWidth: 460)
-            .padding(.leading, 78)     // clear the traffic-light close button
-            .padding(.trailing, 16)
-            .frame(maxWidth: .infinity)
-            .frame(height: 38)         // titlebar band
-            Divider()
-            Group {
-                switch tab {
-                case "keys": KeybindEditorView(model: model)
-                case "apps": AppShortcutsView(model: model)
-                case "layouts": LayoutEditorView(model: model)
-                case "pomodoro": PomodoroTab(model: model)
-                case "features": FeaturesTab(model: model)
-                case "automation": AutomationTab(model: model)
-                case "advanced": AdvancedTab(model: model)
-                default: general
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 16).padding(.bottom, 16)
+            .navigationSplitViewColumnWidth(196)
+            .listStyle(.sidebar)
+        } detail: {
+            SettingsGroupDetail(model: model, id: sel)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .navigationTitle(groups.first { $0.id == sel }?.title ?? "Settings")
         }
-        .frame(width: 760)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .ignoresSafeArea(.container, edges: .top)   // draw the tab bar into the titlebar band
+        .frame(minWidth: 880, idealWidth: 920, minHeight: 560, idealHeight: 620)
     }
+}
 
-    private var general: some View {
-        Form {
-            Section("Startup") {
-                Toggle("Launch at login", isOn: Binding(
-                    get: { model.launchAtLogin },
-                    set: { model.setLaunchAtLogin($0) }))
-                    .disabled(!model.launchAtLoginAvailable)
-                if !model.launchAtLoginAvailable {
-                    Text("Available when running the installed ZoneTilerWM.app (not the dev binary).")
-                        .font(.caption).foregroundColor(.secondary)
-                }
-            }
-            Section("Config") {
-                LabeledContent("File") {
-                    HStack(spacing: 8) {
-                        Text(model.configURL.lastPathComponent).foregroundColor(.secondary)
-                        Button("Reveal") { model.revealConfigInFinder() }
-                        Button("Open") { model.openConfigInEditor() }
-                    }
-                }
-                LabeledContent("Version", value: model.config.version)
-            }
-            Section("Tiling") {
-                Picker("Placement strategy", selection: Binding(
-                    get: { model.config.placementStrategy },
-                    set: { model.setValue(section: "tiler", key: "placement_strategy", rawValue: "\"\($0)\"") })) {
-                    Text("rotate").tag("rotate")
-                    Text("largest free space").tag("largest_free_space")
-                    Text("hybrid").tag("hybrid")
-                }
-                Picker("Auto-tiling mode", selection: Binding(
-                    get: { model.config.autoTilingMode },
-                    set: { model.setValue(section: "tiler", key: "auto_tiling_mode", rawValue: "\"\($0)\"") })) {
-                    Text("usage").tag("usage")
-                    Text("session").tag("session")
-                }
-                NumberRow(label: "Working-set capacity", value: Binding(
-                    get: { model.config.workingSetMaxCapacity },
-                    set: { model.setWorkingSetCapacity($0) }), range: 1...12)
-                NumberRow(label: "Working-set staleness", value: Binding(
-                    get: { model.config.workingSetTimeLimit / 60 },
-                    set: { model.setWorkingSetMinutes($0) }), range: 1...240, suffix: "min")
-                LabeledContent("Auto-tile center zones") {
-                    HStack(spacing: 8) {
-                        TextField("e.g. j, center, 0", text: $centerZonesEdit).textFieldStyle(.roundedBorder)
-                            .frame(width: 200).onSubmit { commitCenterZones() }
-                        Button("Save") { commitCenterZones() }
-                    }
-                }
-            }
-            Section("Input") {
-                Picker("Keyboard layout", selection: Binding(
-                    get: { model.keyboardChoice },
-                    set: { model.setKeyboardLayout($0) })) {
-                    Text("Auto (\(model.detectedKeyboard))").tag("auto")
-                    ForEach(KeyboardLayout.presets, id: \.self) { Text($0).tag($0) }
-                }
-                Text("Used to render the Apps and Layouts key maps. Auto follows the active macOS input source.")
-                    .font(.caption).foregroundColor(.secondary)
-            }
-            Section("Margins") {
-                Toggle("Enable margins", isOn: Binding(
-                    get: { model.config.zoneConfig.margins?.enabled ?? false },
-                    set: { model.setMarginsEnabled($0) }))
-                NumberRow(label: "Size", value: Binding(
-                    get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
-                    set: { model.setMarginsSize($0) }), range: 0...40, suffix: "px")
-                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
-                Toggle("Apply margin at screen edges", isOn: Binding(
-                    get: { model.config.zoneConfig.margins?.screen_edge ?? false },
-                    set: { model.setMarginsScreenEdge($0) }))
-                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
-            }
-            BordersSettings(model: model)
-            AudioSettings(model: model)
-            if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
+/// The detail pane for the selected sidebar group. Factored out (and reused by SettingsRender) so a
+/// single group can be rendered in isolation for screenshot QA.
+struct SettingsGroupDetail: View {
+    @ObservedObject var model: SettingsModel
+    let id: String
+    var body: some View {
+        switch id {
+        case "tiling":     TilingTab(model: model)
+        case "layouts":    LayoutEditorView(model: model)
+        case "keys":       KeybindEditorView(model: model)
+        case "io":         IOTab(model: model)
+        case "apps":       AppLauncherTab(model: model)
+        case "pomodoro":   PomodoroTab(model: model)
+        case "appearance": AppearanceTab(model: model)
+        case "automation": AutomationTab(model: model)
+        case "advanced":   AdvancedTab(model: model)
+        default:           GeneralTab(model: model)
         }
-        .formStyle(.grouped)
-        .onAppear { centerZonesEdit = model.config.autoTileCenterZones.joined(separator: ", ") }
     }
-
-    @State private var centerZonesEdit = ""
-    private func commitCenterZones() {
-        let zones = centerZonesEdit.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        model.setCenterZones(zones)
-    }
-
 }
