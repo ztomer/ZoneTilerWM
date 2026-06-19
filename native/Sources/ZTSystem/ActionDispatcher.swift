@@ -108,6 +108,18 @@ public final class ActionDispatcher {
             return .monitorMoved(windowId: o.windowId, zone: o.zoneKey, tileIndex: o.tileIndex,
                                  target: o.target, applied: o.applied)
 
+        case .nudge(let dir):
+            guard let o = hooks.coordinator().nudgeFocused(dir) else { return .failed(reason: .noFocusedWindow) }
+            return .windowMoved(windowId: o.windowId, target: o.target, applied: o.applied)
+
+        case .throwWindow(let dir):
+            guard let o = hooks.coordinator().throwFocused(dir) else { return .failed(reason: .noFocusedWindow) }
+            return .windowMoved(windowId: o.windowId, target: o.target, applied: o.applied)
+
+        case .swap(let dir):
+            guard let r = hooks.coordinator().swapFocused(dir) else { return .failed(reason: .noTile) }
+            return .swapped(windowA: r.a, windowB: r.b, applied: r.applied)
+
         case .toggleZen:
             hooks.coordinator().toggleZen()
             return .zenToggled

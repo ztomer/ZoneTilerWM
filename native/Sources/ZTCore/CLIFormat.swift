@@ -20,6 +20,10 @@ public enum CLIFormat {
             return "moved window \(id) → monitor zone \(zone) tile \(tile) [\(applied ? "applied" : "not applied")] @ \(rect(target))"
         case .zenToggled:
             return "toggled zen mode"
+        case .windowMoved(let id, let target, let applied):
+            return "moved window \(id) [\(applied ? "applied" : "not applied")] @ \(rect(target))"
+        case .swapped(let a, let b, let applied):
+            return "swapped windows \(a) ↔ \(b) [\(applied ? "applied" : "not applied")]"
         case .floatToggled(let id, let floating):
             return "window \(id) \(floating ? "floated (excluded from auto-tile)" : "unfloated")"
         case .audioSwitched(let name):

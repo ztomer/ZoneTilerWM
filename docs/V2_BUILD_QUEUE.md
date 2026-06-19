@@ -26,7 +26,7 @@ implement (gated) → `swift build` + `make verify` → Gemini UI grade (visual)
 ## Queue (ordered)
 - [x] Command palette — v1.4.1
 - [x] Per-window float toggle — v1.4.2
-- [ ] Swap / nudge / directional throw (actions; gated hotkeys) — non-visual
+- [x] Swap / nudge / directional throw (actions) — v1.4.3
 - [ ] Zone HUD (modifier-held overlay; `[zone_hud] enabled` + hold-delay) — visual
 - [ ] Drag-to-snap (CGEventTap; `[drag_snap] enabled` default off; EDR-sensitive) — visual
 - [ ] Window stacks / groups (gated)

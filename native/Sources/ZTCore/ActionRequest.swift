@@ -44,6 +44,9 @@ public enum ActionRequest: Codable, Equatable {
     case cycleFocus(zone: String)
     case focusScreen(direction: NavDirection)
     case moveFocusedToMonitor(direction: NavDirection)
+    case nudge(direction: MoveDirection)        // shift the focused window a step in a direction
+    case throwWindow(direction: MoveDirection)  // snap the focused window to a screen edge
+    case swap(direction: MoveDirection)         // swap the focused window with its neighbour
     case toggleZen
     case toggleFloat   // exclude/include the focused window from auto-tile
 

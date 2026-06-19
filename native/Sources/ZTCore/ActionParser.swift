@@ -37,6 +37,12 @@ public enum ActionParser {
             return direction(params).map { .focusScreen(direction: $0) }
         case "move-monitor":
             return direction(params).map { .moveFocusedToMonitor(direction: $0) }
+        case "nudge":
+            return moveDirection(params).map { .nudge(direction: $0) }
+        case "throw":
+            return moveDirection(params).map { .throwWindow(direction: $0) }
+        case "swap":
+            return moveDirection(params).map { .swap(direction: $0) }
         case "zen":
             return .success(.toggleZen)
         case "float":
@@ -97,6 +103,9 @@ public enum ActionParser {
         case .cycleFocus(let zone):              return ("focus-cycle", ["zone": zone])
         case .focusScreen(let dir):              return ("focus-screen", ["direction": dir.rawValue])
         case .moveFocusedToMonitor(let dir):     return ("move-monitor", ["direction": dir.rawValue])
+        case .nudge(let dir):                    return ("nudge", ["direction": dir.rawValue])
+        case .throwWindow(let dir):              return ("throw", ["direction": dir.rawValue])
+        case .swap(let dir):                     return ("swap", ["direction": dir.rawValue])
         case .toggleZen:                         return ("zen", [:])
         case .toggleFloat:                       return ("float", [:])
         case .switchAudio(let target):
@@ -123,6 +132,13 @@ public enum ActionParser {
 
     private static func direction(_ params: [String: String]) -> Result<NavDirection, ActionError> {
         guard let raw = params["direction"], let dir = NavDirection(rawValue: raw) else {
+            return .failure(.invalidParameter("direction"))
+        }
+        return .success(dir)
+    }
+
+    private static func moveDirection(_ params: [String: String]) -> Result<MoveDirection, ActionError> {
+        guard let raw = params["direction"], let dir = MoveDirection(rawValue: raw) else {
             return .failure(.invalidParameter("direction"))
         }
         return .success(dir)
@@ -166,6 +182,12 @@ public extension ActionParser {
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "move-monitor", description: "Move the focused window to the next/previous monitor.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
+        ActionSpec(name: "nudge", description: "Shift the focused window a step in a direction.",
+                   params: [ActionParam(name: "direction", required: true, description: "Direction.", allowed: ["up", "down", "left", "right"])]),
+        ActionSpec(name: "throw", description: "Snap the focused window to a screen edge.",
+                   params: [ActionParam(name: "direction", required: true, description: "Edge.", allowed: ["up", "down", "left", "right"])]),
+        ActionSpec(name: "swap", description: "Swap the focused window with its neighbour in a direction.",
+                   params: [ActionParam(name: "direction", required: true, description: "Direction.", allowed: ["up", "down", "left", "right"])]),
         ActionSpec(name: "zen", description: "Toggle zen mode: minimize every other window on the focused screen."),
         ActionSpec(name: "float", description: "Float the focused window — exclude it from auto-tile (toggle)."),
         ActionSpec(name: "audio", description: "Switch the system audio output device.",

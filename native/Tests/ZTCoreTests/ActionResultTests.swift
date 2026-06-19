@@ -19,6 +19,8 @@ final class ActionResultTests: XCTestCase {
         .screenFocused(focusedWindowId: 3),
         .monitorMoved(windowId: 5, zone: "k", tileIndex: 2, target: rect, applied: false),
         .zenToggled,
+        .windowMoved(windowId: 3, target: rect, applied: true),
+        .swapped(windowA: 1, windowB: 2, applied: true),
         .floatToggled(windowId: 7, floating: true),
         .audioSwitched(deviceName: "BlackHole"),
         .audioSwitched(deviceName: nil),

@@ -281,6 +281,45 @@ public final class TilerCoordinator {
         return MoveOutcome(windowId: focused.id, zoneKey: pick.zone, tileIndex: pick.tile, target: rect, applied: ok)
     }
 
+    // MARK: - Directional ops (nudge / throw / swap)
+
+    private func focusedWindowAndScreen() -> (LiveWindow, ScreenSnapshot)? {
+        guard let w = windowSystem.focusedWindow(), let uuid = w.screenUUID,
+              let s = screenProvider.screen(uuid: uuid) else { return nil }
+        return (w, s)
+    }
+
+    /// Shift the focused window a step in `dir` (5% of the screen), clamped on-screen.
+    @discardableResult
+    public func nudgeFocused(_ dir: MoveDirection) -> MoveOutcome? {
+        guard let (w, s) = focusedWindowAndScreen() else { return nil }
+        let target = WindowMove.nudge(w.frame, screen: s.frame, dir)
+        let ok = windowSystem.move(windowId: w.id, to: target)
+        return MoveOutcome(windowId: w.id, zoneKey: "", tileIndex: 0, target: target, applied: ok)
+    }
+
+    /// Snap the focused window to the screen edge in `dir`.
+    @discardableResult
+    public func throwFocused(_ dir: MoveDirection) -> MoveOutcome? {
+        guard let (w, s) = focusedWindowAndScreen() else { return nil }
+        let target = WindowMove.throwTo(w.frame, screen: s.frame, dir)
+        let ok = windowSystem.move(windowId: w.id, to: target)
+        return MoveOutcome(windowId: w.id, zoneKey: "", tileIndex: 0, target: target, applied: ok)
+    }
+
+    /// Swap the focused window's frame with its nearest neighbour in `dir`. Returns the two ids
+    /// + whether both moves applied, or nil if there's no neighbour in that direction.
+    @discardableResult
+    public func swapFocused(_ dir: MoveDirection) -> (a: Int, b: Int, applied: Bool)? {
+        guard let w = windowSystem.focusedWindow(), let uuid = w.screenUUID else { return nil }
+        let others = windowSystem.windows(onScreen: uuid).filter { $0.id != w.id }.map { (id: $0.id, frame: $0.frame) }
+        guard let targetId = WindowMove.swapTarget(focused: w.frame, others: others, dir),
+              let target = others.first(where: { $0.id == targetId }) else { return nil }
+        let okA = windowSystem.move(windowId: w.id, to: target.frame)
+        let okB = windowSystem.move(windowId: targetId, to: w.frame)
+        return (w.id, targetId, okA && okB)
+    }
+
     /// Stamp the currently-focused window's focus time (drive from a periodic poll / focus
     /// event in the agent). Mirrors window_cache.lua's windowFocused subscription.
     public func noteFocusedWindow(now: Int) {
