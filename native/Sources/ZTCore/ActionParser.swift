@@ -68,6 +68,10 @@ public enum ActionParser {
             return requireNonEmpty(params, "name").map { .saveLayout(name: $0) }
         case "apply-layout":
             return requireNonEmpty(params, "name").map { .applyLayout(name: $0) }
+        case "sync-export":
+            return .success(.syncExport)
+        case "sync-import":
+            return .success(.syncImport)
         case "reload":
             return .success(.reloadConfig)
         default:
@@ -122,6 +126,8 @@ public enum ActionParser {
         case .toggleWindowHints:                 return ("window-hints", [:])
         case .saveLayout(let name):              return ("save-layout", ["name": name])
         case .applyLayout(let name):             return ("apply-layout", ["name": name])
+        case .syncExport:                        return ("sync-export", [:])
+        case .syncImport:                        return ("sync-import", [:])
         case .reloadConfig:                      return ("reload", [:])
         }
     }
@@ -207,6 +213,8 @@ public extension ActionParser {
                    params: [ActionParam(name: "name", required: true, description: "Layout name, e.g. coding.")]),
         ActionSpec(name: "apply-layout", description: "Restore a previously saved named layout.",
                    params: [ActionParam(name: "name", required: true, description: "Layout name to restore.")]),
+        ActionSpec(name: "sync-export", description: "Copy config + learned state into the synced folder ([sync] folder)."),
+        ActionSpec(name: "sync-import", description: "Restore config + state from the synced folder (backs up what it replaces)."),
         ActionSpec(name: "reload", description: "Reload config.toml from disk."),
     ]
 }

@@ -40,6 +40,9 @@ public enum CLIFormat {
             return "saved layout '\(name)' (\(count) window\(count == 1 ? "" : "s"))"
         case .layoutApplied(let name, let moved):
             return "applied layout '\(name)' (\(moved) window\(moved == 1 ? "" : "s") moved)"
+        case .synced(let direction, let files):
+            return files.isEmpty ? "sync \(direction): nothing to copy"
+                                 : "sync \(direction): \(files.count) file\(files.count == 1 ? "" : "s") (\(files.joined(separator: ", ")))"
         case .failed(let reason):
             return "error: \(describe(reason))"
         }

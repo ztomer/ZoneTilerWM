@@ -34,6 +34,8 @@ final class ActionRequestTests: XCTestCase {
         .toggleWindowHints,
         .saveLayout(name: "coding"),
         .applyLayout(name: "writing"),
+        .syncExport,
+        .syncImport,
         .reloadConfig,
     ]
 

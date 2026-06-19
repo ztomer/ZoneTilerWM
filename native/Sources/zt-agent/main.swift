@@ -256,7 +256,13 @@ final class AgentController: NSObject {
             },
             reloadConfig: { [unowned self] in self.reloadFromDisk() },
             saveLayout: { [unowned self] name in self.saveLayout(name) },
-            applyLayout: { [unowned self] name in self.applyLayout(name) }))
+            applyLayout: { [unowned self] name in self.applyLayout(name) },
+            syncExport: { [unowned self] in self.syncEngine().run(.export) },
+            syncImport: { [unowned self] in
+                let r = self.syncEngine().run(.import)
+                if case .synced = r { self.adoptImportedSettings() }
+                return r
+            }))
         commandPalette = CommandPaletteController(perform: { [unowned self] in self.dispatcher.perform($0) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
@@ -627,6 +633,27 @@ final class AgentController: NSObject {
     }
 
     /// Capture the current arrangement into a named snapshot and persist it.
+    /// A SyncEngine bound to the live config dir (where config.toml actually lives) + the state dir
+    /// (cache_dir) + the [sync] folder, rebuilt per call so a config reload is reflected. File-based
+    /// settings sync — 0 AX, no network, no entitlements.
+    private func syncEngine() -> SyncEngine {
+        SyncEngine(configDir: configURL.deletingLastPathComponent().path,
+                   stateDir: config.windowMemory.cacheDir,
+                   syncFolder: { [unowned self] in self.config.syncFolder })
+    }
+
+    /// After a successful sync-import: re-read config.toml AND the imported state JSON so the new
+    /// settings are live immediately (and the in-memory state can't overwrite the import on the
+    /// next save). Layouts replace wholesale; learned positions merge (imported wins per app/monitor).
+    private func adoptImportedSettings() {
+        _ = reloadFromDisk()   // config.toml (validated; kept if invalid)
+        if let saved = resizeStorage.load("window_positions", as: WindowMemory.SaveData.self) {
+            learnedMemory?.load(saved)
+        }
+        layouts = resizeStorage.load("layouts", as: LayoutLibrary.self) ?? layouts
+        log("zt-agent: sync-import adopted config + learned state")
+    }
+
     private func saveLayout(_ name: String) -> ActionResult {
         let snapshot = LayoutSnapshots.capture(name: name, from: currentArrangement())
         layouts = layouts.upserting(snapshot)

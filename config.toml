@@ -375,6 +375,10 @@ prediction = true            # lead the outline to compensate for follow-lag
 #
 # [drag_snap]                # drag a window with the tiling modifier held → snaps to the zone
 # enabled = true             # under the cursor on drop (opt-in; observes mouse drags passively)
+#
+# [sync]                     # file-based settings sync across machines (no network/entitlements)
+# folder = "~/Library/Mobile Documents/com~apple~CloudDocs"   # a folder you already sync (iCloud/
+#                            # Dropbox/…). Then: `zonetiler-cli sync-export` / `sync-import`.
 
 
 # =============================================================================

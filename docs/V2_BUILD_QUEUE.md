@@ -67,7 +67,13 @@ zt-mcp serverVersion) → commit + push → tick this file.
       fails packaging if any shipped binary isn't fat. SwiftPM universal half lipo-verified live
       (`x86_64 arm64`). Full `.app` xcodebuild packaging not re-run this session (slow + signing) —
       the lipo gate self-verifies on next package; noted in V2_TEST_DEBT.md.
-- [ ] Config + memory sync across machines (file-based; gated)
+- [x] Config + memory sync across machines (file-based; gated) — **v1.4.10 DONE**. `[sync] folder`
+      (default off). `sync-export`/`sync-import` actions copy config.toml + window_positions.json +
+      layouts.json to/from `<folder>/ZoneTilerWM/`. Pure `SyncPlan` TDD'd (5 tests, split config/
+      state dirs); `SyncEngine` 0-AX two-phase (stage→atomic-commit, `<file>.bak` backups). Import
+      adopts config + state live (layouts replace, positions merge). 5-persona review fixed
+      data-loss CRITICAL/HIGH (non-atomic import) + path coupling + state-reload. Live round-trip
+      deferred (V2_TEST_DEBT.md).
 - [ ] On-device NL layout box (Foundation Models; gated, capable Macs; STUB if SDK-gated) — visual
 - [ ] LLM-assisted suggestions (opt-in; lean on the MCP placement-stats resource)
 

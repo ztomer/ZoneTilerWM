@@ -69,4 +69,6 @@ public enum ActionRequest: Codable, Equatable {
 
     // Lifecycle.
     case reloadConfig
+    case syncExport   // copy live config + state into the user's synced folder ([sync] folder)
+    case syncImport   // copy config + state back from the synced folder (backs up what it replaces)
 }

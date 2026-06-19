@@ -62,5 +62,6 @@ public enum ActionResult: Codable, Equatable {
     case configReloaded(ok: Bool)
     case layoutSaved(name: String, windowCount: Int)
     case layoutApplied(name: String, moved: Int)
+    case synced(direction: String, files: [String])   // file-based settings sync export/import
     case failed(reason: ActionError)
 }

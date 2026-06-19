@@ -41,6 +41,9 @@ public final class ActionDispatcher {
         /// restore). Each returns the resulting ActionResult.
         public var saveLayout: (String) -> ActionResult
         public var applyLayout: (String) -> ActionResult
+        /// File-based settings sync — export/import the config + state to/from the synced folder.
+        public var syncExport: () -> ActionResult
+        public var syncImport: () -> ActionResult
 
         public init(coordinator: @escaping () -> TilerCoordinator,
                     autoTilerConfig: @escaping () -> AutoTiler.Config,
@@ -54,7 +57,9 @@ public final class ActionDispatcher {
                     toggleFloat: @escaping () -> ActionResult,
                     reloadConfig: @escaping () -> Bool,
                     saveLayout: @escaping (String) -> ActionResult,
-                    applyLayout: @escaping (String) -> ActionResult) {
+                    applyLayout: @escaping (String) -> ActionResult,
+                    syncExport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
+                    syncImport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) }) {
             self.coordinator = coordinator
             self.autoTilerConfig = autoTilerConfig
             self.appSwitcherConfig = appSwitcherConfig
@@ -68,6 +73,8 @@ public final class ActionDispatcher {
             self.reloadConfig = reloadConfig
             self.saveLayout = saveLayout
             self.applyLayout = applyLayout
+            self.syncExport = syncExport
+            self.syncImport = syncImport
         }
     }
 
@@ -147,6 +154,12 @@ public final class ActionDispatcher {
         case .toggleWindowHints:
             hooks.toggleWindowHints()
             return .modeToggled(mode: .windowHints)
+
+        case .syncExport:
+            return hooks.syncExport()
+
+        case .syncImport:
+            return hooks.syncImport()
 
         case .reloadConfig:
             return .configReloaded(ok: hooks.reloadConfig())

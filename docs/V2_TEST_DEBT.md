@@ -68,6 +68,15 @@ working (no re-grant). Confirmed:
 - **No Gemini grade** — drag-to-snap adds no new visual surface (it reuses the existing tile move),
   so there is nothing to grade; N/A by design.
 
+## Live validation deferred — settings sync (v1.4.10)
+- **sync-export / sync-import live round-trip** — pure `SyncPlan` is unit-tested (5 cases) and the
+  `SyncEngine` two-phase stage→atomic-commit was 5-persona reviewed (data-loss CRITICAL/HIGH fixed:
+  no window where a live file is deleted-but-not-replaced; prior versions kept as `<file>.bak`). Not
+  yet exercised against a real synced folder: set `[sync] folder`, run `zonetiler-cli sync-export`,
+  confirm `<folder>/ZoneTilerWM/{config.toml,window_positions.json,layouts.json}` appear; on import
+  confirm `<file>.bak` is written and the agent adopts the imported config + state live. No visual
+  surface → no Gemini grade.
+
 ## Packaging check deferred — universal binary (v1.4.9)
 - **Full universal `.app` packaging** — `build_package.sh` now requests `ARCHS="arm64 x86_64"`
   and builds the helper tools multi-arch; the SwiftPM half was lipo-verified live (`x86_64 arm64`).

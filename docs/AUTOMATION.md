@@ -28,8 +28,8 @@ zonetiler-cli     ┘             (+ QueryRequest)            (ZTSystem) ─▶ 
 
 Run `zonetiler-cli --help` for the live list. Actions: `tile`, `autotile`, `focus-cycle`,
 `stack-cycle`, `focus-screen`, `move-monitor`, `nudge`, `throw`, `swap`, `zen`, `float`, `audio`,
-`app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `reload`.
-Resources: `arrangement`, `zones`, `placement-stats`, `suggestions`.
+`app`, `pomodoro`, `resize-mode`, `window-hints`, `save-layout`, `apply-layout`, `sync-export`,
+`sync-import`, `reload`. Resources: `arrangement`, `zones`, `placement-stats`, `suggestions`.
 
 **`suggestions`** (context-aware placement) cross-references the live arrangement against the
 learned per-app preferences and lists every window sitting away from the zone its app usually
@@ -162,6 +162,21 @@ keyboard hotkey dispatches — the cursor position only chooses the zone.
 an ordinary window drag is never hijacked. Default off (it installs a global mouse monitor — kept
 opt-in for the EDR-conscious). QA hook: `ZT_OPEN_WINDOW=dragsnap` snaps the focused window to the
 zone under the cursor without a real drag.
+
+## Settings sync (`sync-export` / `sync-import`)
+
+Carry your config + learned state across machines through a folder you already sync (iCloud Drive,
+Dropbox, …) — no network, no entitlements, no account. Set `[sync] folder` to that folder, then:
+`zonetiler-cli sync-export` copies `config.toml`, `window_positions.json`, and `layouts.json` into
+`<folder>/ZoneTilerWM/`; on the other machine `sync-import` copies them back. Path logic is pure
+(`ZTCore.SyncPlan`); the I/O (`ZTSystem.SyncEngine`) is **0 AX** and **two-phase**: it stages every
+file to a temp first (the failure-prone copy touches no live file), then commits with an atomic
+swap, keeping the prior version as `<file>.bak`. So a mid-import failure never leaves a file
+deleted-but-not-replaced. After a successful import the agent re-reads the config and adopts the
+imported state live (layouts replace; learned positions merge, imported winning per app/monitor).
+
+**Gated (opt-in):** does nothing unless `[sync] folder` is set; surfaced via the catalog
+(palette/CLI/MCP). Default off.
 
 ## Settings → Automation pane
 

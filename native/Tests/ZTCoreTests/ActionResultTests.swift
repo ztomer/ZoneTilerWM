@@ -31,6 +31,7 @@ final class ActionResultTests: XCTestCase {
         .configReloaded(ok: true),
         .layoutSaved(name: "coding", windowCount: 3),
         .layoutApplied(name: "coding", moved: 2),
+        .synced(direction: "export", files: ["config.toml", "layouts.json"]),
         .failed(reason: .noFocusedWindow),
         .failed(reason: .noZone("z")),
         .failed(reason: .invalidParameter("zone")),
