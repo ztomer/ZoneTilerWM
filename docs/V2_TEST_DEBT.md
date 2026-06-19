@@ -56,3 +56,14 @@ working (no re-grant). Confirmed:
   was reviewed twice (5-persona pass) and fixed: 0-AX screen pick (screenUnderMouse), modifier
   poll + screen/space-change dismissal (no orphan), hold-delay clamp, chip de-overlap, fade. Do a
   Gemini visual pass in daylight via ZT_OPEN_WINDOW=hud.
+
+## Live validation deferred — drag-to-snap (v1.4.6)
+- **Drag-to-snap live exercise** — the pure target selection (`DragSnap.target`) is fully unit-
+  tested (6 cases) and the AX budget / lifecycle / gating were 5-persona-reviewed (verdict: ship).
+  Not yet exercised with a REAL modifier-held drag (needs an awake display + a manual drag). The
+  controller's mouse-down→drag→up state machine has no unit test (it's NSEvent-monitor-coupled);
+  validate live in daylight: set `[drag_snap] enabled = true`, hold the tiling modifier, drag a
+  window, confirm it snaps to the zone under the cursor. QA shortcut: `ZT_OPEN_WINDOW=dragsnap`
+  snaps the focused window to the cursor's zone without a drag (bypasses the modifier/drag gate).
+- **No Gemini grade** — drag-to-snap adds no new visual surface (it reuses the existing tile move),
+  so there is nothing to grade; N/A by design.

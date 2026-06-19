@@ -58,8 +58,8 @@ final class ZoneHUDController {
     // MARK: - modifier tracking
 
     private func handle(_ flags: NSEvent.ModifierFlags) {
-        let current = flags.intersection([.command, .control, .option, .shift])
-        let target = Self.nsFlags(for: modifier())
+        let current = flags.intersection(.tilingRelevant)
+        let target = NSEvent.ModifierFlags(aliases: modifier())
         if !target.isEmpty, current == target {
             guard armTimer == nil, !shown else { return }
             let ms = max(120, min(2000, holdDelayMs()))   // clamp: never instant, never effectively-off
@@ -89,8 +89,8 @@ final class ZoneHUDController {
         // Safety net: if the "modifier released" flagsChanged is ever missed, this still hides it.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let cur = NSEvent.modifierFlags.intersection([.command, .control, .option, .shift])
-            if cur != Self.nsFlags(for: self.modifier()) { self.dismiss() }
+            let cur = NSEvent.modifierFlags.intersection(.tilingRelevant)
+            if cur != NSEvent.ModifierFlags(aliases: self.modifier()) { self.dismiss() }
         }
     }
 
@@ -100,17 +100,4 @@ final class ZoneHUDController {
         if shown { overlay.hide(); shown = false }
     }
 
-    private static func nsFlags(for names: [String]) -> NSEvent.ModifierFlags {
-        var f: NSEvent.ModifierFlags = []
-        for n in names {
-            switch n.lowercased() {
-            case "cmd", "command": f.insert(.command)
-            case "ctrl", "control": f.insert(.control)
-            case "alt", "option", "opt": f.insert(.option)
-            case "shift": f.insert(.shift)
-            default: break
-            }
-        }
-        return f
-    }
 }

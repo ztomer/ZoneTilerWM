@@ -130,6 +130,20 @@ timer. It's *display only* — the actual tiling stays the existing modifier+zon
 quick, confident chord never triggers it; only a hesitant hold gets the map — self-silencing for
 experienced users.
 
+## Drag-to-snap (modifier + drag)
+
+Drag a window with the tiling modifier held; on drop it snaps into the zone under the cursor.
+Target selection is pure (`ZTCore.DragSnap.target(atX:y:zones:)` — smallest zone region that
+contains the drop point, else nearest zone centre); the agent observes drags with a **passive**
+`NSEvent` global mouse monitor (deliberately *not* an active `CGEventTap`: observe-only, **0 AX**
+for detection, and far less EDR attention). The snap reuses the same `tileFocusedToZone` action the
+keyboard hotkey dispatches — the cursor position only chooses the zone.
+
+**Gated (opt-in):** off unless `[drag_snap] enabled = true`. Requiring the modifier at drop means
+an ordinary window drag is never hijacked. Default off (it installs a global mouse monitor — kept
+opt-in for the EDR-conscious). QA hook: `ZT_OPEN_WINDOW=dragsnap` snaps the focused window to the
+zone under the cursor without a real drag.
+
 ## Settings → Automation pane
 
 The agent's Settings window has an **Automation** tab that surfaces this whole feature:

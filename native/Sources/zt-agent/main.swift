@@ -125,6 +125,7 @@ final class AgentController: NSObject {
     private var windowHints: WindowHintsController!
     private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
+    private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     private var coordinator: TilerCoordinator
     private var autoTilerConfig: AutoTiler.Config
@@ -263,6 +264,12 @@ final class AgentController: NSObject {
             offset: { [weak resize] m, a, i in resize?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
             modifier: { [unowned self] in self.config.tilerModifier },
             holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs })
+        dragSnap = DragSnapController(
+            screens: screens, monitorManager: monitorManager,
+            zoneConfig: { [unowned self] in self.config.zoneConfig },
+            offset: { [weak resize] m, a, i in resize?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
+            modifier: { [unowned self] in self.config.tilerModifier },
+            snap: { [unowned self] zone in _ = self.dispatcher.perform(.tileFocusedToZone(zone: zone)) })
         // Read-only resource provider for the MCP `resources/*` queries. Closures read live state
         // so a config reload / resize-offset change is reflected. All reads are CGWindowList — 0 AX.
         arrangementQuery = ArrangementQuery(
@@ -581,6 +588,12 @@ final class AgentController: NSObject {
         if config.zoneHUDEnabled { zoneHUD.start() } else { zoneHUD.stop() }
     }
 
+    /// Start the drag-to-snap mouse monitor iff [drag_snap] enabled. Idempotent; reconciled on reload.
+    func setupDragSnap() { reconcileDragSnap() }
+    private func reconcileDragSnap() {
+        if config.dragSnapEnabled { dragSnap.start() } else { dragSnap.stop() }
+    }
+
     func setupIPCServer() { reconcileIPCServer() }
 
     /// Start/stop the IPC socket to match `[automation] enabled`. Idempotent — safe to call on
@@ -708,6 +721,7 @@ final class AgentController: NSObject {
         bindAllHotkeys()
         reconcileIPCServer()        // start/stop the MCP/CLI socket if [automation] enabled changed
         reconcileZoneHUD()          // start/stop the zone HUD if [zone_hud] enabled changed
+        reconcileDragSnap()         // start/stop drag-to-snap if [drag_snap] enabled changed
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
     }
@@ -872,6 +886,7 @@ final class AgentController: NSObject {
 
     /// QA / debug entry point to force the zone HUD on (the normal trigger is the modifier hold).
     func showZoneHUDForQA() { zoneHUD.forceShow() }
+    func dragSnapForQA() { dragSnap.forceSnap() }
 
     /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
     /// need it). No-op when already trusted.
@@ -894,6 +909,7 @@ controller.setupConfigWatch()
 controller.setupIPCServer()        // MCP shim talks to the agent over this socket
 controller.setupURLHandler()       // zonetiler:// scheme (effective in the bundled .app)
 controller.setupZoneHUD()          // modifier-held zone cheat-sheet (gated by [zone_hud] enabled)
+controller.setupDragSnap()         // drag-to-snap mouse monitor (gated by [drag_snap] enabled)
 controller.showOnboardingIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
@@ -903,6 +919,7 @@ case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
+case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
 default: break
 }
 log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")

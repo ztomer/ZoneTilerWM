@@ -32,12 +32,20 @@ zt-mcp serverVersion) → commit + push → tick this file.
 - [x] Command palette — v1.4.1
 - [x] Per-window float toggle — v1.4.2
 - [x] Swap / nudge / directional throw (actions) — v1.4.3
-- [x] Zone HUD (modifier-held overlay) — v1.4.4. IMPL DONE (ZoneHUD core + ZoneHUDOverlay +
-      ZoneHUDController flagsChanged/hold-delay, `[zone_hud]` gate default off, QA hook
-      ZT_OPEN_WINDOW=hud). **NEXT TICK before drag-to-snap: Gemini grade + 5-persona review→fix→
-      review→fix** (capture via the QA hook), then any fixes as a follow-up patch.
-- [ ] Drag-to-snap (CGEventTap; `[drag_snap] enabled` default off; EDR-sensitive) — visual
-- [ ] Window stacks / groups (gated)
+- [x] Zone HUD (modifier-held overlay) — v1.4.4 impl, **v1.4.5 review pass DONE**. 5-persona
+      review ×2 rounds fixed: 0-AX screen pick (screenUnderMouse, was focusedWindow()=3+AX),
+      no-orphan modifier poll + screen/space-change dismiss, hold-delay clamp, chip redesign
+      (deoverlapped key chips on a light dim, no amber wash), forceShow-without-poll for QA.
+      Gemini visual grade DEFERRED — 2am resume found the display asleep (see V2_TEST_DEBT.md;
+      do a daylight pass via ZT_OPEN_WINDOW=hud).
+- [x] Drag-to-snap — **v1.4.6 DONE**. `[drag_snap] enabled` default off. Implemented with a
+      PASSIVE NSEvent global mouse monitor (down/drag/up), NOT an active CGEventTap — observe-only,
+      0 AX for detection (screenUnderMouse + CGEvent.location + computeZones all 0 AX), AX only on
+      the snap move (reuses tileFocusedToZone). Modifier-held-at-drop gate so plain drags aren't
+      hijacked. Pure `DragSnap.target` TDD'd (6 tests). 5-persona review → ship; fixed mouse-down
+      reset (no stale-drag), logging, CGEvent bail-out. Gemini N/A (no new visual surface). Live
+      drag exercise deferred (display asleep) — see V2_TEST_DEBT.md; QA hook ZT_OPEN_WINDOW=dragsnap.
+- [ ] Window stacks / groups (gated) ← NEXT
 - [ ] Context-aware placement + layout suggestions (gated config)
 - [ ] Retro break theme (Pomodoro break screen; opt-in default off) — visual
 - [ ] Universal binary (arm64 + x86_64) — build flag

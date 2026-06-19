@@ -370,6 +370,9 @@ prediction = true            # lead the outline to compensate for follow-lag
 # [zone_hud]                 # modifier-held zone cheat-sheet overlay (opt-in)
 # enabled = true
 # hold_delay_ms = 400          # hold the tiling modifier this long before the HUD appears
+#
+# [drag_snap]                # drag a window with the tiling modifier held → snaps to the zone
+# enabled = true             # under the cursor on drop (opt-in; observes mouse drags passively)
 
 
 # =============================================================================
