@@ -134,6 +134,33 @@ public final class TilerCoordinator {
         return next
     }
 
+    /// Cycle focus through the windows stacked in the FOCUSED window's current zone, stepping in
+    /// `direction` (wrapping). The zone is auto-detected from the focused window's frame, so no
+    /// zone key is needed. Same AX profile as `cycleFocus`: enumeration is 0 AX (CGWindowList),
+    /// the only mutate is the final focus. Returns the newly-focused id, or nil if the focused
+    /// window isn't in a zone or its zone has fewer than two windows.
+    @discardableResult
+    public func cycleZoneStack(_ direction: NavDirection) -> Int? {
+        guard let focused = windowSystem.focusedWindow(),
+              let uuid = focused.screenUUID, let screen = screenProvider.screen(uuid: uuid) else { return nil }
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets(forScreen: uuid)).zones
+        guard let zoneKey = ZoneOccupancy.bestZone(window: focused.frame, zones: zones),
+              let tiles = zones[zoneKey], !tiles.isEmpty else { return nil }
+
+        let live = windowSystem.windows(onScreen: uuid)
+        let screenWindows = live.enumerated().map { (i, w) in
+            FocusManager.ScreenWindow(windowId: w.id, appName: w.appName, frame: w.frame, zOrder: i + 1)
+        }
+        let zoneWindows = FocusManager.collectZoneWindows(
+            monitorId: uuid, zoneKey: zoneKey, windowsOnScreen: screenWindows,
+            stateForWindow: { _ in nil }, zoneTiles: tiles, overlapThreshold: overlapThreshold)
+        let ordered = zoneWindows.map { $0.windowId }
+        guard let next = ZoneStack.adjacent(focusedId: focused.id, ordered: ordered, direction: direction) else { return nil }
+        windowSystem.focus(windowId: next)
+        return next
+    }
+
     /// Move the focused window into `zoneKey` on its current screen.
     public func moveFocusedToZone(_ zoneKey: String) -> Result<MoveOutcome, MoveError> {
         guard let focused = windowSystem.focusedWindow() else { return .failure(.noFocusedWindow) }

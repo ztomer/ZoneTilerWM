@@ -45,8 +45,13 @@ zt-mcp serverVersion) → commit + push → tick this file.
       hijacked. Pure `DragSnap.target` TDD'd (6 tests). 5-persona review → ship; fixed mouse-down
       reset (no stale-drag), logging, CGEvent bail-out. Gemini N/A (no new visual surface). Live
       drag exercise deferred (display asleep) — see V2_TEST_DEBT.md; QA hook ZT_OPEN_WINDOW=dragsnap.
-- [ ] Window stacks / groups (gated) ← NEXT
-- [ ] Context-aware placement + layout suggestions (gated config)
+- [x] Window stacks / groups — **v1.4.7 DONE** (stack half). New `cycleZoneStack(direction:)`
+      action cycles focus through the windows stacked in the focused zone (auto-detected),
+      wrapping. Pure `ZoneStack.adjacent` TDD'd (6 tests); same AX profile as the live-validated
+      `cycleFocus` (0-AX enumeration, 1 AX focus mutate). Surfaced in catalog (palette/CLI/MCP);
+      opt-in hotkeys `stack_next`/`stack_prev` (no default). 5-persona review → ship. Live
+      exercise + named persistent groups deferred (see V2_TEST_DEBT.md / future extension).
+- [ ] Context-aware placement + layout suggestions (gated config) ← NEXT
 - [ ] Retro break theme (Pomodoro break screen; opt-in default off) — visual
 - [ ] Universal binary (arm64 + x86_64) — build flag
 - [ ] Config + memory sync across machines (file-based; gated)

@@ -67,3 +67,10 @@ working (no re-grant). Confirmed:
   snaps the focused window to the cursor's zone without a drag (bypasses the modifier/drag gate).
 - **No Gemini grade** — drag-to-snap adds no new visual surface (it reuses the existing tile move),
   so there is nothing to grade; N/A by design.
+
+## Live validation deferred — window stacks (v1.4.7)
+- **stack-cycle live exercise** — pure `ZoneStack.adjacent` is unit-tested (6 cases) and
+  `cycleZoneStack` has the same AX profile as the live-validated `cycleFocus` (5-persona review:
+  ship). Not yet exercised with real stacked windows: pile ≥2 windows into one zone, bind
+  `stack_next`/`stack_prev` (or call `zonetiler-cli stack-cycle --direction next`), confirm focus
+  cycles through the zone's windows and wraps. No new visual surface → no Gemini grade.

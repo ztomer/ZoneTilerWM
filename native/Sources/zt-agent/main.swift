@@ -779,6 +779,14 @@ final class AgentController: NSObject {
         bindAction(config.resolvedHotkey("focus_prev_screen", in: config.tilerHotkeys), label: "focus_prev_screen") { [weak self] in
             self?.dispatcher.perform(.focusScreen(direction: .previous))
         }
+        // Window stacks: cycle focus through the windows stacked in the focused zone (opt-in —
+        // only bound when stack_next/stack_prev are set; also via palette/CLI/MCP).
+        bindAction(config.resolvedHotkey("stack_next", in: config.tilerHotkeys), label: "stack_next") { [weak self] in
+            self?.dispatcher.perform(.cycleZoneStack(direction: .next))
+        }
+        bindAction(config.resolvedHotkey("stack_prev", in: config.tilerHotkeys), label: "stack_prev") { [weak self] in
+            self?.dispatcher.perform(.cycleZoneStack(direction: .previous))
+        }
         // System: window hints (label each window, type to focus) + config reload hotkey.
         bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
             self?.dispatcher.perform(.toggleWindowHints)

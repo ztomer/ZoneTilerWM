@@ -33,6 +33,8 @@ public enum ActionParser {
             return .success(.autoTileScreen)
         case "focus-cycle":
             return requireNonEmpty(params, "zone").map { .cycleFocus(zone: $0) }
+        case "stack-cycle":
+            return direction(params).map { .cycleZoneStack(direction: $0) }
         case "focus-screen":
             return direction(params).map { .focusScreen(direction: $0) }
         case "move-monitor":
@@ -101,6 +103,7 @@ public enum ActionParser {
         case .tileFocusedToZone(let zone):       return ("tile", ["zone": zone])
         case .autoTileScreen:                    return ("autotile", [:])
         case .cycleFocus(let zone):              return ("focus-cycle", ["zone": zone])
+        case .cycleZoneStack(let dir):           return ("stack-cycle", ["direction": dir.rawValue])
         case .focusScreen(let dir):              return ("focus-screen", ["direction": dir.rawValue])
         case .moveFocusedToMonitor(let dir):     return ("move-monitor", ["direction": dir.rawValue])
         case .nudge(let dir):                    return ("nudge", ["direction": dir.rawValue])
@@ -178,6 +181,8 @@ public extension ActionParser {
         ActionSpec(name: "autotile", description: "Auto-tile every window on the focused screen."),
         ActionSpec(name: "focus-cycle", description: "Cycle focus among the windows in a zone.",
                    params: [ActionParam(name: "zone", required: true, description: "Zone key to cycle within.")]),
+        ActionSpec(name: "stack-cycle", description: "Cycle focus through the windows stacked in the focused window's zone.",
+                   params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "focus-screen", description: "Focus the same app's window on the next/previous screen.",
                    params: [ActionParam(name: "direction", required: true, description: "Navigation direction.", allowed: ["next", "previous"])]),
         ActionSpec(name: "move-monitor", description: "Move the focused window to the next/previous monitor.",

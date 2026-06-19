@@ -98,6 +98,9 @@ public final class ActionDispatcher {
         case .cycleFocus(let zone):
             return .focusCycled(focusedWindowId: hooks.coordinator().cycleFocus(zone))
 
+        case .cycleZoneStack(let dir):
+            return .focusCycled(focusedWindowId: hooks.coordinator().cycleZoneStack(dir))
+
         case .focusScreen(let dir):
             return .screenFocused(focusedWindowId: hooks.coordinator().focusScreen(dir.screenNav))
 

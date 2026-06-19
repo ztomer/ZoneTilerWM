@@ -42,6 +42,7 @@ public enum ActionRequest: Codable, Equatable {
     case tileFocusedToZone(zone: String)
     case autoTileScreen
     case cycleFocus(zone: String)
+    case cycleZoneStack(direction: NavDirection)   // cycle focus through the windows stacked in the focused zone
     case focusScreen(direction: NavDirection)
     case moveFocusedToMonitor(direction: NavDirection)
     case nudge(direction: MoveDirection)        // shift the focused window a step in a direction

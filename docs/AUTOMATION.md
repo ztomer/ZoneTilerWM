@@ -130,6 +130,18 @@ timer. It's *display only* — the actual tiling stays the existing modifier+zon
 quick, confident chord never triggers it; only a hesitant hold gets the map — self-silencing for
 experienced users.
 
+## Window stacks (`stack-cycle`)
+
+When several windows pile into one zone they form a *stack*; `stack-cycle direction=next|previous`
+moves focus through that stack (the focused window's current zone, auto-detected — no zone key
+needed), wrapping around. Pure stepping is `ZTCore.ZoneStack.adjacent(focusedId:ordered:direction:)`
+over the same z-order-stable ordering `focus-cycle` uses; the coordinator's `cycleZoneStack` has the
+**identical AX profile** to `cycleFocus` (enumeration via CGWindowList = 0 AX; the only mutate is the
+final focus). No-ops when the focused window isn't in a zone or its zone has < 2 windows.
+
+**Gated (opt-in):** reachable via the `stack-cycle` action in the palette / CLI / MCP; bind a hotkey
+by setting `stack_next` / `stack_prev` under `[tiler_hotkeys]` (no default binding).
+
 ## Drag-to-snap (modifier + drag)
 
 Drag a window with the tiling modifier held; on drop it snaps into the zone under the cursor.

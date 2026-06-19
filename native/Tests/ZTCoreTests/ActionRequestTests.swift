@@ -13,6 +13,8 @@ final class ActionRequestTests: XCTestCase {
         .tileFocusedToZone(zone: "h"),
         .autoTileScreen,
         .cycleFocus(zone: "k"),
+        .cycleZoneStack(direction: .next),
+        .cycleZoneStack(direction: .previous),
         .focusScreen(direction: .next),
         .focusScreen(direction: .previous),
         .moveFocusedToMonitor(direction: .next),
