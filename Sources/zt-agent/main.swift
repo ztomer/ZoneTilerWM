@@ -124,6 +124,7 @@ final class AgentController: NSObject {
     private var resizeMode: ResizeModeController!
     private var windowHints: WindowHintsController!
     private var expose: ExposeController!                   // custom exposé replacement (bound iff [system_hotkeys] expose set)
+    private let chromeTabs = ChromeTabsController()         // toggle Chrome's tab strip (bound iff [system_hotkeys] chrome_tabs set)
     private var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
     private var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
     private var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
@@ -973,6 +974,10 @@ final class AgentController: NSObject {
         // Exposé replacement: lay all windows out in a grid with jump labels (opt-in `expose` hotkey).
         bindAction(config.resolvedHotkey("expose", in: config.systemHotkeys), label: "expose") { [weak self] in
             self?.expose.toggle()
+        }
+        // Chrome tab-strip toggle (opt-in `chrome_tabs` hotkey; only acts when Chrome is frontmost).
+        bindAction(config.resolvedHotkey("chrome_tabs", in: config.systemHotkeys), label: "chrome_tabs") { [weak self] in
+            self?.chromeTabs.toggle()
         }
         bindAction(config.resolvedHotkey("reload", in: config.systemHotkeys), label: "reload") { [weak self] in
             self?.dispatcher.perform(.reloadConfig)

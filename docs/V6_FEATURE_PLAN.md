@@ -32,6 +32,13 @@ window-hints idiom.
 **Risk:** the private-API tile read is the unknown; if it's not viable, fall back to the heuristic
 or shelve. Everything downstream of the tiles is already done + tested.
 
+### Status (v1.5.15)
+- DONE: pure layer, overlay draw, ExposeController (hotkey → grid → type-to-jump / click-to-jump /
+  click-× to close → AX `closeWindow` → grid refresh / Esc), gated on an `expose` hotkey + Settings
+  row. NEEDS LIVE TEST: that the overlay shows above other windows + key/mouse capture works.
+- The "float over native Mission Control" path is shelved (private-API risk) per the chosen
+  replacement direction.
+
 ## B. Chrome ⌘S — toggle the vertical tab strip
 
 **Goal:** when Chrome is frontmost in side-tab mode, ⌘S collapses/expands the tab strip (there's a
@@ -46,3 +53,14 @@ button but no shortcut). Niche, likely short-lived — keep it cheap + isolated.
 
 **Risk:** Chrome's AX tree for that control may be unstable across versions; if it can't be located
 reliably, drop it (it's explicitly disposable).
+
+### Status (v1.5.15)
+- DONE: ChromeTabsController.toggle() — when Chrome is frontmost, DFS its AX tree for the tab-strip
+  button (best-effort needle match) and AX-press it; logs the candidate buttons when nothing matches
+  so the real identity can be pinned from a live run. Bound to a configurable `chrome_tabs` hotkey
+  (Settings → Keys → Feature actions), only acts in Chrome.
+- DELIBERATELY NOT DONE: literal **⌘S** interception. That needs a keyboard `CGEventTap` (consume
+  ⌘S only when Chrome is frontmost) — a real footgun (a buggy tap breaks ALL keyboard input) for a
+  disposable feature. Sequencing: confirm the AX toggle actually collapses the strip live FIRST
+  (via the hotkey); only then wrap it in the ⌘S tap. If the AX button isn't found, the logged
+  candidates tell us the right selector (or we drop it).

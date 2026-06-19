@@ -190,6 +190,9 @@ struct KeybindEditorView: View {
         .init(id: "expose", label: "Exposé (window grid)", section: "system_hotkeys", key: "expose",
               help: "Lays every open window out in a grid with a letter on each — press the letter to jump to that "
                   + "window (Esc cancels). A self-contained replacement for Mission Control."),
+        .init(id: "chrome_tabs", label: "Chrome: toggle tab strip", section: "system_hotkeys", key: "chrome_tabs",
+              help: "When Chrome is frontmost, collapse/expand its vertical tab strip (the button has no shortcut). "
+                  + "Press this while in Chrome; it does nothing in other apps."),
         .init(id: "zen_mode", label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode",
               help: "Minimizes the other windows so only the focused one remains; toggle to bring them back."),
         .init(id: "float", label: "Toggle float", section: "tiler.hotkeys", key: "float",
