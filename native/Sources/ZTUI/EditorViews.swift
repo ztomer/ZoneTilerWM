@@ -165,6 +165,19 @@ struct KeybindEditorView: View {
         .init(id: "reload", label: "Reload config", section: "system_hotkeys", key: "reload"),
     ]
 
+    // Gated / opt-in feature actions — no hotkey by default, so they need a binding row to be
+    // reachable at all (the live review flagged "how do I open the command palette?").
+    private let featureRows: [Row] = [
+        .init(id: "command_palette", label: "Command palette", section: "system_hotkeys", key: "command_palette"),
+        .init(id: "scratchpad", label: "Scratchpad summon/dismiss", section: "system_hotkeys", key: "scratchpad"),
+        .init(id: "peek", label: "Window peek", section: "system_hotkeys", key: "peek"),
+        .init(id: "sandbox", label: "Session sandbox", section: "system_hotkeys", key: "sandbox"),
+        .init(id: "zen_mode", label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode"),
+        .init(id: "float", label: "Toggle float", section: "tiler.hotkeys", key: "float"),
+        .init(id: "stack_next", label: "Stack: focus next", section: "tiler.hotkeys", key: "stack_next"),
+        .init(id: "stack_prev", label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev"),
+    ]
+
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
     private func defaultAlias() -> String { aliasNames.first ?? "mash" }
 
@@ -178,8 +191,12 @@ struct KeybindEditorView: View {
                 modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
                 modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
             }
+            AliasEditorSection(model: model)
             Section("Actions") {
                 ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
+            }
+            Section("Feature actions (opt-in — bind a key to use)") {
+                ForEach(featureRows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
             }
         }
         .formStyle(.grouped)
@@ -197,6 +214,61 @@ struct KeybindEditorView: View {
             // Reserve the action rows' "+ key" trailing columns so every picker shares one right edge.
             Text("+").hidden()
             Color.clear.frame(width: 84, height: 1)
+        }
+    }
+}
+
+// MARK: - Modifier-alias editor
+
+/// Define + edit the named modifier combos ([aliases] in config.toml): mash, mash_shift, HYPER, …
+/// Each row is the alias name + a toggle per modifier; the bottom row adds a new alias. These are
+/// the names every modifier/hotkey picker in the app offers, so adding one here makes it assignable
+/// everywhere (the live review asked to "define and assign modifier aliases from the UI").
+struct AliasEditorSection: View {
+    @ObservedObject var model: SettingsModel
+    @State private var newName = ""
+
+    private let tokens = ["shift", "ctrl", "alt", "cmd"]
+    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+
+    private func toggle(_ name: String, _ tok: String, _ isOn: Bool) {
+        var mods = Set(model.config.aliases[name] ?? [])
+        if isOn { mods.insert(tok) } else { mods.remove(tok) }
+        guard !mods.isEmpty else { return }   // an alias with no modifiers is meaningless; keep ≥1
+        model.setAlias(name: name, modifiers: Array(mods))
+    }
+
+    var body: some View {
+        Section("Modifier aliases") {
+            Text("Named modifier combos you can assign above, in App Launcher, and to the audio hotkey.")
+                .font(.caption).foregroundColor(.secondary)
+            ForEach(aliasNames, id: \.self) { name in
+                HStack(spacing: 6) {
+                    Text(name).font(.system(.body, design: .monospaced))
+                        .frame(width: 118, alignment: .leading).lineLimit(1)
+                    ForEach(tokens, id: \.self) { tok in
+                        Toggle(ModGlyph.glyph[tok] ?? tok, isOn: Binding(
+                            get: { (model.config.aliases[name] ?? []).contains(tok) },
+                            set: { toggle(name, tok, $0) }))
+                            .toggleStyle(.button)
+                    }
+                    Spacer()
+                    Button { model.removeAlias(name: name) } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).help("Delete alias")
+                }
+            }
+            HStack {
+                TextField("new alias (e.g. mash_shift)", text: $newName).textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 220)
+                Button("Add") {
+                    let n = newName.trimmingCharacters(in: .whitespaces)
+                    guard !n.isEmpty, model.config.aliases[n] == nil else { return }
+                    model.setAlias(name: n, modifiers: ["cmd"])   // seed with ⌘; user toggles the rest
+                    newName = ""
+                }
+                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                Spacer()
+            }
         }
     }
 }

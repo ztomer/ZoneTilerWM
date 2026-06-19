@@ -17,11 +17,14 @@ Captured verbatim-in-intent from the user's hands-on review. Grouped + prioritiz
       no longer chases the shrinking/growing frame.
 
 ## B. Discoverability gaps (the features work but you can't reach/configure them)
-- [ ] **Command palette: no way to assign its modifier/hotkey from the UI** — add hotkey binding in
-      Keys (and surface "how to open it").
-- [ ] **Drag-to-snap: which modifier?** — it's the tiling modifier; surface/state it (and allow
-      configuring) in the UI.
-- [ ] **Keys → modifier aliases**: define + assign aliases (mash, mash_shift, HYPER, …) from the UI.
+- [x] **Command palette: no way to assign its modifier/hotkey from the UI** — DONE (v1.5.6). Keys now
+      has a "Feature actions" section with a "Set key" binding row for the command palette (and
+      scratchpad, peek, sandbox, zen, float, stack).
+- [x] **Drag-to-snap: which modifier?** — DONE (v1.5.3). The Tiling group's drag-to-snap caption now
+      states it uses the tiling modifier.
+- [x] **Keys → modifier aliases**: DONE (v1.5.6). Keys has a "Modifier aliases" editor — add/rename,
+      toggle ⇧⌃⌥⌘ per alias, delete; writes the [aliases] table. Every modifier/hotkey picker offers
+      them, so a new alias is assignable everywhere.
 
 ## C. Settings restructure → SIDEBAR (top tabs are getting too complex)
 - [x] Move settings from top segmented tabs to a **sidebar layout** (v1.5.3) — `NavigationSplitView`,

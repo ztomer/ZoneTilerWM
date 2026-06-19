@@ -174,6 +174,21 @@ public final class SettingsModel: ObservableObject {
               let edited = TOMLEditor.removeKey(text, section: group, key: key) else { return }
         persist(edited)
     }
+
+    /// Define / replace a modifier alias, e.g. [aliases] mash_shift = ["shift","ctrl","cmd"].
+    /// The token order is normalised so the same combo always serialises identically.
+    public func setAlias(name: String, modifiers: [String]) {
+        let order = ["shift", "ctrl", "alt", "cmd"]
+        let sorted = modifiers.filter { order.contains($0) }.sorted { (order.firstIndex(of: $0) ?? 99) < (order.firstIndex(of: $1) ?? 99) }
+        setOrAppend(section: "aliases", key: name, rawValue: tomlArray(sorted))
+    }
+    /// Delete an alias definition. (Keybindings still referencing it fall back to treating the name
+    /// as a literal modifier — harmless, but the UI warns before removing one that's in use.)
+    public func removeAlias(name: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeKey(text, section: "aliases", key: name) else { return }
+        persist(edited)
+    }
     /// Per-monitor grid override; passing nil clears it back to auto-detect.
     public func setMonitorOverride(name: String, grid: String?) {
         let section = "tiler.custom_screens.\"\(name)\""
