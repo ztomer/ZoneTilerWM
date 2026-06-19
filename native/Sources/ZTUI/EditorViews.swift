@@ -187,15 +187,16 @@ struct KeybindEditorView: View {
             if !conflicts.isEmpty {
                 Section { ConflictBanner(conflicts: conflicts) }
             }
+            // Aliases first — you define the named combos, then assign them as modifiers below.
+            AliasEditorSection(model: model)
             Section("Modifiers") {
                 modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
                 modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
             }
-            AliasEditorSection(model: model)
             Section("Actions") {
                 ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
             }
-            Section("Feature actions (opt-in — bind a key to use)") {
+            Section("Feature actions") {
                 ForEach(featureRows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
             }
         }

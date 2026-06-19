@@ -334,8 +334,6 @@ struct AdvancedTab: View {
 /// catalog + QueryRequest, so this pane can never drift from what the agent actually supports.
 struct AutomationTab: View {
     @ObservedObject var model: SettingsModel
-    @State private var syncFolder = ""
-    @State private var loaded = false
 
     private func copy(_ s: String) {
         NSPasteboard.general.clearContents()
@@ -356,79 +354,61 @@ struct AutomationTab: View {
 
     var body: some View {
         Form {
-            Section("Command palette") {
-                Toggle("Command palette (⌘K-style action search)", isOn: Binding(
-                    get: { model.config.commandPaletteEnabled }, set: { model.setCommandPaletteEnabled($0) }))
-                caption("Fuzzy-search and run any action. Bind its hotkey under Keys.")
-                Toggle("Natural language (on-device AI)", isOn: Binding(
-                    get: { model.config.nlEnabled }, set: { model.setNLEnabled($0) }))
-                caption("When on, the palette doubles as a natural-language box: if your text matches no "
-                        + "command, ⏎ asks the on-device model (\"put terminal left\"). 100% local — no "
-                        + "network. Needs the command palette enabled + Apple Intelligence.")
-                LabeledContent("Model") { nlStatus }
+            ToggleSection("Command palette", isOn: Binding(
+                get: { model.config.commandPaletteEnabled }, set: { model.setCommandPaletteEnabled($0) }),
+                footer: paletteHint) {
+                if model.config.commandPaletteEnabled {
+                    Toggle("Natural language", isOn: Binding(
+                        get: { model.config.nlEnabled }, set: { model.setNLEnabled($0) }))
+                    LabeledContent("Model") { nlStatus }
+                    caption("With Natural language on, ⏎ on an unmatched query asks the on-device model "
+                            + "(\"put terminal left\"). 100% local; needs Apple Intelligence.")
+                }
             }
 
-            Section("Integration") {
-                Toggle("Arrangement event stream", isOn: Binding(
-                    get: { model.config.eventsEnabled }, set: { model.setEventsEnabled($0) }))
-                caption("Append layout-change events to a file you can tail -f from scripts/status bars.")
+            ToggleSection("Arrangement events", isOn: Binding(
+                get: { model.config.eventsEnabled }, set: { model.setEventsEnabled($0) }),
+                footer: "Append layout-change events to a file you can tail -f from scripts / status bars.") {
                 if model.config.eventsEnabled {
                     NumberRow(label: "Poll interval", value: Binding(
                         get: { model.config.eventsIntervalMs },
                         set: { model.setEventsInterval($0) }), range: 250...10000, step: 250, suffix: "ms")
                 }
+            }
+
+            Section {
                 LabeledContent("Sync folder") {
-                    TextField("~/Library/Mobile Documents/…", text: $syncFolder)
-                        .textFieldStyle(.roundedBorder).frame(maxWidth: 280)
-                        .onSubmit { model.setSyncFolder(syncFolder) }
+                    HStack(spacing: 8) {
+                        Text(model.config.syncFolder.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "none")
+                            .foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                        Button("Choose…") { chooseSyncFolder() }
+                        if model.config.syncFolder != nil { Button("Clear") { model.setSyncFolder("") } }
+                    }
                 }
-                caption("A folder you already sync (iCloud/Dropbox) for sync-export / sync-import. Press ⏎ to save.")
+            } footer: {
+                caption("A folder you already sync (iCloud / Dropbox) for sync-export / sync-import.")
             }
 
-            Section("Profiles (edit in config.toml)") {
-                LabeledContent("App clusters") {
-                    Text(model.config.clusters.isEmpty ? "none" : model.config.clusters.map { $0.name }.joined(separator: ", "))
-                        .foregroundColor(.secondary)
-                }
-                LabeledContent("Display presets") {
-                    Text("\(model.config.displayPresets.count) configured").foregroundColor(.secondary)
-                }
-                caption("Named app→zone clusters and display-topology presets are list configs — edit them "
-                        + "under [[clusters]] / [[display_presets]] in config.toml; they live-reload.")
-            }
-
-            Section("Automation") {
-                Toggle("Enable automation surface (MCP + CLI)", isOn: Binding(
-                    get: { model.automationEnabled },
-                    set: { model.setAutomationEnabled($0) }))
-                Text("Lets your Claude (Desktop/Code) and zonetiler-cli control the window manager over a local Unix socket. No model, key, or network is bundled — only local actions you already control.")
-                    .font(.caption).foregroundColor(.secondary)
-            }
-
-            Section("Status") {
-                LabeledContent("Socket") {
-                    Text(model.agentSocketPath).foregroundColor(.secondary)
-                        .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
-                }
-                LabeledContent("State") {
-                    if model.automationEnabled {
+            ToggleSection("Enable MCP", isOn: Binding(
+                get: { model.automationEnabled }, set: { model.setAutomationEnabled($0) }),
+                footer: "Lets Claude (Desktop/Code) and zonetiler-cli drive the window manager over a local "
+                      + "Unix socket. No model, key, or network is bundled.") {
+                if model.automationEnabled {
+                    LabeledContent("State") {
                         Label(model.automationListening ? "Listening" : "Starting…",
                               systemImage: model.automationListening ? "dot.radiowaves.left.and.right" : "clock")
                             .foregroundColor(model.automationListening ? .green : .orange)
-                    } else {
-                        Label("Disabled", systemImage: "xmark.circle").foregroundColor(.secondary)
                     }
-                }
-            }
-
-            Section("Connect Claude (MCP)") {
-                Text("Run once, with the agent running, to let Claude operate ZoneTilerWM:")
-                    .font(.caption).foregroundColor(.secondary)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(model.mcpRegisterCommand).font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled).lineLimit(3).truncationMode(.middle)
-                    Spacer()
-                    Button("Copy") { copy(model.mcpRegisterCommand) }
+                    LabeledContent("Socket") {
+                        Text(model.agentSocketPath).foregroundColor(.secondary)
+                            .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
+                    }
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(model.mcpRegisterCommand).font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled).lineLimit(2).truncationMode(.middle)
+                        Spacer()
+                        Button("Copy") { copy(model.mcpRegisterCommand) }
+                    }
                 }
             }
 
@@ -440,31 +420,45 @@ struct AutomationTab: View {
                         Button("Copy") { copy(model.cliBinaryPath) }
                     }
                 }
-                Text("e.g.  zonetiler-cli tile --zone h   ·   zonetiler-cli get arrangement   ·   zonetiler-cli --help")
-                    .font(.caption).foregroundColor(.secondary).textSelection(.enabled)
+                caption("e.g.  zonetiler-cli tile --zone h   ·   zonetiler-cli get arrangement   ·   zonetiler-cli --help")
             }
 
-            Section("Capabilities — actions") {
-                ForEach(ActionParser.catalog, id: \.name) { spec in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(spec.name).font(.system(.body, design: .monospaced)).fontWeight(.medium)
-                        Text(spec.description).font(.caption).foregroundColor(.secondary)
+            Section {
+                DisclosureGroup("Capabilities (\(ActionParser.catalog.count) actions, \(QueryRequest.allCases.count) resources)") {
+                    ForEach(ActionParser.catalog, id: \.name) { spec in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(spec.name).font(.system(.callout, design: .monospaced)).fontWeight(.medium)
+                            Text(spec.description).font(.caption).foregroundColor(.secondary)
+                        }.padding(.vertical, 1)
                     }
-                    .padding(.vertical, 2)
-                }
-            }
-
-            Section("Capabilities — resources") {
-                ForEach(QueryRequest.allCases, id: \.self) { q in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(CLIFormat.cliName(q)).font(.system(.body, design: .monospaced)).fontWeight(.medium)
-                        Text(q.description).font(.caption).foregroundColor(.secondary)
+                    ForEach(QueryRequest.allCases, id: \.self) { q in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("get \(CLIFormat.cliName(q))").font(.system(.callout, design: .monospaced)).fontWeight(.medium)
+                            Text(q.description).font(.caption).foregroundColor(.secondary)
+                        }.padding(.vertical, 1)
                     }
-                    .padding(.vertical, 2)
                 }
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// "Open with ⌃⌘K" from the configured command-palette hotkey, or a hint to set one.
+    private var paletteHint: String {
+        if let r = model.config.resolvedHotkey("command_palette", in: model.config.systemHotkeys) {
+            return "Open with " + ModGlyph.string(r.modifier) + r.key.uppercased()
+        }
+        return "No hotkey set yet — add one under Keys → Feature actions."
+    }
+
+    /// Pick a sync folder with the standard open panel (directories only).
+    private func chooseSyncFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        if panel.runModal() == .OK, let url = panel.url { model.setSyncFolder(url.path) }
     }
 }
 
