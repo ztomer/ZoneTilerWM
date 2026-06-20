@@ -61,7 +61,36 @@ public final class MissionControlOverlay {
 
     private var windows: [NSWindow] = []
     private var views: [MissionControlView] = []
+    private var searchBar: NSWindow?
     public init() {}
+
+    /// A centered pill showing the live "/" filter query (pass nil to hide it).
+    public func setSearchBar(_ text: String?) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard let text, let scr = NSScreen.main else { self.searchBar?.orderOut(nil); self.searchBar = nil; return }
+            let label = NSTextField(labelWithString: text)
+            label.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+            label.textColor = .white
+            label.sizeToFit()
+            let w = max(240, label.frame.width + 36), h: CGFloat = 38
+            let card = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
+            card.wantsLayer = true
+            card.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.82).cgColor
+            card.layer?.cornerRadius = 10
+            label.frame = NSRect(x: (w - label.frame.width) / 2, y: (h - label.frame.height) / 2,
+                                 width: label.frame.width, height: label.frame.height)
+            card.addSubview(label)
+            let win = self.searchBar ?? NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
+            win.isOpaque = false; win.backgroundColor = .clear; win.ignoresMouseEvents = true
+            win.level = .statusBar; win.hasShadow = true
+            win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            win.setFrame(NSRect(x: scr.frame.midX - w / 2, y: scr.frame.maxY - 130, width: w, height: h), display: true)
+            win.contentView = card
+            win.orderFront(nil)
+            self.searchBar = win
+        }
+    }
 
     /// Callbacks shared by every panel; they operate on global window ids, so one set drives all
     /// displays. `editableSpaces=false` (all-monitors strip = monitor targets) hides the + / × chrome.
@@ -176,7 +205,7 @@ public final class MissionControlOverlay {
     public func hide() {
         DispatchQueue.main.async { [weak self] in self?.hideNow() }
     }
-    private func hideNow() { windows.forEach { $0.orderOut(nil) }; windows = []; views = [] }
+    private func hideNow() { windows.forEach { $0.orderOut(nil) }; windows = []; views = []; searchBar?.orderOut(nil); searchBar = nil }
 
     /// Deterministic windowless render (badges + × buttons) over a neutral backdrop → PNG, for QA.
     public static func renderPNG(hints: [MissionControl.Hint], screenCGFrame: ZTRect,

@@ -36,6 +36,10 @@ final class ExposeController {
     private var hints: [MissionControl.Hint] = []
     private var selectedId: Int?
     private var windowPids: [Int: pid_t] = [:]
+    // "/" search: type an app name to move the selection ring to the matching window (↵ focuses it).
+    private var searchMode = false
+    private var query = ""
+    private var winApps: [Int: String] = [:]
 
     init(
         binder: CarbonHotkeyBinder,
@@ -134,6 +138,8 @@ final class ExposeController {
                 zoneKeys[w.id] = ZoneOccupancy.bestZone(window: w.frame, zones: zones)
             }
         }
+        winApps = appNames   // for "/" search
+        searchMode = false; query = ""
 
         // One grid PER display, packed within that display's own frame (minus the strip band), so a
         // window appears in its monitor's region. Combined `hints` drives keyboard nav; `perDisplay`
@@ -250,6 +256,7 @@ final class ExposeController {
         )
 
         bindModal(labels: hints.map { $0.label })
+        overlay.setSearchBar("press / to search")
         safety = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in self?.exit() }
         // Hot-plug safety: the panels were built from a snapshot of the displays (captured `targetScreens`
         // + their frames). If a monitor is connected/disconnected/rearranged while the overlay is up, that
@@ -288,6 +295,7 @@ final class ExposeController {
     func exit() {
         guard active else { return }
         active = false
+        searchMode = false; query = ""; winApps = [:]
         log("zt-agent: exposé OFF (dismissed)")
         safety?.invalidate(); safety = nil
         if let displayObserver { NotificationCenter.default.removeObserver(displayObserver); self.displayObserver = nil }
@@ -338,6 +346,51 @@ final class ExposeController {
         if let m = KeyMap.keyCode(for: "m") { bindKey(m, mods: cmd) { [weak self] in self?.minimizeSelected() } }
         if let q = KeyMap.keyCode(for: "q") { bindKey(q, mods: cmd) { [weak self] in self?.quitSelectedApp() } }
         if let esc = KeyMap.keyCode(for: "escape") { bindKey(esc, mods: 0) { [weak self] in self?.exit() } }
+        if let slash = KeyMap.keyCode(for: "/") { bindKey(slash, mods: 0) { [weak self] in self?.startSearch() } }
+    }
+
+    // MARK: - "/" search (type an app name → the selection ring jumps to the matching window)
+
+    private func startSearch() {
+        guard active, !searchMode else { return }
+        searchMode = true; query = ""
+        for id in modalIDs { binder.unbind(id) }
+        modalIDs = []
+        let chars = "abcdefghijklmnopqrstuvwxyz0123456789".map(String.init) + ["space"]
+        for ch in chars {
+            guard let code = KeyMap.keyCode(for: ch) else { continue }
+            let c = ch == "space" ? " " : ch
+            bindKey(code, mods: 0) { [weak self] in self?.appendQuery(c) }
+        }
+        if let del = KeyMap.keyCode(for: "delete") { bindKey(del, mods: 0) { [weak self] in self?.backspaceQuery() } }
+        if let ret = KeyMap.keyCode(for: "return") { bindKey(ret, mods: 0) { [weak self] in self?.openSelected() } }
+        if let esc = KeyMap.keyCode(for: "escape") { bindKey(esc, mods: 0) { [weak self] in self?.searchEscape() } }
+        updateMatch()
+    }
+
+    private func appendQuery(_ c: String) { query += c; updateMatch() }
+    private func backspaceQuery() { if !query.isEmpty { query.removeLast(); updateMatch() } }
+    private func searchEscape() { if query.isEmpty { exit() } else { query = ""; updateMatch() } }
+
+    private func matchingIds() -> [Int] {
+        let q = query.lowercased()
+        let ids = hints.map { $0.windowId }
+        return q.isEmpty ? ids : ids.filter { Self.fuzzyMatch(q, (winApps[$0] ?? "").lowercased()) }
+    }
+
+    private func updateMatch() {
+        let ids = matchingIds()
+        if selectedId == nil || !ids.contains(selectedId!) { selectedId = ids.first }
+        overlay.updateSelection(selectedId)
+        overlay.setSearchBar(query.isEmpty ? "type to find a window · ↵ focus · ⎋ back"
+                                           : "/ \(query)    \(ids.count) match\(ids.count == 1 ? "" : "es")")
+    }
+
+    private static func fuzzyMatch(_ needle: String, _ hay: String) -> Bool {
+        if needle.isEmpty || hay.contains(needle) { return true }
+        var idx = hay.startIndex
+        for ch in needle { guard let f = hay[idx...].firstIndex(of: ch) else { return false }; idx = hay.index(after: f) }
+        return true
     }
 
     private func bindKey(_ code: UInt32, mods: UInt32, _ action: @escaping () -> Void) {
