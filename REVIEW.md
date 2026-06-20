@@ -682,3 +682,33 @@ layer; the dedup/cap is unit-tested.
   allowlist is the kare glyphs (→ · ✓ ✗ ⚠, from `~/projects/scripts/_stylerc`). Cleaned the existing
   offenders (FE0F variation selectors, heavy check/ballot-X). `ZTCore.Kare` provides the glyphs; the CLI
   and agent log are styled with them.
+
+## 14. Lessons (2026-06-20)
+
+What actually cost time / what would have saved it. Concrete, not aspirational.
+
+- **Green tests, broken desktop.** Auto-tile coverage was unit-tested + 3000-case fuzzed at ~99%, but
+  the live desktop had an empty third. Cause: the app was tiling its own 1×1 Spaces-marker windows —
+  a live-system artifact no pure test can see. RULE: for anything that touches the live window
+  server / OS UI, a screenshot or live frame-readback is mandatory; "tests pass" ≠ "works". (Caught by
+  the user insisting on a screenshot.)
+- **Probe uncertain OS APIs before designing on them.** Four designs were killed or shaped by a 20-line
+  probe instead of wasted code: `kCGWindowWorkspace` (dead), the plist `Current Space` (stale on a plain
+  switch), `CGWindowListCreateImage` on off-Space windows (nil), `CGSCopySpacesForWindows` on off-Space
+  windows (empty). Off-Space window previews are *impossible* by point-in-time query, proven not assumed.
+  RULE: if you're about to depend on an OS/private behavior you haven't run, probe the exact edge case
+  first. (Skill: probe-first.)
+- **"More correct" can regress.** Making `LayoutSolver` provably optimal increased its node count →
+  tripped the `maxChecks` budget on the real 4×3 (m≈34) → silent partial placement → gaps. RULE: a
+  correctness change has resource/perf second-order effects; measure the real input bounds, not the test
+  fixture's.
+- **Distinguish a harness artifact from a product bug.** The dev agent kept "dying" between tool calls —
+  it was SIGHUP on shell exit (and macOS has no `setsid`), not a crash. Several minutes went into
+  debugging a non-bug. RULE: confirm the failure is real (crash log? foreground run?) before chasing it;
+  long-running daemons need `nohup`/background runner.
+- **Don't claim "solved" on theory.** "Solved" was said twice for a live-behavior feature on the strength
+  of unit tests alone; both were wrong. RULE: claim "solved/verified" for live features only after a live
+  check.
+- **Your own injected state leaks into other subsystems.** The Spaces marker-window trick (added for live
+  current-Space detection) polluted the window enumeration that auto-tile / hints / Exposé read. RULE:
+  filter your own artifacts (own-pid) out of any system-wide enumeration you also consume.
