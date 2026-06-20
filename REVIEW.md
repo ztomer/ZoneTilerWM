@@ -373,3 +373,23 @@ clean, no high-risk defects. Findings and resolutions:
   AX-via-CGWindowList strategy remains fundamentally right. (Note: making `AgentController` members
   `internal` was *required* by the cross-file split — Swift `private`/`fileprivate` are file-scoped —
   not a gratuitous regression.)
+
+### Round 2 (adversarial verify) — same day
+
+A second, adversarial pass independently **re-verified** the four fixes above (all OK) and the whole
+refactor: bootstrap order preserved, the **single-thread-on-main invariant holds** (every hotkey /
+timer / notification / file-watch / IPC source runs on or hops to main), **no retain cycles**, and the
+`internal`-ization breaks no real invariant. It also found two genuine defects in `PublicSpacesProvider`:
+
+- **[High → FIXED] Space pinning was wrong.** The marker used `collectionBehavior = [.ignoresCycle]`,
+  which only affects Cmd-` cycling — it does NOT pin a window to its Space. Added `.stationary` (the
+  flag that actually keeps the window on its creation Space). Without it the marker could migrate to the
+  active Space and corrupt current-Space detection.
+- **[High → DOCUMENTED] Multi-display Space attribution.** A new Space is assigned to the display under
+  the cursor (`NSEvent.mouseLocation`) at switch time; during a swipe the cursor can be on a different
+  display than the one that changed Spaces, mis-attributing the Space. Correct on single-display; the
+  robust multi-display fix needs the display that actually changed (no public API) — flagged in code +
+  the public-path "needs live validation" note. Defense-in-depth: pinned the Space-change observer to
+  `queue: .main`.
+- **[Low] Markers are never torn down** (small leak; harmless) and a theoretical `windowNumber`
+  cross-process collision — left as documented low-risk.

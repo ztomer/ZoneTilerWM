@@ -30,13 +30,15 @@ public final class PublicSpacesProvider: SpacesProvider {
     public func start() {
         guard !started else { return }
         started = true
+        // queue: .main — these notifications already arrive on main, but NSWindow creation in the
+        // handler MUST be on main, so pin it explicitly (defense-in-depth).
         NSWorkspace.shared.notificationCenter.addObserver(
-            self, selector: #selector(spaceChanged),
-            name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.spaceChanged() }
         ensureMarkerOnCurrentSpace()
     }
 
-    @objc private func spaceChanged() { needsRescan = true; ensureMarkerOnCurrentSpace() }
+    private func spaceChanged() { needsRescan = true; ensureMarkerOnCurrentSpace() }
 
     /// True until the provider has learned more than the Space it started on (drives the onboarding
     /// nudge). Once the user has visited ≥2 Spaces we assume they understand the cycle.
@@ -68,6 +70,10 @@ public final class PublicSpacesProvider: SpacesProvider {
     /// is discovered: each newly-visited desktop gets a marker the first time it's seen.
     private func ensureMarkerOnCurrentSpace() {
         guard onScreenMarkerID() == nil else { return }
+        // KNOWN LIMIT (multi-display): we assign the new Space to the display under the cursor. During a
+        // swipe the cursor may be on a different display than the one whose Space changed, so on a
+        // multi-display "separate Spaces" setup a Space can be attributed to the wrong display. Single
+        // display is correct. A robust fix needs the display that actually changed Spaces (no public API).
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         guard let screen else { return }
         let displayUUID = Self.displayUUID(of: screen) ?? ""
@@ -81,7 +87,9 @@ public final class PublicSpacesProvider: SpacesProvider {
         w.ignoresMouseEvents = true
         w.hasShadow = false
         w.level = .normal
-        w.collectionBehavior = [.ignoresCycle]   // stays on the current Space; no .canJoinAllSpaces
+        // .stationary PINS the window to its creation Space (it's what actually keeps the marker put —
+        // `.ignoresCycle` only affects Cmd-` and does NOT control Space membership). No .canJoinAllSpaces.
+        w.collectionBehavior = [.stationary, .ignoresCycle]
         w.orderFrontRegardless()
         let id = nextID
         markers.append(Marker(window: w, id: id, displayUUID: displayUUID))
