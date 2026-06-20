@@ -24,7 +24,9 @@ Condensed by theme — everything here is **done and in the build**.
   presets (auto-action on dock/undock), hot-plug re-registration (logical ids re-seed on
   `didChangeScreenParametersNotification`).
 - **Discoverability / UI:** SwiftUI settings (sidebar taxonomy) + live-reload, command palette (⌘K),
-  window hints, zone HUD (hold-to-reveal), window peek, focus border (1:1 frame-tracking outline,
+  find-a-window-by-typing (fuzzy app-name search in the command palette, and via `/` in window hints
+  and Exposé — matches are bordered, the rest dim), window hints, zone HUD (hold-to-reveal), window
+  peek, focus border (1:1 frame-tracking outline,
   overlay + experimental SkyLight renderer), custom vector glyphs, appbar-mode settings window.
 - **Automation spine (v2.0):** one action vocabulary (`ActionRequest`/`ActionResult`/`ActionParser`
   → `ActionDispatcher`) wrapped by hotkeys, the **MCP server** (`zt-mcp`), **App Intents**, the

@@ -33,8 +33,8 @@ Zones map to three letter rows plus `0`:
 ## Window features
 
 - **Resize mode — `mash+r`:** arrow keys nudge the zone grid lines; `Esc` saves.
-- **Window hints — `HYPER+-`:** labels every window; type a label to focus it.
-- **Exposé:** a keyboard-driven Mission-Control replacement — every window laid out in a grid with a jump label; type a label to raise it, or use `↵` open / `⌘W` close / `⌘M` minimize / `⌘Q` quit and arrow / `hjkl` / `wasd` to move the selection. Works across all displays. Bind a hotkey (or trigger it from the command palette / CLI) under Settings.
+- **Window hints — `HYPER+-`:** labels every window; type a label to focus it. Press **`/`** to find a window by typing its app name — matches are bordered on the desktop; `↵` focuses the top match.
+- **Exposé:** a keyboard-driven Mission-Control replacement — every window laid out in a grid with a jump label; type a label to raise it, or use `↵` open / `⌘W` close / `⌘M` minimize / `⌘Q` quit and arrow / `hjkl` / `wasd` to move the selection. Press **`/`** to find a window by typing (matches get a border, the rest dim). Works across all displays. Bind a hotkey (or trigger it from the command palette / CLI) under Settings.
 - **Zen mode — `HYPER+\`:** hides every window except the focused one.
 - **Multi-monitor:** `mash+p` / `mash+;` move the window to the next / previous display; `⇧⌃⌘+p` / `⇧⌃⌘+;` move focus between displays.
 
@@ -44,7 +44,7 @@ ZoneTilerWM can show your real macOS **Spaces in the menubar**, grouped per moni
 
 ## Command palette & natural language (opt-in)
 
-Enable the **command palette** (Settings → Automation) for a `⌘K`-style fuzzy launcher over every action — tile, autotile, focus, audio, Pomodoro, and more. With Apple Intelligence available it doubles as a **natural-language box**: type a request ("put Safari on the left half") and it runs the matching action.
+Enable the **command palette** (Settings → Automation) for a `⌘K`-style fuzzy launcher over every action — tile, autotile, focus, audio, Pomodoro, and more. It also **finds an open window** as you type its app name (`↵` focuses it). With Apple Intelligence available it doubles as a **natural-language box**: type a request ("put Safari on the left half") and it runs the matching action.
 
 ## Productivity
 

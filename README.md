@@ -69,9 +69,9 @@ Current baseline: 352 Swift tests green; ~92% line coverage on the pure-logic co
     *   **Coverage Maximization**: Aggressively fills available screen space.
     *   **Memory-Augmented**: Remembers where you like your apps.
     *   **Shape-Aware**: Matches window aspect ratios to tile shapes.
-* **Exposé**: A keyboard-driven Mission-Control replacement — type-to-jump labels, ↵/⌘W/⌘M/⌘Q actions, arrow/vim/wasd navigation, real window previews, per-monitor scope.
+* **Exposé**: A keyboard-driven Mission-Control replacement — type-to-jump labels, ↵/⌘W/⌘M/⌘Q actions, arrow/vim/wasd navigation, real window previews, per-monitor scope. Press **`/`** to find a window by typing (fuzzy app-name match; matches are bordered, the rest dim).
 * **macOS Spaces**: Switch Spaces by gesture, rename them, and see them in a Spaceman-style **menubar widget** that groups Spaces per monitor (experimental — uses gated private APIs with a public fallback).
-* **Command Palette**: ⌘K fuzzy launcher for every action, plus an on-device natural-language layout box.
+* **Command Palette**: ⌘K fuzzy launcher for every action — and for **finding an open window by typing its app name** (↵ focuses it) — plus an on-device natural-language layout box.
 * **Programmable**: One action vocabulary exposed over an **MCP server**, App Intents, a `zonetiler://` URL scheme, a CLI, and an `[[rules]]` engine.
 * **Window Stacks & Drag-to-Snap**: Stack windows in a zone and cycle them; drag a window to snap it into a zone.
 * **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.toml` file.

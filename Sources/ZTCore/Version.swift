@@ -3,6 +3,6 @@
 // instead of being hand-bumped across project.yml + AboutWindow + zt-mcp (review item #2). Do not
 // edit by hand — run `./bump.sh <marketing> <build>`.
 public enum ZTVersion {
-    public static let marketing = "2.0.0"
-    public static let build = "48"
+    public static let marketing = "2.1.0"
+    public static let build = "49"
 }

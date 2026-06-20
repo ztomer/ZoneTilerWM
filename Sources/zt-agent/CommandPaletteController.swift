@@ -173,23 +173,12 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         // Open windows are only searched once something is typed; fuzzy-match the app name.
         let wins: [Item] = q.isEmpty ? [] : windows()
-            .filter { Self.fuzzy(q, in: $0.app.lowercased()) }
+            .filter { Fuzzy.matches(q, in: $0.app) }
             .prefix(8)
             .map { Item.window(id: $0.id, app: $0.app, detail: $0.detail) }
         items = cmds + wins
         selection = 0
         rebuildList()
-    }
-
-    /// Loose subsequence match (so "sf" finds "Safari"), with a substring fast-path.
-    private static func fuzzy(_ needle: String, in hay: String) -> Bool {
-        if needle.isEmpty || hay.contains(needle) { return true }
-        var idx = hay.startIndex
-        for ch in needle {
-            guard let found = hay[idx...].firstIndex(of: ch) else { return false }
-            idx = hay.index(after: found)
-        }
-        return true
     }
 
     private func rebuildList() {

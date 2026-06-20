@@ -173,6 +173,7 @@ final class WindowHintsController {
         if let del = KeyMap.keyCode(for: "delete"), let id = binder.register(keyCode: del, modifiers: 0, action: { [weak self] in self?.backspaceQuery() }) { modalIDs.append(id) }
         if let ret = KeyMap.keyCode(for: "return"), let id = binder.register(keyCode: ret, modifiers: 0, action: { [weak self] in self?.focusTopMatch() }) { modalIDs.append(id) }
         if let esc = KeyMap.keyCode(for: "escape"), let id = binder.register(keyCode: esc, modifiers: 0, action: { [weak self] in self?.searchEscape() }) { modalIDs.append(id) }
+        if let slash = KeyMap.keyCode(for: "/"), let id = binder.register(keyCode: slash, modifiers: 0, action: { [weak self] in self?.searchEscape() }) { modalIDs.append(id) }   // "/" toggles back out
         renderSearch()
     }
 
@@ -181,8 +182,7 @@ final class WindowHintsController {
     private func searchEscape() { if query.isEmpty { exit() } else { query = ""; renderSearch() } }
 
     private func filteredPresented() -> [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int, frame: ZTRect)] {
-        let q = query.lowercased()
-        return q.isEmpty ? presented : presented.filter { Self.fuzzyMatch(q, $0.app.lowercased()) }
+        query.isEmpty ? presented : presented.filter { Fuzzy.matches(query, in: $0.app) }
     }
 
     private func renderSearch() {
@@ -198,13 +198,5 @@ final class WindowHintsController {
         guard let w = filteredPresented().first else { return }
         windowSystem.focus(windowId: w.id)
         exit()
-    }
-
-    /// Loose subsequence match (so "sf" finds "Safari"), substring fast-path.
-    private static func fuzzyMatch(_ needle: String, _ hay: String) -> Bool {
-        if needle.isEmpty || hay.contains(needle) { return true }
-        var idx = hay.startIndex
-        for ch in needle { guard let f = hay[idx...].firstIndex(of: ch) else { return false }; idx = hay.index(after: f) }
-        return true
     }
 }

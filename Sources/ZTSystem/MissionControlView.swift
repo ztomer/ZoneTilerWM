@@ -435,8 +435,7 @@ final class MissionControlView: NSView {
                     path.fill()
                 }
 
-                // "/" search: dim non-matches so the matching windows stand out, and border each match.
-                if let matches = matchedWindowIds {
+                if let matches = matchedWindowIds {   // "/" search: border matches, dim the rest
                     if matches.contains(h.windowId) {
                         let bord = NSBezierPath(roundedRect: pf.insetBy(dx: -1, dy: -1), xRadius: 9, yRadius: 9)
                         NSColor.controlAccentColor.setStroke(); bord.lineWidth = 2.5; bord.stroke()
@@ -445,9 +444,7 @@ final class MissionControlView: NSView {
                         NSBezierPath(roundedRect: pf, xRadius: 8, yRadius: 8).fill()
                     }
                 }
-
-                // Keyboard-selection ring hugging the screenshot (#6) — drawn last so it sits on top.
-                if h.windowId == selectedWindowId {
+                if h.windowId == selectedWindowId {   // keyboard-selection ring, drawn last (on top)
                     let ring = NSBezierPath(roundedRect: pf.insetBy(dx: -2, dy: -2), xRadius: 10, yRadius: 10)
                     NSColor.controlAccentColor.setStroke(); ring.lineWidth = 3.5; ring.stroke()
                 }

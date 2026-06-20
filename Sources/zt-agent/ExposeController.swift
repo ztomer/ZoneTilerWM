@@ -365,6 +365,7 @@ final class ExposeController {
         if let del = KeyMap.keyCode(for: "delete") { bindKey(del, mods: 0) { [weak self] in self?.backspaceQuery() } }
         if let ret = KeyMap.keyCode(for: "return") { bindKey(ret, mods: 0) { [weak self] in self?.openSelected() } }
         if let esc = KeyMap.keyCode(for: "escape") { bindKey(esc, mods: 0) { [weak self] in self?.searchEscape() } }
+        if let slash = KeyMap.keyCode(for: "/") { bindKey(slash, mods: 0) { [weak self] in self?.searchEscape() } }   // "/" toggles back out
         updateMatch()
     }
 
@@ -373,9 +374,8 @@ final class ExposeController {
     private func searchEscape() { if query.isEmpty { exit() } else { query = ""; updateMatch() } }
 
     private func matchingIds() -> [Int] {
-        let q = query.lowercased()
         let ids = hints.map { $0.windowId }
-        return q.isEmpty ? ids : ids.filter { Self.fuzzyMatch(q, (winApps[$0] ?? "").lowercased()) }
+        return query.isEmpty ? ids : ids.filter { Fuzzy.matches(query, in: winApps[$0] ?? "") }
     }
 
     private func updateMatch() {
@@ -385,13 +385,6 @@ final class ExposeController {
         overlay.updateMatches(query.isEmpty ? nil : Set(ids))   // border matches, dim the rest
         overlay.setSearchBar(query.isEmpty ? "type to find a window · ↵ focus · ⎋ back"
                                            : "/ \(query)    \(ids.count) match\(ids.count == 1 ? "" : "es")")
-    }
-
-    private static func fuzzyMatch(_ needle: String, _ hay: String) -> Bool {
-        if needle.isEmpty || hay.contains(needle) { return true }
-        var idx = hay.startIndex
-        for ch in needle { guard let f = hay[idx...].firstIndex(of: ch) else { return false }; idx = hay.index(after: f) }
-        return true
     }
 
     private func bindKey(_ code: UInt32, mods: UInt32, _ action: @escaping () -> Void) {

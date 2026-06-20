@@ -483,3 +483,27 @@ fill-gaps/BSP math correct; running-mean + recency-decay exact; all clocks injec
 **Convergence:** across five rounds the yield fell from structural (R1) → one real bug each (R2 pinning,
 R3 degenerate-input cluster) → ~nothing (R4) → two minor completeness fixes + a false positive (R5).
 The codebase is thoroughly reviewed; the core algorithms are clean.
+
+## 7. v2.1 — find-a-window-by-typing + Dock-aware verification (2026-06-20)
+
+The v2.1 feature set (find a window by typing — command palette window-search, plus `/` search in
+window hints + Exposé with bordered/dimmed matches) was reviewed (correctness · races · AX-cost · edge
+cases). Findings:
+
+- **Verified solid:** modal rebind on `/` (unbind labels → bind search keys, all in `modalIDs` so
+  `exit()` cleans them; the activation hotkey + safety timer + display observer stay live); overlay
+  ordering (`show()` → `showHighlights()` → `setSearchBar()`, all main-queue, no NSWindow leak — `clear()`
+  tears down badges + highlights + the search pill); the hot path is **0 AX** (CGWindowList enumeration;
+  only focus-on-select touches AX — typing never re-enumerates).
+- **Fixed:** `/` was not re-bound during search, so it couldn't toggle back out — now bound to the
+  search-escape in both hints and Exposé.
+- **DRY + tested:** the matcher was copy-pasted in three controllers → extracted to `ZTCore.Fuzzy`
+  (subsequence + substring fast-path, case-insensitive) with a full unit suite (`FuzzyTests`, incl. the
+  end-index/suffix edge case). All files held ≤500 LOC (MissionControlView trimmed back to 499).
+- **Dock-awareness verified end-to-end** (not just by reading code): `ScreenSnapshot.frame` is the
+  `visibleFrame` (menu-bar + Dock + side insets removed, via `NSScreenProvider`), and every window
+  placement + zone overlay (HUD / drag-snap / resize grid / Exposé / the `/` search pill) uses it. Live
+  proof: tiling a window to a full-height zone landed it at `y=35` (below the 30px menu bar), bottom
+  ≈1885 (within the visible 1890) — **AX-readback confirmed** — not `y=0/h=1890`. (The Dock bottom inset
+  was 0 on the test machine because the Dock auto-hides; it goes through the identical `visibleFrame`
+  math.)
