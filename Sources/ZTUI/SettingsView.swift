@@ -405,17 +405,17 @@ public struct SettingsView: View {
     // so searching any setting name — "corner radius", "bar opacity", "dwell", "poll interval" —
     // jumps to the pane that holds it. Keep in sync when adding a setting.
     private let groups: [Group] = [
-        .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload"]),
-        .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3",               keywords: ["zones", "auto-tile", "autotile", "auto-tiling mode", "usage", "session", "placement strategy", "rotate", "largest free space", "hybrid", "working-set capacity", "working-set staleness", "working set", "auto-tile center zones", "center zones", "zone hud", "hud", "hold delay", "drag-to-snap", "drag", "snap", "move to next monitor", "move to previous monitor", "focus next screen", "focus previous screen", "resize mode", "auto-tile screen", "zen mode", "session sandbox", "toggle float", "float", "stack focus next", "stack focus previous", "stacks"]),
-        .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group",             keywords: ["grid", "edit grid", "monitor", "monitors", "zones", "edit zones", "tiles", "cycle order", "cells", "default zone per app"]),
-        .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: ["window hints", "window hints hotkey", "exposé", "expose", "mission control", "window grid", "spaces bar position", "navigation keys", "arrows", "vim", "wasd", "show windows from", "active monitor", "all monitors", "switching spaces", "switching method", "auto", "keyboard shortcuts", "trackpad gesture", "gesture", "show spaces in the menu bar", "menu bar", "menubar", "bracket style", "use real macos spaces", "real spaces"]),
-        .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: ["modifiers", "actions", "modifier aliases", "app launcher", "hyper apps", "hotkeys", "shortcuts", "bindings", "conflicts"]),
-        .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: ["keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "audio", "audio switcher", "output device", "switch hotkey", "run shortcut on change", "add device", "save devices"]),
-        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: ["app launcher", "hyper apps", "apps", "launch", "app groups", "auto-dismiss", "scratchpad", "app integrations", "chrome", "chrome toggle tab strip", "add group", "clusters"]),
-        .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: ["timer", "work", "rest", "work period", "rest period", "color bar", "bar height", "bar opacity", "remaining color", "used color", "break screen", "duration", "start", "pause", "reset count", "pomodoro"]),
-        .init(id: "appearance", title: "Appearance",     icon: "paintbrush",                    keywords: ["window border", "focus border", "color", "width", "corner radius", "renderer", "overlay", "window server", "motion prediction", "margins", "enable margins", "size", "apply margin at screen edges", "theme", "glyph", "liquid glass"]),
-        .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: ["command palette", "natural language", "hotkey", "arrangement events", "poll interval", "sync folder", "enable mcp", "mcp", "state", "socket", "command line", "binary", "cli", "url scheme", "app intents", "rules", "events"]),
-        .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: ["window memory", "learn", "restore window positions", "excluded apps", "auto-tiler weights", "solver weights", "weights", "reset to defaults", "experimental", "private apis", "real spaces", "debug"]),
+        .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: GeneralTab.searchKeywords),
+        .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3",               keywords: TilingTab.searchKeywords),
+        .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group",             keywords: LayoutEditorView.searchKeywords),
+        .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: PreviewsTab.searchKeywords),
+        .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
+        .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: IOTab.searchKeywords),
+        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
+        .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: PomodoroTab.searchKeywords),
+        .init(id: "appearance", title: "Appearance",     icon: "paintbrush",                    keywords: AppearanceTab.searchKeywords),
+        .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: AutomationTab.searchKeywords),
+        .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: AdvancedTab.searchKeywords),
     ]
 
     /// Panes matching the titlebar search (title or keyword substring). Empty query → all panes.

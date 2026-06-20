@@ -345,3 +345,31 @@ the correct guard-the-denominator pattern the others now follow.
 
 None of these are correctness regressions against the Lua spec — the differential harnesses
 and unit tests are green. They are quality, performance, and polish debt.
+
+## 6. Post-refactor review — 2026-06-20 (Linus · Uncle Bob · Carmack)
+
+Three-lens review of the 500-LOC split + public `SpacesProvider` commit (`ebfd36a`). Verdict: ships
+clean, no high-risk defects. Findings and resolutions:
+
+- **[Linus, High → FIXED] Settings-search keyword landmine.** ~200 hand-maintained keyword strings in
+  one array, no validation → silent search misses when a setting is added. Relocated each pane's
+  keywords to a `static let searchKeywords` on that pane's own view struct (co-located with its
+  controls); `SettingsView` references them.
+- **[Carmack, Medium → FIXED] Double CGWindowList scan in the resolve path.** `resolveWindow` →
+  `windowID(of:pid:)` enumerated twice. Threaded the single snapshot through (`onScreen:` param).
+- **[Linus, Medium → FIXED] AX tie-breaker comment overclaimed** "frontmost = focused" for arbitrary
+  windows. Comment now states the heuristic's actual limit (correct for the *focused* window only;
+  only `_AXUIElementGetWindow` resolves it reliably).
+- **[Carmack, Low → FIXED] `PublicSpacesProvider.onScreenMarkerID()` rescanned per read.** Now cached,
+  invalidated only on `activeSpaceDidChange` / new marker (zero-AX, but removes redundant scans).
+- **[Carmack, High → OPEN] `AXEnhancedUserInterface` toggles on *every* move** (`AXWindowSystem`),
+  including native-AX apps — the single highest-value AX-cost lever under SentinelOne (= item 5 above).
+  Deferred: needs a live check that Firefox/Zen still move once gated by bundle id.
+- **[Linus + Uncle Bob, follow-up] God-object split is organizational, not SRP.** `AgentController`
+  across `main.swift` + `+Setup` + `+Runtime` is readable but still one object; the real fix is
+  extracting cohesive sub-controllers (`HotkeyManager`/`ConfigManager`/`LayoutManager`). Not a blocker.
+- **Praise (all three):** `SpacesProvider` is a correct OS-boundary abstraction with two honest impls;
+  `MissionControlView`(+`Mouse`) boundaries are clean; layering verified (no backwards deps); the
+  AX-via-CGWindowList strategy remains fundamentally right. (Note: making `AgentController` members
+  `internal` was *required* by the cross-file split — Swift `private`/`fileprivate` are file-scoped —
+  not a gratuitous regression.)

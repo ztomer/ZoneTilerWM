@@ -161,30 +161,32 @@ public final class AXWindowSystem: WindowSystem {
     /// Resolve a CGWindowID to its AX window + owning app element via _AXUIElementGetWindow.
     private func resolveWindow(windowId: Int) -> (window: AXUIElement, app: AXUIElement, pid: pid_t)? {
         let target = CGWindowID(windowId)
-        guard let pid = Self.onScreenWindows().first(where: { $0.windowID == target })?.pid else { return nil }
+        let onScreen = Self.onScreenWindows()   // scan once; threaded into windowID() to avoid a 2nd scan
+        guard let pid = onScreen.first(where: { $0.windowID == target })?.pid else { return nil }
         let appElem = AXUIElementCreateApplication(pid)
         var winsRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute as CFString, &winsRef) == .success,
               let wins = winsRef as? [AXUIElement] else { return nil }
         for w in wins {
-            if windowID(of: w, pid: pid) == target { return (w, appElem, pid) }
+            if windowID(of: w, pid: pid, onScreen: onScreen) == target { return (w, appElem, pid) }
         }
         return nil
     }
 
-    /// AX window → CGWindowID. Uses the private SPI when compiled in (ZT_PRIVATE_APIS), else matches
-    /// by pid + frame against the CGWindowList (public, MAS-safe). When an app has multiple windows of
-    /// the same size at the same spot the frame match is ambiguous; we break the tie by **z-order** —
-    /// `onScreenWindows()` is front-to-back, and the focused window is the frontmost of its app, so the
-    /// first match is the right one. (Title would be a second signal but `kCGWindowName` is usually
-    /// empty without screen-recording permission, so it's not reliable here.)
-    private func windowID(of axWin: AXUIElement, pid: pid_t) -> CGWindowID? {
+    /// AX window → CGWindowID. Uses the private SPI when compiled in (ZT_PRIVATE_APIS), else matches by
+    /// pid + frame against the CGWindowList (public, MAS-safe). When an app has multiple windows of the
+    /// same size at the same spot the frame match is ambiguous; the public path cannot resolve it
+    /// reliably (only `_AXUIElementGetWindow` can). We pick the **frontmost** match as a heuristic —
+    /// correct when the caller is resolving the *focused* window (its frontmost), but it may pick the
+    /// wrong sibling for an unfocused/minimized one. (`kCGWindowName` would be a tie-breaker but is
+    /// usually empty without screen-recording permission.) Pass `onScreen` to reuse a prior scan.
+    private func windowID(of axWin: AXUIElement, pid: pid_t, onScreen: [OnScreenWindow]? = nil) -> CGWindowID? {
         #if ZT_PRIVATE_APIS
         var wid: CGWindowID = 0
         return _AXUIElementGetWindow(axWin, &wid) == .success ? wid : nil
         #else
         let f = Self.frame(of: axWin)
-        let matches = Self.onScreenWindows().filter {
+        let matches = (onScreen ?? Self.onScreenWindows()).filter {
             $0.pid == pid
                 && abs($0.bounds.origin.x - f.origin.x) < 2 && abs($0.bounds.origin.y - f.origin.y) < 2
                 && abs($0.bounds.size.width - f.size.width) < 2 && abs($0.bounds.size.height - f.size.height) < 2
@@ -192,7 +194,7 @@ public final class AXWindowSystem: WindowSystem {
         if matches.count > 1 {
             FileHandle.standardError.write(Data("zt-agent[ax]: windowID match ambiguous (\(matches.count) same-pid/same-frame windows) — using frontmost\n".utf8))
         }
-        return matches.first?.windowID   // front-to-back order → frontmost (= focused) wins the tie
+        return matches.first?.windowID   // front-to-back order → frontmost wins the tie (see doc above)
         #endif
     }
 

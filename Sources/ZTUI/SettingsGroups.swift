@@ -60,6 +60,8 @@ func boolBind(_ model: SettingsModel, _ keyPath: KeyPath<ConfigLoader.LoadedConf
 }
 
 struct PreviewsTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["window hints", "window hints hotkey", "exposé", "expose", "mission control", "window grid", "spaces bar position", "navigation keys", "arrows", "vim", "wasd", "show windows from", "active monitor", "all monitors", "switching spaces", "switching method", "auto", "keyboard shortcuts", "trackpad gesture", "gesture", "show spaces in the menu bar", "menu bar", "menubar", "bracket style", "use real macos spaces", "real spaces"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -126,6 +128,8 @@ struct PreviewsTab: View {
 // MARK: - General
 
 struct GeneralTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -156,6 +160,8 @@ struct GeneralTab: View {
 // MARK: - Tiling
 
 struct TilingTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["zones", "auto-tile", "autotile", "auto-tiling mode", "usage", "session", "placement strategy", "rotate", "largest free space", "hybrid", "working-set capacity", "working-set staleness", "working set", "auto-tile center zones", "center zones", "zone hud", "hud", "hold delay", "drag-to-snap", "drag", "snap", "move to next monitor", "move to previous monitor", "focus next screen", "focus previous screen", "resize mode", "auto-tile screen", "zen mode", "session sandbox", "toggle float", "float", "stack focus next", "stack focus previous", "stacks"]
     @ObservedObject var model: SettingsModel
     @State private var centerZonesEdit = ""
 
@@ -237,6 +243,8 @@ struct TilingTab: View {
 // MARK: - Input & Output (keyboard layout, audio, focus-follows-mouse)
 
 struct IOTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "audio", "audio switcher", "output device", "switch hotkey", "run shortcut on change", "add device", "save devices"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -267,6 +275,8 @@ struct IOTab: View {
 // MARK: - App Launcher (app cuts + hyper cuts + scratchpad)
 
 struct AppLauncherTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app groups", "auto-dismiss", "scratchpad", "app integrations", "chrome", "chrome toggle tab strip", "add group", "clusters"]
     @ObservedObject var model: SettingsModel
 
     var body: some View {
@@ -394,6 +404,8 @@ struct AppGroupsSection: View {
 // MARK: - Appearance (window border + margins, with a shared live preview)
 
 struct AppearanceTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["window border", "focus border", "color", "width", "corner radius", "renderer", "overlay", "window server", "motion prediction", "margins", "enable margins", "size", "apply margin at screen edges", "theme", "glyph", "liquid glass"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {

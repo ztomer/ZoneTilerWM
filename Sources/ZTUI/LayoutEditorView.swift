@@ -7,6 +7,8 @@ import ZTCore
 import ZTSystem
 
 struct LayoutEditorView: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["grid", "edit grid", "monitor", "monitors", "zones", "edit zones", "tiles", "cycle order", "cells", "default zone per app"]
     @ObservedObject var model: SettingsModel
     @State private var grid: String = ""
     @State private var zone: String = ""

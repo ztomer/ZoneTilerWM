@@ -22,6 +22,10 @@ public final class PublicSpacesProvider: SpacesProvider {
     private var markers: [Marker] = []
     private var nextID = 1
     private var started = false
+    // Which marker is on the current Space. Recomputed (one CGWindowList scan) only when the Space
+    // actually changes — not on every spacesByDisplay()/click read.
+    private var cachedCurrentID: Int? = nil
+    private var needsRescan = true
 
     public func start() {
         guard !started else { return }
@@ -32,7 +36,7 @@ public final class PublicSpacesProvider: SpacesProvider {
         ensureMarkerOnCurrentSpace()
     }
 
-    @objc private func spaceChanged() { ensureMarkerOnCurrentSpace() }
+    @objc private func spaceChanged() { needsRescan = true; ensureMarkerOnCurrentSpace() }
 
     /// True until the provider has learned more than the Space it started on (drives the onboarding
     /// nudge). Once the user has visited ≥2 Spaces we assume they understand the cycle.
@@ -79,14 +83,22 @@ public final class PublicSpacesProvider: SpacesProvider {
         w.level = .normal
         w.collectionBehavior = [.ignoresCycle]   // stays on the current Space; no .canJoinAllSpaces
         w.orderFrontRegardless()
-        markers.append(Marker(window: w, id: nextID, displayUUID: displayUUID))
+        let id = nextID
+        markers.append(Marker(window: w, id: id, displayUUID: displayUUID))
         nextID += 1
+        cachedCurrentID = id   // the just-created marker IS on the current Space
+        needsRescan = false
     }
 
-    /// The id of the marker currently on-screen (= on the active Space), if any.
+    /// The id of the marker currently on-screen (= on the active Space), if any. Cached; only a Space
+    /// change (or a fresh marker) recomputes it, so repeated reads don't each scan the window list.
     private func onScreenMarkerID() -> Int? {
-        let onScreen = Self.onScreenWindowNumbers()
-        return markers.first { onScreen.contains($0.window.windowNumber) }?.id
+        if needsRescan {
+            let onScreen = Self.onScreenWindowNumbers()
+            cachedCurrentID = markers.first { onScreen.contains($0.window.windowNumber) }?.id
+            needsRescan = false
+        }
+        return cachedCurrentID
     }
 
     private static func onScreenWindowNumbers() -> Set<Int> {

@@ -227,6 +227,8 @@ struct DefaultZonesSection: View {
 // MARK: - Pomodoro tab (settings + its own keys)
 
 struct PomodoroTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["timer", "work", "rest", "work period", "rest period", "color bar", "bar height", "bar opacity", "remaining color", "used color", "break screen", "duration", "start", "pause", "reset count", "pomodoro"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -255,6 +257,8 @@ struct PomodoroTab: View {
 // MARK: - Advanced tab (window memory + solver weights + learned data)
 
 struct AdvancedTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["window memory", "learn", "restore window positions", "excluded apps", "auto-tiler weights", "solver weights", "weights", "reset to defaults", "experimental", "private apis", "real spaces", "debug"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -272,6 +276,8 @@ struct AdvancedTab: View {
 /// exposed verb is discoverable. All capability data is read from the shared ActionParser
 /// catalog + QueryRequest, so this pane can never drift from what the agent actually supports.
 struct AutomationTab: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["command palette", "natural language", "hotkey", "arrangement events", "poll interval", "sync folder", "enable mcp", "mcp", "state", "socket", "command line", "binary", "cli", "url scheme", "app intents", "rules", "events"]
     @ObservedObject var model: SettingsModel
 
     private func copy(_ s: String) {

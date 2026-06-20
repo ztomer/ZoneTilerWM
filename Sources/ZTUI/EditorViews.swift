@@ -186,6 +186,8 @@ struct HotkeyRowView: View {
 }
 
 struct KeybindEditorView: View {
+    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
+    static let searchKeywords: [String] = ["modifiers", "actions", "modifier aliases", "app launcher", "hyper apps", "hotkeys", "shortcuts", "bindings", "conflicts"]
     @ObservedObject var model: SettingsModel
 
     private struct Row: Identifiable { let id: String; let label: String; let section: String; let key: String; var help: String? = nil }
