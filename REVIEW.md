@@ -560,13 +560,18 @@ cost, but the cost function is dominated by NEGATIVE rewards (`coverage = -2000`
 so a completion can *lower* the total — the prune can discard the true optimum. **Proven empirically:** a
 brute-force-optimal oracle over 20 000 fuzzed scenarios found **2752 (~13.8%)** where `solve()` is
 suboptimal and **0** where it beat brute force; minimal counterexample n=2/m=3 returns −1024 vs optimum
-−2511. Matches the Lua oracle, so the goldens encode the same defect. **DEFERRED (spec decision):** a true
-fix (admissible bound) changes output and requires regenerating the frozen `Tests/Fixtures/solver`
-corpus, trading Lua-parity for heuristic-optimality (which isn't unambiguously better UX).
+−2511. Matched the Lua oracle, so the goldens encoded the same defect. **FIXED** (user chose correctness
+over Lua parity): replaced the bound with an admissible one — `minRemaining[i]` = suffix sum of each
+remaining window's cheapest contribution (`min(skipWindow, min_j cost)`, overlap relaxed), prune on
+`currentCost + minRemaining[winIdx] >= best.minCost`. Re-fuzzed (8000 trials incl. memory): **0
+suboptimal**, worst gap 3.6e-12. **The curated corpus was UNAFFECTED** (those 7 scenarios were already
+optimal — `testCorpusParityWithLuaGoldens` still green); divergence from the Lua only occurs on the ~14%
+of inputs outside the corpus. Locked with `testFindsGlobalOptimumWhereOldBoundWasSuboptimal` (the
+verifier's counterexample).
 
-**#4a — memory match takes highest-*rank*, not best-*match*** (`LayoutSolver.swift:68` breaks on first
-same-zone pref), so a lower-ranked EXACT pref is shadowed. Also a solver-cost change → **DEFERRED** with #1
-(same golden-regen tradeoff).
+**#4a — memory match took highest-*rank*, not best-*match*** (`LayoutSolver.swift` broke on the first
+same-zone pref), shadowing a lower-ranked EXACT pref. **FIXED**: scan all same-zone prefs and take the
+strongest (most-negative) bonus, so an exact zone+tile match wins. Corpus unaffected.
 
 **Implemented (no golden impact):**
 - **#3** — limbo pass reused the focused monitor's `anchorRect` for *every* monitor (latent cross-monitor
@@ -583,4 +588,5 @@ same-zone pref), so a lower-ranked EXACT pref is shadowed. Also a solver-cost ch
   `AutoTilerTests` still cited it present-tense as the parity net. Fixed the comment; added
   characterization tests for the previously-untested `subdivide` (BSP) and `fillGaps` passes.
 
-379 tests green (both configs, +4); golden corpus unchanged; all files ≤500 LOC.
+380 tests green (both configs); golden corpus unchanged (the optimality + memory fixes happened not to
+alter the 7 curated cases); all files ≤500 LOC.
