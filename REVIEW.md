@@ -507,3 +507,28 @@ cases). Findings:
   ≈1885 (within the visible 1890) — **AX-readback confirmed** — not `y=0/h=1890`. (The Dock bottom inset
   was 0 on the test machine because the Dock auto-hides; it goes through the identical `visibleFrame`
   math.)
+
+## 8. v2.1 — public Spaces enumeration without private APIs (2026-06-20)
+
+Bug: with "Use real macOS Spaces" OFF, the menu-bar widget collapsed to a single cell ("all my Spaces
+disappeared"). Root cause: the public fallback was the marker-window provider, which can only see the
+*current* Space until you visit the others. The marker technique can't enumerate.
+
+Fix — `PlistSpacesProvider` (+ `PlistSpacesReader`): enumerate the full Spaces layout from the plain
+preferences file `~/Library/Preferences/com.apple.spaces.plist` — **zero private APIs**. It mirrors the
+private `CGSCopyManagedDisplaySpaces` structure field-for-field, so the parse reuses the same shape.
+`Spaces.provider` now layers private → plist → marker.
+
+Investigated before building (not assumed):
+- **`kCGWindowWorkspace` is dead** on this macOS — `CGWindowListCopyWindowInfo` returns no workspace key
+  / values. So no exact live-current from the window list.
+- **The plist's `Current Space` does NOT move on a plain Ctrl+→ switch** (tested live: stayed `1`/`1384`
+  across two switches). It updates only on Space create/delete. So `isCurrent` is best-effort with the
+  plist; exact live current stays the private path's advantage. Count/order/UUID/full-screen are exact.
+- The plist remembers **disconnected displays** (stale `Spaces=[]` and remembered non-empty entries) and
+  stores the primary as `"Main"` — the parser filters to connected displays and remaps `"Main"` → UUID.
+
+Verified live: with the toggle OFF the menu bar now reports `provider=PlistSpacesProvider displays=2
+cells=3` — the real layout — instead of the old 1-cell collapse. 367 tests green (both configs;
+`PlistSpacesReaderTests` ×6), all files ≤500 LOC. **MAS caveat:** a sandboxed App-Store build likely
+can't read the `com.apple.spaces` domain — it then falls through to the marker provider (still works).

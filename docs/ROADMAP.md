@@ -60,17 +60,23 @@ Condensed by theme — everything here is **done and in the build**.
 ## 2. What's left
 
 ### A. Spaces — finish the App-Store story
-1. ✅ **Public-API `SpacesProvider`** (built 2026-06-20, **public path needs live validation**).
-   `SpacesProvider` protocol with two impls — `PrivateSpacesProvider` (wraps the CGS `SpacesReader`)
-   and `PublicSpacesProvider` (marker-window technique: one ~invisible 1×1 window pinned per Space,
-   "which marker is on-screen" = current Space, Spaces learned as the user visits them +
-   `activeSpaceDidChangeNotification`). `Spaces.provider(experimentalEnabled:)` selects by
-   `ZT_PRIVATE_APIS` + the runtime toggle; the menubar widget now consumes the protocol, so a
-   no-private build shows real Spaces instead of "current only". **Documented limits of the public
-   path:** visited-Spaces only, visit-order (not desktop order), no wallpapers, no native-full-screen,
-   synthetic ids not stable across relaunch, and **switching is best-effort** (step count assumes
-   desktop order). Onboarding is passive-learning (`PublicSpacesProvider.onboardingMessage`); a guided
-   prompt + Exposé integration are the remaining polish. Live-validate on a real multi-Space session.
+1. ✅ **Public-API `SpacesProvider`** (built 2026-06-20; live-validated). Three impls selected in order
+   by `Spaces.provider(experimentalEnabled:)`:
+   - `PrivateSpacesProvider` — wraps the CGS `SpacesReader` (`ZT_PRIVATE_APIS` + runtime toggle on).
+     Exact live current + wallpapers + native full-screen.
+   - `PlistSpacesProvider` — **NEW (2026-06-20):** reads the Spaces LAYOUT (count / order / per-display
+     / UUIDs / full-screen) straight from `~/Library/Preferences/com.apple.spaces.plist`
+     (`SpacesDisplayConfiguration → Management Data → Monitors`), **no private API, no onboarding**.
+     This is what fixed "turning off real Spaces makes them disappear" — the menu bar now shows the
+     real per-display counts with the private toggle off. Parser drops stale/disconnected-display
+     entries and remaps the primary's `"Main"` id → its CGDisplay UUID (`PlistSpacesReaderTests`, 6).
+     **Honest limit:** the plist's `Current Space` only updates on Space *create/delete*, not a plain
+     switch (verified live; `kCGWindowWorkspace` is also dead), so `isCurrent` is best-effort and can
+     lag — exact live current needs the private path.
+   - `PublicSpacesProvider` — marker-window technique (1×1 pinned window per Space, "which marker is
+     on-screen" = current). Now the *deepest* fallback, for when even the plist is unreadable (a
+     sandboxed App-Store build). Limits: visited-Spaces only, visit-order, no wallpapers, synthetic ids.
+   `switching` is provider-independent and best-effort (step count assumes desktop order).
 2. ⏸ **Move a window between real Spaces.** Needs private `CGSAddWindowsToSpaces` (SIP-touchy) or AX
    emulation (grab-titlebar + switch). Cross-*monitor* move already works (autotile on drop). Decide
    whether to attempt at all.

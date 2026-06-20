@@ -2,8 +2,9 @@
 // SpacesMenubar layout (Kare/Rams subset: per-monitor bracket, current filled / others hollow) into a
 // template NSStatusItem, refreshes on Space/display changes, and switches Spaces on click.
 //
-// Gated: only appears when `[ui] spaces_menubar` is on AND the experimental real-Spaces reader is
-// available (it needs real Spaces to show). Otherwise it's torn down.
+// Gated: appears when `[ui] spaces_menubar` is on AND the active SpacesProvider has data — which now
+// includes the public plist reader (no private API), so it shows ALL Spaces even with "Use real macOS
+// Spaces" off. Torn down only when the toggle is off or no provider has any Spaces.
 
 import AppKit
 import ZTCore
@@ -47,6 +48,7 @@ final class SpacesMenubarController {
             teardown(); return
         }
         let spaces = provider.spacesByDisplay()
+        log("spaces-menubar: refresh provider=\(type(of: provider)) available=\(provider.isAvailable) displays=\(spaces.count) cells=\(spaces.values.reduce(0){$0+$1.count})")
         // CGS can momentarily return nothing DURING a Space switch — do NOT tear the widget down on a
         // transient empty read (that's what made it vanish on click); keep the last render.
         guard !spaces.isEmpty else { return }

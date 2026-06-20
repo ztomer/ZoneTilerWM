@@ -116,7 +116,7 @@ struct PreviewsTab: View {
                 }
                 Toggle("Use real macOS Spaces (experimental)", isOn: Binding(
                     get: { model.realSpacesEnabled }, set: { model.setRealSpaces($0) }))
-                Text("With experimental real Spaces ON, the menu bar + Exposé show ALL your Spaces (grouped per monitor) via a private API — the complete picture, with wallpapers. OFF → a public-API fallback that learns Spaces as you visit them (best-effort: visited Spaces only, no wallpapers). Switching Spaces needs neither.")
+                Text("Either way the menu bar + Exposé list ALL your Spaces, grouped per monitor — OFF reads the count/layout from a public preferences file (no private API, no onboarding). What ON adds via the private API: an exact LIVE current-Space highlight (OFF can briefly lag a plain switch until you add/remove a Space), per-Space wallpapers, and native full-screen Spaces. Switching Spaces needs neither.")
                     .font(.caption).foregroundColor(.secondary)
             }
         }
