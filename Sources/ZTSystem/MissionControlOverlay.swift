@@ -85,7 +85,8 @@ public final class MissionControlOverlay {
             win.isOpaque = false; win.backgroundColor = .clear; win.ignoresMouseEvents = true
             win.level = .statusBar; win.hasShadow = true
             win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-            win.setFrame(NSRect(x: scr.frame.midX - w / 2, y: scr.frame.maxY - 130, width: w, height: h), display: true)
+            // Bottom-centred (above the Dock) so it never covers the Spaces strip at the top.
+            win.setFrame(NSRect(x: scr.visibleFrame.midX - w / 2, y: scr.visibleFrame.minY + 30, width: w, height: h), display: true)
             win.contentView = card
             win.orderFront(nil)
             self.searchBar = win
