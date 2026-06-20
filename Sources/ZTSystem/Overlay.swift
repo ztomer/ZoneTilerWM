@@ -87,14 +87,14 @@ public final class HintOverlay {
 
     /// Show a hint badge centered on each window: app icon (recognition) + the key (the action)
     /// + the app name (a small confirm). `center` is the window's top-left CG center point.
-    public func show(_ hints: [(label: String, app: String, icon: NSImage?, center: ZTRect)]) {
+    public func show(_ hints: [(label: String, app: String, icon: NSImage?, center: ZTRect, zone: String?)]) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.clear()
             // Build each badge + its desired center-anchored rect first, then de-overlap so badges
             // for stacked/overlapping windows don't hide one another (they dodge downward).
             let built = hints.map { h -> (badge: NSView, rect: ZTRect) in
-                let (badge, size) = HintOverlay.makeBadge(label: h.label, app: h.app, icon: h.icon)
+                let (badge, size) = HintOverlay.makeBadge(label: h.label, app: h.app, icon: h.icon, zone: h.zone)
                 return (badge, ZTRect(x: h.center.x - size.width / 2, y: h.center.y - size.height / 2,
                                       w: size.width, h: size.height))
             }
@@ -115,8 +115,8 @@ public final class HintOverlay {
         }
     }
 
-    /// A badge: [icon] [KEY] [name], black on the amber hint color, sized to its content.
-    private static func makeBadge(label: String, app: String, icon: NSImage?) -> (NSView, NSSize) {
+    /// A badge: [icon] [KEY] [name], black on the zone's pastel color, sized to its content.
+    private static func makeBadge(label: String, app: String, icon: NSImage?, zone: String?) -> (NSView, NSSize) {
         let h: CGFloat = 38, pad: CGFloat = 9, gap: CGFloat = 7, iconSize: CGFloat = 22
         let key = NSTextField(labelWithString: label.uppercased())
         key.font = .monospacedSystemFont(ofSize: 18, weight: .bold)
@@ -132,7 +132,7 @@ public final class HintOverlay {
         var x = pad
         let container = NSView()
         container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor(red: 1, green: 0.85, blue: 0.2, alpha: 0.97).cgColor
+        container.layer?.backgroundColor = HintOverlay.color(for: zone).cgColor
         container.layer?.cornerRadius = 8
         container.layer?.borderWidth = 1.5
         container.layer?.borderColor = NSColor.black.withAlphaComponent(0.85).cgColor
@@ -155,6 +155,34 @@ public final class HintOverlay {
         let total = NSSize(width: x + pad, height: h)
         container.frame = NSRect(origin: .zero, size: total)
         return (container, total)
+    }
+
+    private static func color(for zone: String?) -> NSColor {
+        guard let zone = zone?.lowercased() else {
+            return NSColor(red: 0.94, green: 0.94, blue: 0.94, alpha: 0.97) // Pastel Gray (Floating/None)
+        }
+        switch zone {
+        case "h", "left":
+            return NSColor(red: 0.85, green: 0.92, blue: 0.97, alpha: 0.97) // Pastel Blue
+        case "l", "right":
+            return NSColor(red: 0.85, green: 0.95, blue: 0.88, alpha: 0.97) // Pastel Green
+        case "k", "top":
+            return NSColor(red: 0.92, green: 0.88, blue: 0.96, alpha: 0.97) // Pastel Purple
+        case "j", "bottom":
+            return NSColor(red: 0.98, green: 0.92, blue: 0.85, alpha: 0.97) // Pastel Orange
+        case "c", "center":
+            return NSColor(red: 1.0, green: 0.95, blue: 0.75, alpha: 0.97)  // Pastel Yellow/Amber
+        default:
+            let colors = [
+                NSColor(red: 0.85, green: 0.92, blue: 0.97, alpha: 0.97), // Blue
+                NSColor(red: 0.85, green: 0.95, blue: 0.88, alpha: 0.97), // Green
+                NSColor(red: 0.92, green: 0.88, blue: 0.96, alpha: 0.97), // Purple
+                NSColor(red: 0.98, green: 0.92, blue: 0.85, alpha: 0.97), // Orange
+                NSColor(red: 1.0, green: 0.95, blue: 0.75, alpha: 0.97)  // Yellow/Amber
+            ]
+            let hash = abs(zone.hashValue)
+            return colors[hash % colors.count]
+        }
     }
 
     public func hide() { DispatchQueue.main.async { [weak self] in self?.clear() } }

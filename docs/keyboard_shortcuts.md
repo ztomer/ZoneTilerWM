@@ -6,9 +6,9 @@
 |---|---|
 | `HYPER` + `-` | Show window hints |
 | `HYPER` + `=` | Toggle Activity Monitor |
-| `Ctrl`+`Cmd` + `9` | Enable Pomodoro timer |
-| `Ctrl`+`Cmd` + `0` | Disable Pomodoro timer |
-| `Shift`+`Ctrl`+`Cmd` + `0` | Reset Pomodoro work timer |
+| `Ctrl`+`Cmd` + `8` | Start Pomodoro timer |
+| `Ctrl`+`Cmd` + `9` | Pause Pomodoro timer |
+| `Shift`+`Ctrl`+`Cmd` + `8` | Reset Pomodoro work timer |
 | `Shift`+`Ctrl`+`Cmd` + `R` | Reload ZoneTilerWM configuration |
 
 ## Tiling Shortcuts

@@ -1,12 +1,18 @@
-# ZoneTilerWM v2 — Review (engineering, performance, UI/UX, coverage)
+# ZoneTilerWM — Review (engineering, performance, UI/UX, algorithms, coverage)
+
+> This is the **single consolidated review** for the native Swift port. It folds in the former
+> `ALGORITHM_REVIEW.md` (now §4) and the whole-codebase 5-persona pass (now §5), which were merged
+> here and removed. §1–§3 are the engineering / performance / UI / coverage review; §4 is the
+> algorithm sanity review; §5 captures the later security + maintainability findings.
 
 > **Resolution status (backlog implemented).** Every actionable finding below has since been
 > addressed: AX-call caching (per-app EnhancedUI memo), the three High UI bugs (resizable
-> window, commit-on-blur, Keys-tab alignment), keycap-grid scroll, solver-weight
-> Reset-to-defaults, the `LayoutSolver` flat-matrix + dense-array optimization, the
-> `ResizeModeController`/`WindowHintsController` extraction, and unit tests raising ZTCore line
-> coverage to **91.7%**. The numbers in §3 below have been refreshed; the findings text is kept
-> as the original review record.
+> window, commit-on-blur, Keys-tab alignment — later superseded by the three-part modifier-row
+> split + appbar-mode settings window), keycap-grid scroll, solver-weight Reset-to-defaults, the
+> `LayoutSolver` flat-matrix + dense-array optimization, the `ResizeModeController`/
+> `WindowHintsController` extraction, the algorithm hardening guards (§4), and unit tests raising
+> ZTCore line coverage to **91.7%**. The numbers in §3 below have been refreshed; the findings text
+> is kept as the original review record. Current baseline: **352 Swift tests green**.
 
 Read-only review of the native Swift port as of branch `v2`. The Lua/Hammerspoon
 implementation remains the executable spec; this judges the port on engineering quality,
@@ -241,7 +247,8 @@ logic is in practice higher than the line figures below).
 | **ZTSystem** (OS adapters) | ~35% | ~41% | Dragged down by un-unit-testable AX/Carbon. |
 
 (After the backlog: PlacementStrategy 77→92%, TilerCoordinator 76→88%, AutoTiler 75→85%,
-LayoutSolver 99% line; 142 swift tests total.)
+LayoutSolver 99% line; the suite has since grown to **352 swift tests total** as the v6/v7
+features — Exposé, real Spaces, the menubar widget, automation surface — added their own units.)
 
 **Verdict: the >95% bar is NOT met, and is not achievable headless at the adapter layer.**
 
@@ -270,6 +277,56 @@ validated by 131 unit tests + 8 differential harnesses (100s of fuzz seeds each)
 spec runner, all green.
 
 ---
+
+## 4. Algorithm sanity review (correctness · numerics · determinism)
+
+> Folded in from the former `ALGORITHM_REVIEW.md`. **All findings below have since been hardened**
+> and are locked by `HardeningTests.swift` (degenerate inputs stay finite, malformed coords reject);
+> the frozen golden corpora are unchanged and `swift test --sanitize=address` runs clean.
+
+A correctness/numerical/determinism review of the pure-logic algorithms in `Sources/ZTCore/`,
+judged on their own merits (not a parity check — the Lua original is gone).
+
+**Verdict:** the core algorithms are well-structured and **deterministic by construction** — every
+sort is a documented total order with a unique final tie-break (windowId / tile sortKey / zone key),
+all clocks and offset providers are injected, and dictionary iteration is replaced by sorted-key
+passes in every output-affecting path. No determinism defect remained even before hardening. The
+defects that existed were concentrated in **numerical edge cases never exercised by real AX frames** —
+unguarded division by a dimension/area assumed positive — plus one unanchored regex.
+
+| Severity | Site | Issue (now fixed) | Fix applied |
+|---|---|---|---|
+| Medium | `ZoneCalculator.parseGridCoords` | Unanchored grid regex parsed malformed coords (`"abc1"`→`c1`) instead of `nil` | Anchored `^([a-z])([0-9]+)(?::([a-z])([0-9]+))?$` |
+| Medium | `LayoutSolver` cost fn | `w/h` & `area/screenArea` on zero dims → `Inf`/`NaN`; a `NaN` cost defeats branch-and-bound pruning | Clamp denominators / sentinel cost for degenerate input |
+| Medium | `SmartPlacer` | `overlap/area` & `w/h` on a zero-area tile → `NaN` score (silently never selected) | Skip non-positive-area tiles |
+| Low | `WindowMemory.learn` | Guarded `screenW>0` but not `screenH>0` → zero height poisons `meanArea` | Added `&& screenH > 0` |
+
+**What was already sound:** comprehensive determinism (the hardest property in this kind of port),
+empty/single/boundary guards where reachable, individually unit-tested cycling state machines
+(`PlacementStrategy.largestFreeTile`, `FocusManager.Cycler`), exact `WindowMemory` running-mean +
+recency-decay math, the legacy on-disk decoder (String/Int/Double ids, three `count` encodings),
+frozen golden corpora for `LayoutSolver` + `ZoneCalculator`, and strict-inequality edge-touch
+exclusion in `Geometry`. `FocusManager.overlapPercentage` and `AutoTiler.overlapRatio` already showed
+the correct guard-the-denominator pattern the others now follow.
+
+## 5. Whole-codebase 5-persona pass (security + maintainability)
+
+> Folded in from the former `docs/REVIEW_5_PERSONA.md` (a v1.5.15 review across Linus / Uncle Bob /
+> Carmack / Rams+Kare / Security). The engineering, perf, and UI lenses agree with §1–§2 above; this
+> records the lens that section didn't — **security** — plus the two cross-cutting Majors.
+
+- **Security — no blockers.** The attack surface is small and local: the MCP/CLI/URL front-ends only
+  ever build an `ActionRequest` (no shell-out, no arbitrary code path), the Unix-domain socket is
+  user-scoped, and read-only resources are answered from CGWindowList + config + the learned store with
+  **no window titles** leaving the process. Config is TOML parsed by TOMLKit (no `eval`). The one item
+  to keep honest: the `zonetiler://` URL scheme and Apple-Event entry points must continue to route
+  through `ActionParser` (reject-by-default) rather than ever interpreting free text.
+- **Major (resolved): version-string duplication** across 3 places → single-sourced via `ZTVersion` +
+  `./bump.sh` (commit `5285627`).
+- **Major (standing): the `main.swift` / `AgentController` god-object** — still the top maintainability
+  debt; tracked in §1 (Uncle Bob) and the roadmap's tech-debt list.
+- **Modal hotkey safety** (a 5-persona concern) — addressed for Exposé via the modal safety-timeout
+  (commit `4ea5d62`); the same pattern should cover any future capture-the-keyboard modal.
 
 ## Aggregate priority list
 

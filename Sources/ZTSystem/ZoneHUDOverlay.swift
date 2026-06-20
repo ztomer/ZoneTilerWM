@@ -71,31 +71,24 @@ private final class ZoneHUDView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Dim enough that the HUD reads as a distinct mode over any workspace, while the windows
-        // stay faintly visible underneath so you keep your bearings.
-        NSColor.black.withAlphaComponent(0.55).setFill()
+        // Light dimming so the overlay remains clean and legible without obscuring the desktop windows
+        NSColor.black.withAlphaComponent(0.20).setFill()
         bounds.fill()
 
-        // CRT scanlines — same texture as the break screen, so the two overlays read as ONE
-        // retro-terminal language (the Gemini grade flagged the missing texture as inconsistency).
-        NSColor.white.withAlphaComponent(0.035).setFill()
-        var sy = 0.0
-        while sy < bounds.height { NSRect(x: 0, y: sy, width: bounds.width, height: 1).fill(); sy += 3 }
+        // Softer, desaturated gold/amber accent matching Dieter Rams principles
+        let amber = NSColor(red: 0.92, green: 0.68, blue: 0.20, alpha: 1.0)
 
-        let amber = NSColor(red: 0.98, green: 0.70, blue: 0.20, alpha: 1.0)
-
-        // 1) the zone grid — outline each zone's real rectangle so it's clear where the key lands.
-        //    Stroke-only + a 2pt inset so concentric/overlapping zones stay distinguishable instead
-        //    of accumulating into a wash.
+        // 1) the zone grid — outline each zone's real rectangle.
+        //    Stroke-only + 2pt inset. Thin (1.0pt) and lower opacity (0.4) for a clean look.
         for z in zones {
             let r = NSRect(x: z.rect.x, y: z.rect.y, width: z.rect.w, height: z.rect.h).insetBy(dx: 2, dy: 2)
             guard r.width > 4, r.height > 4 else { continue }
             let path = NSBezierPath(roundedRect: r, xRadius: 6, yRadius: 6)
-            amber.withAlphaComponent(0.8).setStroke(); path.lineWidth = 1.5; path.stroke()
+            amber.withAlphaComponent(0.4).setStroke(); path.lineWidth = 1.0; path.stroke()
         }
 
-        // 2) the key chips — centred IN each zone (true centre), so the label sits on the region it
-        //    targets. Drawn after the grid so chips stay legible over the outlines.
+        // 2) the key chips — centred inside each zone.
+        //    No neon glows. Chips are black with 0.75 opacity and thin 1.0pt amber borders.
         let chipW = 46.0, chipH = 38.0
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold),
@@ -105,12 +98,8 @@ private final class ZoneHUDView: NSView {
             let cx = z.rect.x + z.rect.w / 2, cy = z.rect.y + z.rect.h / 2
             let r = NSRect(x: cx - chipW / 2, y: cy - chipH / 2, width: chipW, height: chipH)
             let bg = NSBezierPath(roundedRect: r, xRadius: 8, yRadius: 8)
-            NSGraphicsContext.saveGraphicsState()
-            let glow = NSShadow(); glow.shadowColor = amber.withAlphaComponent(0.4)
-            glow.shadowBlurRadius = 10; glow.shadowOffset = .zero; glow.set()
-            NSColor.black.withAlphaComponent(0.9).setFill(); bg.fill()
-            NSGraphicsContext.restoreGraphicsState()
-            amber.setStroke(); bg.lineWidth = 1.5; bg.stroke()
+            NSColor.black.withAlphaComponent(0.75).setFill(); bg.fill()
+            amber.withAlphaComponent(0.7).setStroke(); bg.lineWidth = 1.0; bg.stroke()
             let label = z.key.uppercased() as NSString
             let size = label.size(withAttributes: attrs)
             label.draw(at: NSPoint(x: r.midX - size.width / 2, y: r.midY - size.height / 2), withAttributes: attrs)

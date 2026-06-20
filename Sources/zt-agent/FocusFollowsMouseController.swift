@@ -6,7 +6,7 @@
 // then raises it. The dwell bounds the FREQUENCY (one focus per deliberate rest on a new window,
 // never per move or on the same window), but each focus is several AX calls, not one. This is the
 // only V3 feature that adds per-interaction AX, so it's gated HARD (default off). Validate the AX
-// budget on a real SentinelOne trace before enabling widely (see V2_TEST_DEBT.md).
+// budget on a real SentinelOne trace before enabling widely (owed — see docs/ROADMAP.md §C).
 
 import AppKit
 import ZTCore

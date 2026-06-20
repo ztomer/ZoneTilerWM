@@ -79,11 +79,21 @@ final class WindowHintsController {
             log("zt-agent: window hints — \(wins.count) windows, \(labeled.count) labeled")
         }
         targets = [:]
-        var badges: [(label: String, app: String, icon: NSImage?, center: ZTRect)] = []
+        var badges: [(label: String, app: String, icon: NSImage?, center: ZTRect, zone: String?)] = []
+        let zConfig = zoneConfig()
+        var screenZones: [String: [String: [ZTRect]]] = [:]
+        for s in screens.allScreens() {
+            let info = ZoneCalculator.ScreenInfo(name: s.name, frame: s.frame)
+            screenZones[s.uuid] = ZoneCalculator.computeZones(screen: info, config: zConfig).zones
+        }
         for (label, w) in labeled {
             targets[label] = w.id
             let center = ZTRect(x: w.frame.x + w.frame.w / 2, y: w.frame.y + w.frame.h / 2, w: 0, h: 0)
-            badges.append((label, w.appName, appIcon(for: w.appName), center))
+            var zoneKey: String? = nil
+            if let uuid = w.screenUUID, let zones = screenZones[uuid] {
+                zoneKey = ZoneOccupancy.bestZone(window: w.frame, zones: zones)
+            }
+            badges.append((label, w.appName, appIcon(for: w.appName), center, zoneKey))
         }
         active = true
         overlay.show(badges)
@@ -94,6 +104,7 @@ final class WindowHintsController {
     func exit() {
         guard active else { return }
         active = false
+        log("zt-agent: window hints OFF (dismissed)")
         for id in modalIDs { binder.unbind(id) }
         modalIDs = []
         targets = [:]

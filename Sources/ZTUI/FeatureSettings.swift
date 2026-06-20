@@ -40,6 +40,32 @@ struct NumberRow: View {
     }
 }
 
+struct SliderRow: View {
+    let label: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    var step: Int = 1
+    var suffix: String = ""
+
+    var body: some View {
+        LabeledContent(label) {
+            HStack(spacing: 8) {
+                Slider(value: Binding(
+                    get: { Double(value) },
+                    set: { value = Int($0.rounded()) }
+                ), in: Double(range.lowerBound)...Double(range.upperBound), step: Double(step))
+                .labelsHidden()
+                .frame(width: 140)
+                
+                Text("\(value)\(suffix)")
+                    .frame(width: 48, alignment: .trailing)
+                    .foregroundColor(.secondary)
+                    .font(.system(.body, design: .monospaced))
+            }
+        }
+    }
+}
+
 /// Label + a row of tappable colour swatches (the nine config colour names). Replaces a
 /// name-dropdown so the choice is visual and direct (the selected swatch is ringed).
 private struct ColorSwatchRow: View {
@@ -90,10 +116,10 @@ struct PomodoroSettings: View {
         ToggleSection("Color bar", isOn: Binding(
             get: { model.config.pomodoroEnableColorBar }, set: { model.setPomodoroColorBar($0) })) {
             if model.config.pomodoroEnableColorBar {
-                NumberRow(label: "Bar height", value: Binding(
+                SliderRow(label: "Bar height", value: Binding(
                     get: { Int((model.config.pomodoroIndicatorHeight * 100).rounded()) },
                     set: { model.setPomodoroIndicatorHeight(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
-                NumberRow(label: "Bar opacity", value: Binding(
+                SliderRow(label: "Bar opacity", value: Binding(
                     get: { Int((model.config.pomodoroIndicatorAlpha * 100).rounded()) },
                     set: { model.setPomodoroIndicatorAlpha(Double($0) / 100) }), range: 5...100, step: 5, suffix: "%")
                 ColorSwatchRow(label: "Remaining color", selected: model.config.pomodoroColorRemaining) {
@@ -132,10 +158,10 @@ struct BordersSettings: View {
                   + "Motion prediction leads the outline to compensate for follow-lag.") {
             if model.config.borders.enabled {
                 ColorSwatchRow(label: "Color", selected: model.config.borders.color) { model.setBordersColor($0) }
-                NumberRow(label: "Width", value: Binding(
+                SliderRow(label: "Width", value: Binding(
                     get: { Int(model.config.borders.width.rounded()) },
                     set: { model.setBordersWidth($0) }), range: 1...12, suffix: "px")
-                NumberRow(label: "Corner radius", value: Binding(
+                SliderRow(label: "Corner radius", value: Binding(
                     get: { Int(model.config.borders.cornerRadius.rounded()) },
                     set: { model.setBordersCornerRadius($0) }), range: 0...24, suffix: "px")
                 Picker("Renderer", selection: Binding(
@@ -178,11 +204,9 @@ struct AudioSettings: View {
             HStack(spacing: 6) {
                 Text("Switch hotkey")
                 Spacer(minLength: 12)
-                Picker("", selection: Binding(
-                    get: { Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER") },
-                    set: { model.setAudioHotkey(alias: $0, key: model.config.audioHotkeyKey ?? "'") })) {
-                    ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
-                }.labelsHidden().fixedSize()
+                ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: model.config.audioHotkeyModifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "HYPER")) {
+                    model.setAudioHotkey(alias: $0, key: model.config.audioHotkeyKey ?? "'")
+                }
                 Text("+").foregroundColor(.secondary)
                 TextField("", text: Binding(
                     get: { model.config.audioHotkeyKey ?? "" },
@@ -292,11 +316,12 @@ struct PomodoroTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
-            Section("Preview") { PomodoroBarPreview(model: model) }
+            Section { PomodoroBarPreview(model: model) }
             PomodoroSettings(model: model)
             ToggleSection("Break screen", isOn: Binding(
                 get: { model.config.breakScreenEnabled }, set: { model.setBreakScreenEnabled($0) }),
                 footer: "A full-screen \"BREAK TIME\" overlay when a work period ends.") {
+                HStack { Spacer(); BreakScreenPreview(); Spacer() }.padding(.vertical, 8)
                 if model.config.breakScreenEnabled {
                     NumberRow(label: "Duration", value: Binding(
                         get: { model.config.breakScreenDurationSec },
@@ -342,14 +367,9 @@ struct AutomationTab: View {
 
     private func caption(_ s: String) -> some View { Text(s).font(.caption).foregroundColor(.secondary) }
 
-    @ViewBuilder private var nlStatus: some View {
-        switch NLInterpreter.status {
-        case .available:
-            Label("available", systemImage: "checkmark.circle").foregroundColor(.green)
-        case .unavailable(let why):
-            Label(why, systemImage: "exclamationmark.triangle").foregroundColor(.orange)
-                .lineLimit(1).truncationMode(.tail)
-        }
+    private var nlAvailable: Bool {
+        if case .available = NLInterpreter.status { return true }
+        return false
     }
 
     var body: some View {
@@ -357,12 +377,17 @@ struct AutomationTab: View {
             ToggleSection("Command palette", isOn: Binding(
                 get: { model.config.commandPaletteEnabled }, set: { model.setCommandPaletteEnabled($0) }),
                 footer: paletteHint) {
+                HStack { Spacer(); CommandPalettePreview(); Spacer() }.padding(.vertical, 8)
                 if model.config.commandPaletteEnabled {
+                    // Natural language is greyed out when the on-device model isn't available (no separate
+                    // status row); the palette hotkey follows.
                     Toggle("Natural language", isOn: Binding(
-                        get: { model.config.nlEnabled }, set: { model.setNLEnabled($0) }))
-                    LabeledContent("Model") { nlStatus }
-                    caption("With Natural language on, ⏎ on an unmatched query asks the on-device model "
-                            + "(\"put terminal left\"). 100% local; needs Apple Intelligence.")
+                        get: { model.config.nlEnabled && nlAvailable }, set: { model.setNLEnabled($0) }))
+                        .disabled(!nlAvailable)
+                    HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "command_palette")
+                    caption(nlAvailable
+                            ? "With Natural language on, ⏎ on an unmatched query asks the on-device model (\"put terminal left\"). 100% local."
+                            : "Natural language needs Apple Intelligence, which isn't available on this Mac.")
                 }
             }
 

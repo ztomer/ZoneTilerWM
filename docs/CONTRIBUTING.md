@@ -1,79 +1,78 @@
 # Contributing to ZoneTilerWM
 
-Thank you for your interest in contributing! Whether you're fixing a bug, adding a feature, or improving documentation, this guide will help you get started. Following these guidelines helps maintain the quality and consistency of the codebase.
+ZoneTilerWM is a native Swift macOS menubar agent — a SwiftPM package at the repo root. (It began as
+a Hammerspoon/Lua config; the Lua was ported to Swift and removed once the port reached parity. It
+remains in git history and on the `.hammerspoon` `origin` remote.) Read
+[`ARCHITECTURE.md`](../ARCHITECTURE.md) for the full design; this is the contributor quick-start.
 
-## Getting Started
+## Getting set up
 
-1.  **Install Hammerspoon**: If you haven't already, download and install [Hammerspoon](https://www.hammerspoon.org/).
-2.  **Clone the Repository**: Clone this project into your Hammerspoon configuration directory:
-    ```sh
-    git clone https://github.com/your-username/ZoneTilerWM.git ~/.hammerspoon
-    ```
-3.  **Reload Configuration**: Open the Hammerspoon console and reload the configuration to apply your changes. You can also bind a hotkey to `hs.reload()` for convenience.
+- **macOS + a recent Xcode / Swift toolchain.** `swift --version` should work from the terminal.
+- **Build & run:**
+  ```sh
+  ./build.sh         # build the package (pass-through flags, e.g. ./build.sh -c release)
+  ./run.sh           # build + launch the agent in the foreground (Ctrl-C to quit)
+  make verify        # the Swift unit + golden tests — the one green/red answer
+  make app           # build ZoneTilerWM.app (Release) via xcodegen + xcodebuild
+  ```
+- **Accessibility permission.** Moving other apps' windows needs the running binary to have
+  Accessibility (TCC) trust. macOS keys the grant to the code signature, so ad-hoc signing resets it
+  on every rebuild — the build signs with a stable self-signed `ZoneTilerWM Dev` identity when present.
+  See [`DEV_SIGNING.md`](DEV_SIGNING.md) for the one-time cert setup and the `tccutil reset` recovery.
 
-## Coding Conventions
+## Branch & remote discipline (important)
 
-To ensure the code is clean and easy to read, please adhere to the following style guidelines.
+- **All work stays on the `v2` branch**, published to the private repo `ZoneTilerWMv2` (remote
+  `v2origin`). **Never push to the original `.hammerspoon` `origin`.**
+- Commit only the files for the change at hand. **Never `git add -A`** — it sweeps in local-only files
+  (e.g. `.claude/settings.local.json`). The user's live `~/.config/ZoneTilerWM/config.toml` is not in
+  the repo; the repo `config.toml` is only the bundled default template.
+- Conventional commits: `<type>(<scope>): <subject>` — e.g. `fix(#26): exposé modal safety-timeout`.
 
-### Naming
+## Layering rules (the architecture is the contract)
 
-*   **Modules**: Use `snake_case` for module filenames (e.g., `window_state_manager.lua`).
-*   **Variables & Functions**: Use `snake_case` for local and public variables and functions (e.g., `local focused_window`, `function tiler.move_window_to_zone(...)`).
-*   **Module Tables**: The main table in a module should match the filename's intent (e.g., `local tiler = {}`).
+| Layer | What it is | Rule |
+|---|---|---|
+| **`ZTCore`** | Pure logic: solver, zones, placement, memory, auto-tiler, action vocabulary | **MUST NOT import AppKit / ApplicationServices.** Operates on value snapshots. Headless-testable. |
+| **`ZTSystem`** | OS adapters: AX, CGWindowList, NSScreen, Carbon hotkeys, CoreAudio, TOML/JSON, Spaces | Conforms to `ZTCore` protocols. Dependency inversion lives **only** here, at the OS boundary. |
+| **`ZTUI`** | SwiftUI settings + analytics | Depends on `ZTCore` only. Reads *and* writes `config.toml`. |
+| **`zt-agent`** | The `LSUIElement` menubar agent | Composition root (replaces the old `init.lua`). |
 
-### Formatting
+Plus the helper executables: `zt-mcp` (MCP server), `zonetiler-cli`, and dev CLIs (`zt-probe`,
+`zt-tile`, `zt-autotile`, `zt-axspike`).
 
-*   **Indentation**: Use 4 spaces for indentation.
-*   **Line Length**: Aim for a maximum line length of 120 characters where possible.
-*   **Whitespace**: Use whitespace to improve readability around operators and after commas.
+### Non-negotiables
 
-### Module Structure
+- **Minimize AX calls — the primary perf gate.** SentinelOne hooks/logs/analyzes every Accessibility
+  call, so cost is AX-round-trip *count*, not CPU. Reads / occupancy / z-order go through
+  `CGWindowListCopyWindowInfo` (zero AX); AX is touched only to *mutate* + read the focused element.
+  Don't add per-window AX reads for enumeration. See [`SENTINELONE_INVESTIGATION.md`](SENTINELONE_INVESTIGATION.md).
+- **Coordinates are top-left CG space everywhere** (`ZTRect`), matching AX + CGWindowList. Convert only
+  inside `NSScreenProvider` if reading `NSScreen.frame` (bottom-left). One flip bug breaks every tile.
+- **Single-threaded on main.** Every event source hops to the main thread before touching
+  `config`/`coordinator`/AppKit. No background queues.
+- **One action vocabulary.** A new front-end (hotkey/MCP/CLI/URL/Intent) only builds an `ActionRequest`
+  — it never re-implements an action. See [`AUTOMATION.md`](AUTOMATION.md).
+- **Private APIs are gated.** CGS Spaces, `_AXUIElementGetWindow`, and the SkyLight border live behind
+  the `ZT_PRIVATE_APIS` compile flag (set by the `build_*.sh` scripts, *not* in `Package.swift`) and a
+  runtime toggle, each with a public fallback. Build flag-last; test with
+  `swift test -Xswiftc -DZT_PRIVATE_APIS`.
 
-Most modules follow a standard structure. Please use this as a template for new modules.
+## TDD & verification
 
-```lua
--- modules/my_new_module.lua
+- **Tests first.** `ZTCore` is headless, so the algorithmic IP is written test-first. The solver/zones
+  tests assert against a frozen golden corpus in `Tests/Fixtures/` (a static regression set).
+- **`make verify` before anything is "done."** Current baseline: **352 tests green**, ~92% ZTCore line
+  coverage.
+- **Visual features get user-POV validation.** Anything that changes pixels (window moves, overlays,
+  the menubar widget, settings UI) is validated by running the app + screenshot **before** a
+  deterministic test locks it in. For window moves the deterministic assertion is the post-move AX
+  frame readback. There's a render harness for headless QA (`ZT_RENDER_UI=<tab>:/path.png`,
+  `ZT_RENDER=…`, etc.).
 
--- 1. Local dependencies (if any)
-local hs_something = hs.something
+## Tooling notes
 
--- 2. Module table
-local my_new_module = {}
-
--- 3. Module state (private variables)
-local config = nil
-local other_module = nil
-local debug_log = function(...) end -- Placeholder logger
-
--- 4. Private functions (if any)
-local function do_something_private()
-  -- ...
-end
-
--- 5. Public functions
-function my_new_module.do_something_public()
-  -- ...
-end
-
--- 6. Initialization function
-function my_new_module.init(cfg, other_mod, log_func)
-    config = cfg
-    other_module = other_mod
-    debug_log = log_func or debug_log
-    debug_log("MyNewModule initialized")
-end
-
--- 7. Return the module table
-return my_new_module
-```
-
-### Commit Messages
-
-Please follow a conventional commit format to make the project history easy to understand.
-
-*   **Format**: `<type>(<scope>): <subject>`
-*   **Example**: `feat(tiler): add support for window stacking in zones`
-*   **Types**: `feat` (new feature), `fix` (bug fix), `docs` (documentation), `style` (formatting), `refactor`, `test`, `chore` (build/tooling changes).
-*   **Scope**: The module or area of the codebase affected (e.g., `focus_manager`, `config`, `readme`).
-
----
+- Prefer the editor's Read/Grep over `sed`/`awk`/`head` (a shell-rewrite hook can mangle them).
+- **Build gotcha:** changing a public `ZTCore` initializer/signature can leave executables linking the
+  old symbol (`Undefined symbols … __allocating_init`). SwiftPM incremental misses it —
+  `rm -rf .build && swift build` to recover.

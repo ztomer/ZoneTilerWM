@@ -3,7 +3,7 @@
 // but no shortcut; this AX-presses it. Bound to a configurable hotkey for now — proving the AX path
 // works before deciding to wrap it in a keyboard event tap for literal ⌘S (an event tap intercepts
 // every keystroke and a bug can break all input, so we don't add it until the toggle is confirmed
-// live — see docs/V6_FEATURE_PLAN.md). AX traversal runs only on the explicit keypress (not the hot
+// live — see docs/ROADMAP.md §E). AX traversal runs only on the explicit keypress (not the hot
 // path), bounded depth.
 
 import AppKit

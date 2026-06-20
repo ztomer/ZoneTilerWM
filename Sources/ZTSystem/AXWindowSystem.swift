@@ -13,11 +13,15 @@ import AppKit
 import ApplicationServices
 import ZTCore
 
-// Private AX SPI mapping an AX window element to its CGWindowID (the standard yabai-style
-// approach for matching AX windows to CGWindowList entries).
+#if ZT_PRIVATE_APIS
+// ⚠️ PRIVATE / EXPERIMENTAL — `_AXUIElementGetWindow` is an undocumented AX SPI (the standard
+// yabai-style way to map an AX window element to its CGWindowID). NOT App-Store-safe; compiled in
+// only under ZT_PRIVATE_APIS (set by build_public.sh / build_dev.sh). The public fallback below
+// (match by pid + frame) is used otherwise — see `AXWindowSystem.windowID(of:pid:)`.
 @_silgen_name("_AXUIElementGetWindow")
 private func _AXUIElementGetWindow(_ element: AXUIElement,
                                    _ identifier: UnsafeMutablePointer<CGWindowID>) -> AXError
+#endif
 
 public struct OnScreenWindow {
     public let windowID: CGWindowID
@@ -72,12 +76,11 @@ public final class AXWindowSystem: WindowSystem {
         guard let app = NSWorkspace.shared.frontmostApplication,
               let axWin = focusedAXWindow(pid: app.processIdentifier) else { return nil }
         let cg = Self.frame(of: axWin)
-        var wid: CGWindowID = 0
-        _ = _AXUIElementGetWindow(axWin, &wid)
+        let wid = windowID(of: axWin, pid: app.processIdentifier) ?? 0
         let uuid = screenProvider.screen(containing: (x: Double(cg.midX), y: Double(cg.midY)))?.uuid
         return LiveWindow(id: Int(wid), appName: app.localizedName ?? "",
                           frame: ZTRect(x: cg.origin.x, y: cg.origin.y, w: cg.size.width, h: cg.size.height),
-                          screenUUID: uuid)
+                          screenUUID: uuid, pid: Int(app.processIdentifier))
     }
 
     public func windows(onScreen uuid: String) -> [LiveWindow] {
@@ -87,7 +90,7 @@ public final class AXWindowSystem: WindowSystem {
             return LiveWindow(id: Int(w.windowID), appName: w.ownerName,
                               frame: ZTRect(x: w.bounds.origin.x, y: w.bounds.origin.y,
                                             w: w.bounds.size.width, h: w.bounds.size.height),
-                              screenUUID: uuid)
+                              screenUUID: uuid, pid: Int(w.pid))
         }
     }
 
@@ -101,8 +104,33 @@ public final class AXWindowSystem: WindowSystem {
             LiveWindow(id: Int(w.windowID), appName: w.ownerName,
                        frame: ZTRect(x: w.bounds.origin.x, y: w.bounds.origin.y,
                                      w: w.bounds.size.width, h: w.bounds.size.height),
-                       screenUUID: nil)
+                       screenUUID: nil, pid: Int(w.pid))
         }
+    }
+
+    public func allWindowsAcrossSpaces() -> [LiveWindow] {
+        let options: CGWindowListOption = [.excludeDesktopElements]
+        guard let infoList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return []
+        }
+        var result: [LiveWindow] = []
+        for w in infoList {
+            guard let num = (w[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
+                  let owner = w[kCGWindowOwnerName as String] as? String
+            else { continue }
+            let pid = (w[kCGWindowOwnerPID as String] as? NSNumber)?.intValue
+            let layer = (w[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
+            guard layer == 0 else { continue }
+            var bounds = CGRect.zero
+            if let boundsDict = w[kCGWindowBounds as String] as? NSDictionary {
+                CGRectMakeWithDictionaryRepresentation(boundsDict as CFDictionary, &bounds)
+            }
+            result.append(LiveWindow(id: Int(num), appName: owner,
+                                     frame: ZTRect(x: bounds.origin.x, y: bounds.origin.y,
+                                                   w: bounds.size.width, h: bounds.size.height),
+                                     screenUUID: nil, pid: pid))
+        }
+        return result
     }
 
     @discardableResult
@@ -126,9 +154,14 @@ public final class AXWindowSystem: WindowSystem {
     @discardableResult
     public func focus(windowId: Int) -> Bool {
         guard let r = resolveWindow(windowId: windowId) else { return false }
+        let app = NSRunningApplication(processIdentifier: r.pid)
+        // A hidden app (Cmd-H — e.g. Notion / Notion Calendar, both Electron) does NOT come back
+        // on activate() alone: it takes focus but its windows stay hidden until you click the Dock
+        // icon. unhide() FIRST, then raise the specific window. Mirrors AppController.launchOrFocus.
+        app?.unhide()
         AXUIElementPerformAction(r.window, kAXRaiseAction as CFString)
         AXUIElementSetAttributeValue(r.window, kAXMainAttribute as CFString, kCFBooleanTrue)
-        NSRunningApplication(processIdentifier: r.pid)?.activate()
+        app?.activate(options: [.activateAllWindows])
         return true
     }
 
@@ -159,10 +192,26 @@ public final class AXWindowSystem: WindowSystem {
         guard AXUIElementCopyAttributeValue(appElem, kAXWindowsAttribute as CFString, &winsRef) == .success,
               let wins = winsRef as? [AXUIElement] else { return nil }
         for w in wins {
-            var wid: CGWindowID = 0
-            if _AXUIElementGetWindow(w, &wid) == .success, wid == target { return (w, appElem, pid) }
+            if windowID(of: w, pid: pid) == target { return (w, appElem, pid) }
         }
         return nil
+    }
+
+    /// AX window → CGWindowID. Uses the private SPI when compiled in (ZT_PRIVATE_APIS), else matches
+    /// by pid + frame against the CGWindowList (public; slightly fragile when an app has multiple
+    /// same-size windows, but adequate for the MAS-safe fallback build).
+    private func windowID(of axWin: AXUIElement, pid: pid_t) -> CGWindowID? {
+        #if ZT_PRIVATE_APIS
+        var wid: CGWindowID = 0
+        return _AXUIElementGetWindow(axWin, &wid) == .success ? wid : nil
+        #else
+        let f = Self.frame(of: axWin)
+        return Self.onScreenWindows().first {
+            $0.pid == pid
+                && abs($0.bounds.origin.x - f.origin.x) < 2 && abs($0.bounds.origin.y - f.origin.y) < 2
+                && abs($0.bounds.size.width - f.size.width) < 2 && abs($0.bounds.size.height - f.size.height) < 2
+        }?.windowID
+        #endif
     }
 
     private func focusedAXWindow(pid: pid_t) -> AXUIElement? {

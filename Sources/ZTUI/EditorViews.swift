@@ -104,8 +104,40 @@ struct ConflictBanner: View {
 /// fixed column, a Spacer pushes the controls to a common right edge, and the alias pickers
 /// share one width — the same two-column rhythm the grouped Form tabs use.
 enum KeyRowMetrics {
-    static let label: CGFloat = 170
-    static let picker: CGFloat = 150
+    static let label: CGFloat = 200
+    // The modifier is split into three fixed columns so every row aligns regardless of content:
+    // [alias name | glyphs | selector chevron]. alias + glyphs left-align; the selector right-aligns.
+    static let alias: CGFloat = 92     // widest alias name (e.g. "mash_shift")
+    static let glyphs: CGFloat = 58    // widest glyph set (⇧⌃⌥⌘)
+    static let selector: CGFloat = 24  // the dropdown chevron
+    static let picker: CGFloat = alias + glyphs + selector + 16   // total modifier-control width
+}
+
+/// The shared modifier control: three fixed columns [alias | glyphs | selector] so every hotkey /
+/// modifier row aligns regardless of alias-name or glyph-count length. Use this everywhere a modifier
+/// alias is chosen — NEVER a bare `Picker`, because a SwiftUI menu Picker sizes to its selected label
+/// and ignores `.frame(width:)`, which is what made the rows ragged.
+struct ModifierSelector: View {
+    @ObservedObject var model: SettingsModel
+    let alias: String
+    let onSelect: (String) -> Void
+    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+    var body: some View {
+        let glyphs = ModGlyph.string(model.config.aliases[alias] ?? [])
+        HStack(spacing: 8) {
+            Text(alias).frame(width: KeyRowMetrics.alias, alignment: .leading)
+            Text(glyphs).foregroundColor(.secondary).frame(width: KeyRowMetrics.glyphs, alignment: .leading)
+            Menu {
+                ForEach(aliasNames, id: \.self) { name in
+                    Button { onSelect(name) } label: { ModGlyph.aliasLabel(name, aliases: model.config.aliases) }
+                }
+            } label: {
+                Image(systemName: "chevron.up.chevron.down").font(.caption2).foregroundColor(.secondary)
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .frame(width: KeyRowMetrics.selector, alignment: .trailing)
+        }
+    }
 }
 
 /// One reusable hotkey row: label | modifier-alias picker | key recorder. Self-contained
@@ -131,11 +163,7 @@ struct HotkeyRowView: View {
         return HStack(spacing: 8) {
             Text(label).frame(width: labelWidth, alignment: .leading)
             Spacer(minLength: 12)
-            Picker("", selection: Binding(
-                get: { alias },
-                set: { model.setHotkey(section: section, key: key, alias: $0, keyName: keyName) })) {
-                ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
-            }.labelsHidden().frame(width: KeyRowMetrics.picker)
+            ModifierSelector(model: model, alias: alias) { model.setHotkey(section: section, key: key, alias: $0, keyName: keyName) }
             Text("+").foregroundColor(.secondary)
             Button(recording ? "press key…" : (keyName.isEmpty ? "Set key" : keyName.uppercased())) {
                 recorder.start(id: key)
@@ -169,38 +197,11 @@ struct KeybindEditorView: View {
         .init(id: "zone_info", label: "Move to previous monitor", section: "tiler.hotkeys", key: "zone_info"),
         .init(id: "focus_next_screen", label: "Focus next screen", section: "tiler.hotkeys", key: "focus_next_screen"),
         .init(id: "focus_prev_screen", label: "Focus previous screen", section: "tiler.hotkeys", key: "focus_prev_screen"),
+        .init(id: "expose", label: "Exposé / Window grid", section: "system_hotkeys", key: "expose"),
         .init(id: "window_hints", label: "Window hints", section: "system_hotkeys", key: "window_hints"),
         .init(id: "activity_monitor", label: "Activity Monitor", section: "system_hotkeys", key: "activity_monitor"),
-        .init(id: "reload", label: "Reload config", section: "system_hotkeys", key: "reload"),
-    ]
-
-    // Gated / opt-in feature actions — no hotkey by default, so they need a binding row to be
-    // reachable at all (the live review flagged "how do I open the command palette?").
-    private let featureRows: [Row] = [
-        .init(id: "command_palette", label: "Command palette", section: "system_hotkeys", key: "command_palette",
-              help: "A searchable list of every action. Type to fuzzy-find and run one. With Natural language "
-                  + "on (Automation), an unmatched query is sent to the on-device model (\"put terminal left\")."),
-        .init(id: "scratchpad", label: "Scratchpad summon/dismiss", section: "system_hotkeys", key: "scratchpad",
-              help: "Summon a set of utility apps together and dismiss them together. Set the apps under "
-                  + "App Launcher → App groups (or the legacy [scratchpad] set)."),
-        .init(id: "peek", label: "Window peek", section: "system_hotkeys", key: "peek",
-              help: "Labels every window stacked in the focused zone; type a label to jump straight to that window."),
-        .init(id: "sandbox", label: "Session sandbox", section: "system_hotkeys", key: "sandbox",
-              help: "Hides every app except the focused one for distraction-free work; toggle again to restore them all."),
-        .init(id: "expose", label: "Exposé (window grid)", section: "system_hotkeys", key: "expose",
-              help: "Lays every open window out in a grid with a letter on each — press the letter to jump to that "
-                  + "window (Esc cancels). A self-contained replacement for Mission Control."),
-        .init(id: "chrome_tabs", label: "Chrome: toggle tab strip", section: "system_hotkeys", key: "chrome_tabs",
-              help: "When Chrome is frontmost, collapse/expand its vertical tab strip (the button has no shortcut). "
-                  + "Press this while in Chrome; it does nothing in other apps."),
-        .init(id: "zen_mode", label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode",
-              help: "Minimizes the other windows so only the focused one remains; toggle to bring them back."),
-        .init(id: "float", label: "Toggle float", section: "tiler.hotkeys", key: "float",
-              help: "Excludes the focused window from auto-tiling (lets it float freely); toggle to re-include it."),
-        .init(id: "stack_next", label: "Stack: focus next", section: "tiler.hotkeys", key: "stack_next",
-              help: "Cycles focus forward through the windows stacked in the current zone."),
-        .init(id: "stack_prev", label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev",
-              help: "Cycles focus backward through the windows stacked in the current zone."),
+        // No "Reload config" hotkey: the agent watches config.toml and live-reloads, and Settings writes
+        // apply immediately — a manual reload binding is redundant (the menu-bar item remains as a fallback).
     ]
 
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
@@ -221,9 +222,6 @@ struct KeybindEditorView: View {
             Section("Actions") {
                 ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
             }
-            Section("Feature actions") {
-                ForEach(featureRows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key, help: $0.help) }
-            }
         }
         .formStyle(.grouped)
     }
@@ -232,12 +230,10 @@ struct KeybindEditorView: View {
         HStack(spacing: 8) {
             Text(label).frame(width: KeyRowMetrics.label, alignment: .leading)
             Spacer(minLength: 12)
-            Picker("", selection: Binding(
-                get: { Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias() },
-                set: { model.setModifierAlias(key: key, alias: $0) })) {
-                ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
-            }.labelsHidden().frame(width: KeyRowMetrics.picker)
-            // Reserve the action rows' "+ key" trailing columns so every picker shares one right edge.
+            ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias()) {
+                model.setModifierAlias(key: key, alias: $0)
+            }
+            // Reserve the action rows' "+ key" trailing columns so every row shares one right edge.
             Text("+").hidden()
             Color.clear.frame(width: 84, height: 1)
         }
@@ -325,11 +321,9 @@ struct AppShortcutsView: View {
                     Text("Hyper apps").tag("hyperAppCuts")
                 }.pickerStyle(.segmented).frame(width: 240).labelsHidden()
                 Text("Modifier").foregroundColor(.secondary)
-                Picker("", selection: Binding(
-                    get: { Keybinding.alias(forModifiers: currentGroup.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash") },
-                    set: { model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]") })) {
-                    ForEach(aliasNames, id: \.self) { ModGlyph.aliasLabel($0, aliases: model.config.aliases).tag($0) }
-                }.labelsHidden().frame(width: 150)
+                ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: currentGroup.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash")) {
+                    model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]")
+                }
                 Spacer()
             }
             Text("Each key shows the app it launches with the selected modifier. Click a key to edit.")
@@ -457,8 +451,10 @@ struct LayoutEditorView: View {
                         zonePreviews
                         Divider().padding(.vertical, 6)
                         HStack(alignment: .top, spacing: 20) { gridView; tileList }
+                            .frame(maxWidth: .infinity, alignment: .center)   // centre the cell-grid + cycle editor
                         Text("Click a cell, then another to span a rectangle. Add appends it to the zone's cycle; Save writes config.toml.")
                             .font(.caption).foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
                 SectionCard(title: "Default zone per app") { DefaultZonesSection(model: model) }
@@ -510,6 +506,7 @@ struct LayoutEditorView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .center)   // centre the keyboard grid (matches the cell-grid below)
     }
 
     private func zoneKeycap(_ key: String) -> some View {

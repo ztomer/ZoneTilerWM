@@ -8,9 +8,10 @@ public struct LiveWindow: Equatable {
     public let appName: String
     public let frame: ZTRect      // top-left CG coords
     public let screenUUID: String?
+    public let pid: Int?          // process identifier (for CGS space queries)
 
-    public init(id: Int, appName: String, frame: ZTRect, screenUUID: String?) {
-        self.id = id; self.appName = appName; self.frame = frame; self.screenUUID = screenUUID
+    public init(id: Int, appName: String, frame: ZTRect, screenUUID: String?, pid: Int? = nil) {
+        self.id = id; self.appName = appName; self.frame = frame; self.screenUUID = screenUUID; self.pid = pid
     }
 }
 

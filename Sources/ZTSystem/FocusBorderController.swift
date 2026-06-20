@@ -141,8 +141,14 @@ public final class FocusBorderController {
         case .overlay:
             renderer = OverlayBorderRenderer()
         case .skylight:
-            // Fall back to the overlay renderer if the private window-server path is unavailable.
+            // Fall back to the overlay renderer if the private window-server path is unavailable —
+            // and ALWAYS in a strict-MAS build (the SkyLight renderer is compiled out without
+            // ZT_PRIVATE_APIS, since it dlopens a private framework).
+            #if ZT_PRIVATE_APIS
             renderer = SkyLightBorderRenderer() ?? OverlayBorderRenderer()
+            #else
+            renderer = OverlayBorderRenderer()
+            #endif
         }
     }
 

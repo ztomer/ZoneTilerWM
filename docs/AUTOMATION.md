@@ -260,7 +260,8 @@ the cursor over windows costs nothing — only a deliberate rest on a *new* wind
 element reads the target app's window list (~3 + N AX). The dwell bounds the *frequency* (one focus
 per rest-on-a-new-window), not the per-focus cost. So this is the only feature that adds
 per-interaction AX — **gated HARD, default off**, and you should validate the AX budget on a real
-SentinelOne trace before relying on it (see `docs/V2_TEST_DEBT.md`). `[focus_follows_mouse] enabled`
+SentinelOne trace before relying on it (this validation is owed — see `docs/ROADMAP.md` §C).
+`[focus_follows_mouse] enabled`
 + `delay_ms` (default 250, clamped 50–2000).
 
 ## Display-topology presets (`[[display_presets]]`)

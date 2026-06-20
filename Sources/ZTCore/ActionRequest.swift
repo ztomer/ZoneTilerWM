@@ -66,6 +66,7 @@ public enum ActionRequest: Codable, Equatable {
     // Modal toggles: executed by zt-agent controllers (dispatcher routes via a hook).
     case toggleResizeMode
     case toggleWindowHints
+    case toggleExpose   // custom exposé replacement: grid every window with jump labels (toggle)
 
     // Layout snapshots (capture/restore named arrangements). Agent-orchestrated (storage +
     // arrangement capture + window-targeted restore).

@@ -17,11 +17,11 @@ final class MissionControlTests: XCTestCase {
         XCTAssertEqual(h.map { $0.label }, WindowHints.labels(count: 3))   // a, s, d, …
     }
 
-    func testBadgeCentredAndCloseTopRight() {
+    func testBadgeCentredAndCloseTopLeft() {
         let h = MissionControl.hints(for: tiles(), badge: (34, 26), close: 22, inset: 8)
         let first = h[0]   // tile (0,0,400,300)
         XCTAssertEqual(first.badge, ZTRect(x: (400 - 34) / 2, y: (300 - 26) / 2, w: 34, h: 26))
-        XCTAssertEqual(first.close, ZTRect(x: 400 - 22 - 8, y: 8, w: 22, h: 22))   // top-right inset
+        XCTAssertEqual(first.close, ZTRect(x: 8, y: 8, w: 22, h: 22))   // top-left inset (macOS-native side)
     }
 
     func testClampsBadgeAndCloseInsideTinyTile() {
@@ -62,11 +62,59 @@ final class MissionControlTests: XCTestCase {
         XCTAssertTrue(MissionControl.gridTiles(windowIds: [], in: screen).isEmpty)
     }
 
-    func testCloseHitTestsTheCorrectWindow() {
+    func testSpatialGridTiles() {
+        let screen = ZTRect(x: 0, y: 0, w: 1000, h: 800)
+
+        // 1. Single window on the right side of a 2x1 grid
+        let rightWindow = (windowId: 10, frame: ZTRect(x: 600, y: 100, w: 300, h: 300))
+        let tiles1 = MissionControl.spatialGridTiles(windows: [rightWindow], in: screen, cols: 2, rows: 1, margin: 40, gap: 20)
+        XCTAssertEqual(tiles1.count, 1)
+        XCTAssertEqual(tiles1[0].windowId, 10)
+        XCTAssertEqual(tiles1[0].frame.x, 510) // mapped to the right-hand cell
+
+        // 2. Overlapping/stacked windows map to separate closest cells
+        let leftWin1 = (windowId: 1, frame: ZTRect(x: 100, y: 100, w: 200, h: 200))
+        let leftWin2 = (windowId: 2, frame: ZTRect(x: 110, y: 110, w: 200, h: 200))
+        let tiles2 = MissionControl.spatialGridTiles(windows: [leftWin1, leftWin2], in: screen, cols: 2, rows: 2, margin: 40, gap: 20)
+        XCTAssertEqual(tiles2.count, 2)
+        let win1Tile = tiles2.first(where: { $0.windowId == 1 })!
+        let win2Tile = tiles2.first(where: { $0.windowId == 2 })!
+        XCTAssertEqual(win1Tile.frame.x, 40)
+        XCTAssertEqual(win2Tile.frame.x, 40)
+        XCTAssertNotEqual(win1Tile.frame.y, win2Tile.frame.y)
+        XCTAssert(win1Tile.frame.y == 40 || win1Tile.frame.y == 410)
+        XCTAssert(win2Tile.frame.y == 40 || win2Tile.frame.y == 410)
+
+        // 3. Fallback when grid is too small
+        let tiles3 = MissionControl.spatialGridTiles(windows: [leftWin1, leftWin2], in: screen, cols: 1, rows: 1, margin: 40, gap: 20)
+        XCTAssertEqual(tiles3.count, 2) // Resizes dynamically
+     }
+
+     func testHintsOverloadResolvesAppAndZone() {
+         let t = [MissionControl.Tile(windowId: 99, frame: ZTRect(x: 0, y: 0, w: 200, h: 200))]
+         let appNames = [99: "Ghostty"]
+         let zoneKeys = [99: "h"]
+         let h = MissionControl.hints(for: t, appNames: appNames, zoneKeys: zoneKeys)
+         XCTAssertEqual(h.count, 1)
+         XCTAssertEqual(h[0].appName, "Ghostty")
+         XCTAssertEqual(h[0].zoneKey, "h")
+     }
+
+     func testCloseHitTestsTheCorrectWindow() {
         let h = MissionControl.hints(for: tiles())
         let c = h[1].close   // window 20's × button
         XCTAssertEqual(MissionControl.closeHit(at: c.x + 2, c.y + 2, in: h), 20)
         XCTAssertNil(MissionControl.closeHit(at: 5, 295, in: h))   // empty corner of tile 1, no × there
+    }
+
+    func testNavigateMovesSelectionSpatially() {
+        let h = MissionControl.hints(for: tiles())   // 10=(0,0) 20=(400,0) 30=(0,300)
+        XCTAssertEqual(MissionControl.navigate(from: 10, .right, in: h), 20)  // right neighbour
+        XCTAssertEqual(MissionControl.navigate(from: 10, .down, in: h), 30)   // below
+        XCTAssertEqual(MissionControl.navigate(from: 20, .left, in: h), 10)   // back left
+        XCTAssertEqual(MissionControl.navigate(from: 10, .left, in: h), 10)   // nothing left → unchanged
+        XCTAssertEqual(MissionControl.navigate(from: 10, .up, in: h), 10)     // nothing up → unchanged
+        XCTAssertEqual(MissionControl.navigate(from: 999, .right, in: h), 10) // unknown → first hint
     }
 
     func testTileHitJumpsByClickAnywhereInTile() {

@@ -31,6 +31,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "ZTCore"),
+        // NOTE: the `ZT_PRIVATE_APIS` compile flag (gates ALL private-API code: the SkyLight Spaces
+        // reader, the _AXUIElementGetWindow AX SPI, and the SkyLight focus-border renderer) is passed
+        // by the build scripts (build_public.sh / build_dev.sh), NOT hardcoded here — so the default
+        // `swift build` is strict-MAS-leaning (public fallbacks only). build_mas.sh omits the flag.
         .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"]),
         .target(name: "ZTUI", dependencies: ["ZTCore", "ZTSystem"], resources: [.process("Resources")]),
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),

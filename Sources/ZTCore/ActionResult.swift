@@ -20,7 +20,7 @@ public struct TiledMove: Codable, Equatable {
 }
 
 public enum ModalMode: String, Codable, Equatable {
-    case resize, windowHints, windowPeek
+    case resize, windowHints, windowPeek, expose
 }
 
 /// Serializable error vocabulary. Mirrors `TilerCoordinator.MoveError` 1:1 and adds the

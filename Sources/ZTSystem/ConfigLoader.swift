@@ -64,6 +64,13 @@ public enum ConfigLoader {
         public var tilerHotkeys: [String: [String]]      // action -> [modifierAlias, key]
         public var systemHotkeys: [String: [String]]     // action -> [modifierAlias, key]
         public var keyboardLayout: String                 // [ui] keyboard_layout: auto/qwerty/dvorak/colemak
+        public var exposeSpacesBarPosition: String        // [ui] expose_spaces_bar_position: top/left/right/bottom
+        public var exposeNav: String                       // [ui] expose_nav: "arrows" (default) / "vim" (hjkl) / "wasd"
+        public var exposeScope: String                     // [ui] expose_scope: "active" monitor (default) / "all" monitors
+        public var experimentalRealSpaces: Bool            // [ui] experimental_real_spaces — opt-in private-API real macOS Spaces (default off)
+        public var spacesMenubar: Bool                     // [ui] spaces_menubar — show the Spaces widget in the menu bar (default off)
+        public var spaceSwitchMethod: String               // [ui] space_switch_method: "auto" / "keyboard" / "gesture" (all public, no private API)
+        public var spacesMenubarBracket: String            // [ui] spaces_menubar_bracket: "bold"(default)/"thin"/"paren"/"square"/"none"
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
         public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
@@ -226,7 +233,16 @@ public enum ConfigLoader {
         var rules: [RawRule]?
     }
 
-    private struct RawUI: Decodable { var keyboard_layout: String? }
+    private struct RawUI: Decodable {
+        var keyboard_layout: String?
+        var expose_spaces_bar_position: String?
+        var expose_nav: String?
+        var expose_scope: String?
+        var experimental_real_spaces: Bool?
+        var spaces_menubar: Bool?
+        var space_switch_method: String?
+        var spaces_menubar_bracket: String?
+    }
 
     private struct RawAutomation: Decodable { var enabled: Bool? }
     private struct RawCommandPalette: Decodable { var enabled: Bool? }
@@ -351,6 +367,13 @@ public enum ConfigLoader {
             tilerHotkeys: t.hotkeys ?? [:],
             systemHotkeys: raw.system_hotkeys ?? [:],
             keyboardLayout: raw.ui?.keyboard_layout ?? "auto",
+            exposeSpacesBarPosition: raw.ui?.expose_spaces_bar_position ?? "top",
+            exposeNav: raw.ui?.expose_nav ?? "arrows",
+            exposeScope: raw.ui?.expose_scope ?? "active",
+            experimentalRealSpaces: raw.ui?.experimental_real_spaces ?? false,
+            spacesMenubar: raw.ui?.spaces_menubar ?? false,
+            spaceSwitchMethod: raw.ui?.space_switch_method ?? "auto",
+            spacesMenubarBracket: raw.ui?.spaces_menubar_bracket ?? "bold",
             borders: Borders(
                 enabled: raw.borders?.enabled ?? false,
                 backend: raw.borders?.backend ?? "overlay",

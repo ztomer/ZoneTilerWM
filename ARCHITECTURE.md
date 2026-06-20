@@ -1,13 +1,15 @@
 # ZoneTilerWM — Native Port Architecture (v2)
 
 This document is the canonical reference for the **native Swift port** of ZoneTilerWM.
-The original is a Hammerspoon/Lua window manager (see `../docs/ARCHITECTURE.md`); v2
-rebuilds it as a standalone native macOS menubar agent with no Hammerspoon dependency, at
-full feature parity. v2 work lives on the `v2` branch, published to the private repo
-`ZoneTilerWMv2`. It is not pushed to the original `.hammerspoon` origin.
+The original was a Hammerspoon/Lua window manager; v2 rebuilt it as a standalone native macOS
+menubar agent with no Hammerspoon dependency, at full feature parity, then went beyond it. v2 work
+lives on the `v2` branch, published to the private repo `ZoneTilerWMv2`. It is not pushed to the
+original `.hammerspoon` origin.
 
-The Lua implementation remains in the tree as the **executable specification**: every
-ported module is checked for behavioral parity against it (see Differential Testing).
+The Lua implementation was the **executable specification**: every ported module was checked for
+behavioral parity against it (see Differential Testing). Once parity was reached, the Lua and the
+differential harness were removed — they remain in git history and on the `.hammerspoon` origin
+remote. See [docs/ROADMAP.md](docs/ROADMAP.md) for what shipped on top of parity and what's left.
 
 ---
 
@@ -18,8 +20,11 @@ ported module is checked for behavioral parity against it (see Differential Test
   layer; AppKit/Cocoa pieces (NSScreen, NSStatusItem, NSWorkspace, NSAppleScript) are
   Swift-native.
 - **Scope:** full feature parity (tiling, auto-tiler, window memory, Pomodoro, audio
-  switcher, app switcher, grid/resize overlay, settings GUI). macOS **Spaces is out of
-  scope** (not wired into the production Lua either).
+  switcher, app switcher, grid/resize overlay, settings GUI), plus the v2-only surface built on top
+  — the automation spine (action API / MCP / CLI / URL / Intents / rules), command palette, Exposé,
+  and **real macOS Spaces** (switch / rename / menubar widget). Spaces was out of scope in the Lua;
+  it's now shipped behind an experimental gate (private CGS reader + public fallback) — see below
+  and [docs/ROADMAP.md](docs/ROADMAP.md).
 - **Config:** read the existing `config.toml` as-is, with a file-watcher for live reload.
   Existing JSON state in `~/.config/ZoneTilerWM/` stays byte-compatible.
 
@@ -86,6 +91,28 @@ URL scheme (GURL Apple Event → `ActionParser` → dispatcher), exposes **App I
 helper binaries (`zt-mcp`, `zonetiler-cli`) in `Contents/MacOS`. See **`docs/AUTOMATION.md`** for the full surface and
 how to connect Claude / the CLI. Invariant: a new front-end only builds an `ActionRequest` — it
 never re-implements an action.
+
+### Spaces & Exposé (v2.x) — private-API gating
+
+Two later surfaces extend beyond Lua parity:
+
+- **Exposé** — a keyboard-driven Mission-Control replacement (`ExposeController`). Enumerates on-screen
+  windows via CGWindowList (0 AX), lays out a per-display grid (the pure layout math is in `ZTCore`,
+  mirroring how `MissionControl` is the pure layer under the overlay), type-to-jump labels, ↵/⌘W/⌘M/⌘Q
+  actions, arrow/vim/wasd nav, a modal safety-timeout, and a Liquid-Glass Spaces strip.
+- **Real macOS Spaces** — `SpacesReader` reads real Spaces per display (private CGS
+  `CGSCopyManagedDisplaySpaces`, read-only); `SpaceSwitcher` switches (synthetic dock-swipe `CGEvent`
+  on the active display, "Switch to Desktop N" keyboard fallback cross-display); `SpaceNameStore`
+  persists rename by real-Space UUID; and the menubar widget is the usual pure-layer-under-OS-shell
+  split — `SpacesMenubar` (pure layout in `ZTCore`) → `SpacesMenubarRenderer` → the
+  `SpacesMenubarController` NSStatusItem.
+
+**Private-API gating.** Three surfaces touch private APIs — CGS Spaces, the `_AXUIElementGetWindow`
+AX SPI, and the SkyLight focus-border renderer. Each is wrapped in `#if ZT_PRIVATE_APIS` **and** a
+runtime toggle (default off), with a public fallback path. The compile flag is passed by the build
+scripts (`build_mas.sh` strict / `build_public.sh` gated-experimental / `build_dev.sh`), **not** set
+in `Package.swift`, so the default `swift build`/`swift test` is MAS-clean. Build flag-last and test
+with `swift test -Xswiftc -DZT_PRIVATE_APIS` when exercising the gated paths.
 
 ### The value-snapshot vs. mutation-protocol split
 
@@ -303,8 +330,8 @@ last-resort — no latency benefit, the lag is polling not drawing]; focused
 frame sampled from CGWindowList = zero AX, smoothed by `ZTCore.FrameMotionPredictor` [One Euro]),
 `ConfigWatcher` (file-watch reload),
 `ZTUI` (SwiftUI settings: General, keybind editor, visual layout editor, memory inspector).
-Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **244 Swift tests,
-all green** (v1.4; the Lua + differential harness were retired post-parity — see the banner at
+Repo-root `build.sh` / `run.sh` build and launch the agent. `make verify` → **352 Swift tests,
+all green** (the Lua + differential harness were retired post-parity — see the banner at
 the top of "Differential oracle testing" below). Line coverage is ~92% for the pure-logic `ZTCore`
 layer; the OS adapters / UI are validated by live screenshot QA + the post-move AX frame
 readback rather than unit tests. See `REVIEW.md` for the full coverage breakdown and the
@@ -340,5 +367,5 @@ rebuilt coherently (arrows nudge zone grid lines via `ResizeManager`).
 
 Live multi-monitor validation of the nav + monitor-identity features is now done (verified on
 a two-display setup: main display seeds to logical id 1, secondary to 2; re-registers on
-display-arrangement change). See `REMAINING_PORT_PLAN.md` for the per-slice detail and
+display-arrangement change). See [docs/ROADMAP.md](docs/ROADMAP.md) for what's shipped/left and
 `REVIEW.md` for the review.

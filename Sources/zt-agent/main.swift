@@ -156,6 +156,7 @@ final class AgentController: NSObject {
     private var layouts: LayoutLibrary
     private let pomodoro: Pomodoro
     private var statusItem: NSStatusItem?
+    private var spacesMenubar: SpacesMenubarController?
     private var pomodoroItem: NSStatusItem?
     private var pomodoroPill: PomodoroPillView?
     private var pomodoroTimer: Timer?
@@ -233,7 +234,36 @@ final class AgentController: NSObject {
             binder: binder, screens: screens, windowSystem: windowSystem,
             keyboardLayout: { [weak self] in self?.config.keyboardLayout ?? "auto" },
             zoneConfig: { [weak self] in self?.config.zoneConfig ?? ZoneConfig(grids: [:], layouts: [:]) })
-        expose = ExposeController(binder: binder, screens: screens, windowSystem: windowSystem)
+        expose = ExposeController(
+            binder: binder,
+            screens: screens,
+            windowSystem: windowSystem,
+            layoutGrid: { [weak self] screen in
+                guard let self else { return (2, 2) }
+                let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+                let res = ZoneCalculator.computeZones(screen: info, config: self.config.zoneConfig, offsets: { _, _ in 0 })
+                let layoutKey = res.layoutKey
+                let grid = self.config.zoneConfig.grids[layoutKey] ?? GridConfig(cols: 2, rows: 2)
+                return (grid.cols, grid.rows)
+            },
+            screenZones: { [weak self] screen in
+                guard let self else { return [:] }
+                let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+                return ZoneCalculator.computeZones(screen: info, config: self.config.zoneConfig, offsets: { _, _ in 0 }).zones
+            },
+            spacesBarPosition: { [weak self] in
+                self?.config.exposeSpacesBarPosition ?? "top"
+            },
+            exposeNav: { [weak self] in
+                self?.config.exposeNav ?? "arrows"
+            },
+            exposeScope: { [weak self] in
+                self?.config.exposeScope ?? "active"
+            },
+            realSpacesEnabled: { [weak self] in
+                self?.config.experimentalRealSpaces ?? false
+            }
+        )
         // The action dispatcher: hooks read live state via `unowned self` (the dispatcher is owned
         // by self and never outlives it). The coordinator/config getters are closures so a live
         // reload is picked up automatically. The pomodoro hook also refreshes the menubar UI, so
@@ -258,6 +288,7 @@ final class AgentController: NSObject {
             },
             toggleResizeMode: { [unowned self] in self.resizeMode.toggle() },
             toggleWindowHints: { [unowned self] in self.windowHints.toggle() },
+            toggleExpose: { [unowned self] in self.expose.toggle() },
             peekZone: { [unowned self] in self.windowHints.enterZone() },
             toggleFloat: { [unowned self] in
                 guard let id = self.windowSystem.focusedWindow()?.id else { return .failed(reason: .noFocusedWindow) }
@@ -866,6 +897,7 @@ final class AgentController: NSObject {
     /// item + timer) are preserved.
     private func applyConfig(_ newConfig: ConfigLoader.LoadedConfig) {
         config = newConfig
+        spacesMenubar?.refresh()   // re-evaluate the menu-bar Spaces widget gate on reload
         coordinator = AgentController.makeCoordinator(config: newConfig, windowSystem: windowSystem,
                                                       screens: screens, memory: learnedMemory,
                                                       monitorManager: monitorManager, storage: storage,
@@ -972,8 +1004,9 @@ final class AgentController: NSObject {
             self?.dispatcher.perform(.sandboxToggle)
         }
         // Exposé replacement: lay all windows out in a grid with jump labels (opt-in `expose` hotkey).
+        // Routed through the dispatcher so the hotkey, MCP, IPC, CLI and URL all share one path.
         bindAction(config.resolvedHotkey("expose", in: config.systemHotkeys), label: "expose") { [weak self] in
-            self?.expose.toggle()
+            self?.dispatcher.perform(.toggleExpose)
         }
         // Chrome tab-strip toggle (opt-in `chrome_tabs` hotkey; only acts when Chrome is frontmost).
         bindAction(config.resolvedHotkey("chrome_tabs", in: config.systemHotkeys), label: "chrome_tabs") { [weak self] in
@@ -1024,6 +1057,18 @@ final class AgentController: NSObject {
         return img
     }
 
+    /// The menu-bar Spaces widget (Phase 3) — gated by [ui] spaces_menubar + the experimental
+    /// real-Spaces toggle. Reads live config via closures so a reload re-evaluates the gate.
+    func setupSpacesMenubar() {
+        let c = SpacesMenubarController(
+            enabled: { [weak self] in self?.config.spacesMenubar ?? false },
+            realSpaces: { [weak self] in self?.config.experimentalRealSpaces ?? false },
+            switchMethod: { [weak self] in self?.config.spaceSwitchMethod ?? "auto" },
+            bracketStyle: { [weak self] in self?.config.spacesMenubarBracket ?? "bold" })
+        spacesMenubar = c
+        c.refresh()
+    }
+
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
@@ -1044,15 +1089,12 @@ final class AgentController: NSObject {
         let analyticsItem = NSMenuItem(title: "Window Analytics…", action: #selector(openAnalytics), keyEquivalent: "")
         analyticsItem.target = self
         menu.addItem(analyticsItem)
-        let reloadItem = NSMenuItem(title: "Reload Config", action: #selector(reloadConfig), keyEquivalent: "r")
-        reloadItem.target = self
-        menu.addItem(reloadItem)
+        // No manual "Reload Config" item — the config file-watcher live-reloads on every save, so a
+        // manual reload is redundant. (The action is still reachable programmatically via the dispatcher.)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
     }
-
-    @objc func reloadConfig() { reloadFromDisk() }
 
     @objc func openAnalytics() {
         if analytics == nil {
@@ -1085,6 +1127,7 @@ final class AgentController: NSObject {
     func showZoneHUDForQA() { zoneHUD.forceShow() }
     func dragSnapForQA() { dragSnap.forceSnap() }
     func breakScreenForQA() { breakScreen.forceShow() }
+    func showExposeForQA() { expose.enter() }   // live exposé overlay (glass material) for screenshot QA
 
     /// Deterministic, windowless render of a visual overlay to a PNG (QA / Gemini visual grading).
     /// No app loop, no display capture — draws the overlay view into a bitmap over a neutral backdrop.
@@ -1112,13 +1155,25 @@ final class AgentController: NSObject {
                                                 size: NSSize(width: screen.fullFrame.w, height: screen.fullFrame.h), backdropImage: bg)
         case "mc":
             // Fake a 2×2 exposé layout so the overlay's badges + × buttons can be graded headlessly.
-            let f = screen.frame, mx = f.w * 0.06, my = f.h * 0.08
-            let cw = (f.w - 3 * mx) / 2, ch = (f.h - 3 * my) / 2
+            let f = screen.frame, barH = 240.0, mx = f.w * 0.06
+            let my = (f.h - barH) * 0.08
+            let cw = (f.w - 3 * mx) / 2, ch = ((f.h - barH) - 3 * my) / 2
             let tiles = [(0, 0), (1, 0), (0, 1), (1, 1)].enumerated().map { i, p in
                 MissionControl.Tile(windowId: i + 1, frame: ZTRect(
-                    x: f.x + mx + Double(p.0) * (cw + mx), y: f.y + my + Double(p.1) * (ch + my), w: cw, h: ch))
+                    x: f.x + mx + Double(p.0) * (cw + mx),
+                    y: f.y + barH + my + Double(p.1) * (ch + my),
+                    w: cw, h: ch))
             }
-            data = MissionControlOverlay.renderPNG(hints: MissionControl.hints(for: tiles), screenCGFrame: f, backdropImage: bg)
+            let mockSpaces = [
+                MissionControlOverlay.SpaceInfo(name: "Desktop 1", windows: [
+                    MissionControlOverlay.SpaceMiniWindow(key: "A", badgeColor: NSColor(red: 0.85, green: 0.92, blue: 0.97, alpha: 0.97)),
+                    MissionControlOverlay.SpaceMiniWindow(key: "S", badgeColor: NSColor(red: 0.85, green: 0.95, blue: 0.88, alpha: 0.97))
+                ]),
+                MissionControlOverlay.SpaceInfo(name: "Desktop 2", windows: [
+                    MissionControlOverlay.SpaceMiniWindow(key: "D", badgeColor: NSColor(red: 0.98, green: 0.92, blue: 0.85, alpha: 0.97))
+                ])
+            ]
+            data = MissionControlOverlay.renderPNG(hints: MissionControl.hints(for: tiles), screenCGFrame: f, spaces: mockSpaces, selectedSpaceIndex: 0, selectedWindowId: tiles.first?.windowId, backdropImage: bg)
         default: break
         }
         if let data, (try? data.write(to: URL(fileURLWithPath: path))) != nil { log("zt-agent: rendered \(which) → \(path)") }
@@ -1137,6 +1192,7 @@ app.setActivationPolicy(.accessory)   // menubar agent (LSUIElement-equivalent)
 
 let controller = AgentController(config: config, configURL: configURL)
 controller.setupStatusItem()
+controller.setupSpacesMenubar()
 controller.setupPomodoro()
 controller.seedMonitors()          // before any tile/move op, so logical ids match on-disk data
 controller.setupScreenWatch()
@@ -1160,7 +1216,71 @@ case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
 case "break":     DispatchQueue.main.async { controller.breakScreenForQA() }
+case "expose":    DispatchQueue.main.async { controller.showExposeForQA() }
 default: break
+}
+// QA: switch to a non-current Space via SpaceSwitcher (gesture/keyboard), then exit. "next" picks the
+// first non-current desktop on a display that has >1; an integer picks that ManagedSpaceID.
+if let sw = ProcessInfo.processInfo.environment["ZT_SWITCH_SPACE"] {
+    let byDisplay = SpacesReader.spacesByDisplay()
+    let multi = byDisplay.values.first(where: { $0.filter { !$0.isFullscreen }.count > 1 })
+    if let spaces = multi ?? byDisplay.values.first {
+        let target = (Int(sw).flatMap { id in spaces.first { $0.id == id } })
+            ?? spaces.first { !$0.isCurrent && !$0.isFullscreen }
+        if let target { log("QA: switching to space \(target.id) on \(target.displayUUID.prefix(8))"); SpaceSwitcher.switchTo(space: target, allSpaces: spaces) }
+    }
+    Thread.sleep(forTimeInterval: 2.0)
+    exit(0)
+}
+// QA preview of the menu-bar Spaces widget → composite on light + dark strips → PNG + exit.
+if let path = ProcessInfo.processInfo.environment["ZT_RENDER_SPACESBAR"] {
+    let byDisplay = SpacesReader.spacesByDisplay()
+    let store = SpaceNameStore()
+    var groups: [SpacesMenubar.InputGroup] = byDisplay.sorted { $0.key < $1.key }.map { (display, spaces) in
+        let cells = spaces.enumerated().map { (j, sp) -> SpacesMenubar.InputSpace in
+            let name = store.name(for: sp).map { String($0.prefix(6)) } ?? (sp.isFullscreen ? "⛶" : "\(j + 1)")
+            return .init(label: name, isCurrent: sp.isCurrent, isFullscreen: sp.isFullscreen)
+        }
+        return .init(monitorLabel: display, spaces: cells)
+    }
+    if groups.isEmpty {   // no real spaces (MAS/no-toggle) → mock so the design is still previewable
+        groups = [.init(monitorLabel: "DELL", spaces: [.init(label: "1", isCurrent: true), .init(label: "code", isCurrent: false)]),
+                  .init(monitorLabel: "Mon2", spaces: [.init(label: "1", isCurrent: true)])]
+    }
+    // The shipping design: no glyph (layout + renderer agree → cells flush-left in each bracket).
+    let layout = SpacesMenubar.layout(groups, height: 22, showGlyph: false)
+    func tint(_ image: NSImage, _ fg: NSColor) -> NSImage {
+        let t = NSImage(size: image.size); t.lockFocus()
+        fg.set(); NSRect(origin: .zero, size: image.size).fill(using: .sourceOver)
+        image.draw(at: .zero, from: .zero, operation: .destinationIn, fraction: 1)
+        t.unlockFocus(); return t
+    }
+    let widget = SpacesMenubarRenderer.image(layout, template: false, showGlyph: false)
+    let flashed = SpacesMenubarRenderer.image(layout, template: false, showGlyph: false, flashIndex: 1)   // Kare press-flash on cell 1
+    let pad = 16.0, big = 6.0
+    let W = layout.width * big + pad * 2
+    struct Row { let img: NSImage; let scale: Double; let dark: Bool }
+    let rows = [Row(img: widget, scale: big, dark: true), Row(img: flashed, scale: big, dark: true),
+                Row(img: widget, scale: 1, dark: false)]
+    let rowHs = rows.map { 22.0 * $0.scale + pad }
+    let out = NSImage(size: NSSize(width: W, height: rowHs.reduce(0, +)))
+    out.lockFocus()
+    var y = 0.0
+    for (i, r) in rows.enumerated() {
+        let h = rowHs[i]
+        (r.dark ? NSColor(white: 0.13, alpha: 1) : NSColor(white: 0.96, alpha: 1)).setFill()
+        NSRect(x: 0, y: y, width: W, height: h).fill()
+        let t = tint(r.img, r.dark ? .white : .black)
+        t.draw(in: NSRect(x: pad, y: y + pad / 2, width: layout.width * r.scale, height: 22 * r.scale),
+               from: .zero, operation: .sourceOver, fraction: 1)
+        y += h
+    }
+    out.unlockFocus()
+    if let tiff = out.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+       let png = rep.representation(using: .png, properties: [:]) {
+        try? png.write(to: URL(fileURLWithPath: path)); log("zt-agent: rendered spacesbar → \(path)")
+    }
+    exit(0)
 }
 // Deterministic overlay render for QA / Gemini grading: "ZT_RENDER=hud:/path.png" → render + exit.
 if let render = ProcessInfo.processInfo.environment["ZT_RENDER"] {

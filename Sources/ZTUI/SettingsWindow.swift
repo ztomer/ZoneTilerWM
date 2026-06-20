@@ -26,12 +26,15 @@ public final class SettingsWindowController {
         w.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
+        // SwiftUI's `.searchable(placement: .toolbar)` attaches a toolbar to host the search field in the
+        // (otherwise empty) titlebar; unified style keeps it flush with the appbar look.
+        w.toolbarStyle = .unified
         w.standardWindowButton(.miniaturizeButton)?.isHidden = true
         w.standardWindowButton(.zoomButton)?.isHidden = true
         let maxH = (NSScreen.main?.visibleFrame.height ?? 1000) - 40
-        w.setContentSize(NSSize(width: 760, height: min(960, maxH)))   // fits the tallest tab
-        w.contentMinSize = NSSize(width: 760, height: 360)
-        w.contentMaxSize = NSSize(width: 760, height: maxH)
+        w.setContentSize(NSSize(width: 960, height: min(960, maxH)))   // fits the tallest tab
+        w.contentMinSize = NSSize(width: 960, height: 360)
+        w.contentMaxSize = NSSize(width: 1400, height: maxH)
         w.isReleasedWhenClosed = false
         w.center()
         window = w

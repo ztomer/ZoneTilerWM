@@ -10,7 +10,9 @@ It is a standalone native Swift app — an `LSUIElement` menubar agent (SwiftPM 
 
 The native agent is feature-complete, including the full settings GUI. It reads the same `config.toml` and `~/.config/ZoneTilerWM/*.json` as the Lua version.
 
-Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory (with recency/time decay), audio switch, Pomodoro (glass menubar pill + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints (app icon + keyboard-half spatial assignment), hotkey-conflict detection, focus border (motion-predicted click-through outline), config live-reload, overlays, multi-monitor navigation, and the settings GUI (6 tabs: General / Keys / Apps / Layouts / Pomodoro / Advanced, a keybind editor, a visual layout editor, and a separate analytics window with learned-placement heatmaps).
+Done and verified (differential vs Lua and/or live screenshot validation): zone tiling, auto-tile, focus cycling, working-set focus tracking, app switcher, adaptive window memory (with recency/time decay), audio switch, Pomodoro (glass menubar pill + color bar), zen mode, resize mode (zone grid-line adjustment + live overlay), window hints (app icon + keyboard-half spatial assignment), hotkey-conflict detection, focus border (motion-predicted click-through outline), config live-reload, overlays, multi-monitor navigation, and the settings GUI (a sidebar-organized settings window — General, Keys, Apps, Layouts, Pomodoro, Advanced and more — with a keybind editor, a visual layout editor, and a separate analytics window with learned-placement heatmaps).
+
+Beyond parity, v2 also adds: an **automation spine** (one `ActionRequest` vocabulary wrapped by hotkeys, an **MCP server**, App Intents, a `zonetiler://` URL scheme, the `zonetiler-cli`, and a rules engine — see [docs/AUTOMATION.md](docs/AUTOMATION.md)); a **command palette** (⌘K); **window stacks**, **drag-to-snap**, a **zone HUD**, **window peek**, and **display-topology presets**; an on-device **natural-language layout box**; an **Exposé** Mission-Control replacement (type-to-jump, keyboard actions, real previews); and **real macOS Spaces** — a gesture Space switcher, Space rename, and a Spaceman-style **menubar widget** grouping spaces per monitor. The Spaces/SkyLight/AX private surfaces are gated behind an experimental compile flag + runtime toggle, each with a public fallback (see [docs/ROADMAP.md](docs/ROADMAP.md)).
 
 Multi-monitor: logical monitor ids are seeded from the display arrangement at startup and re-registered on connect/disconnect/rearrange (`NSApplication.didChangeScreenParametersNotification`), so zone memory and resize offsets resolve to the right display after a hot-plug. Validated live on a two-display setup.
 
@@ -35,7 +37,7 @@ make app           # build ZoneTilerWM.app (Release) via xcodegen + xcodebuild
 > survives rebuilds — see [docs/DEV_SIGNING.md](docs/DEV_SIGNING.md). `build_dist.sh` forces
 > ad-hoc signing for builds you share (that cert is yours alone; ad-hoc grants work on any Mac).
 
-Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic core (`ZTCore`). The OS-adapter/UI layers are validated via live screenshot QA + the post-move AX frame readback rather than unit tests — see [REVIEW.md](REVIEW.md).
+Current baseline: 352 Swift tests green; ~92% line coverage on the pure-logic core (`ZTCore`). The OS-adapter/UI layers are validated via live screenshot QA + the post-move AX frame readback rather than unit tests — see [REVIEW.md](REVIEW.md).
 
 ### Packaging & CI/CD
 
@@ -61,17 +63,17 @@ Current baseline: 142 Swift tests green; ~92% line coverage on the pure-logic co
     *   **Coverage Maximization**: Aggressively fills available screen space.
     *   **Memory-Augmented**: Remembers where you like your apps.
     *   **Shape-Aware**: Matches window aspect ratios to tile shapes.
+* **Exposé**: A keyboard-driven Mission-Control replacement — type-to-jump labels, ↵/⌘W/⌘M/⌘Q actions, arrow/vim/wasd navigation, real window previews, per-monitor scope.
+* **macOS Spaces**: Switch Spaces by gesture, rename them, and see them in a Spaceman-style **menubar widget** that groups Spaces per monitor (experimental — uses gated private APIs with a public fallback).
+* **Command Palette**: ⌘K fuzzy launcher for every action, plus an on-device natural-language layout box.
+* **Programmable**: One action vocabulary exposed over an **MCP server**, App Intents, a `zonetiler://` URL scheme, a CLI, and an `[[rules]]` engine.
+* **Window Stacks & Drag-to-Snap**: Stack windows in a zone and cycle them; drag a window to snap it into a zone.
 * **Highly Configurable**: Customize everything from keybindings to layouts in a single `config.toml` file.
 * **Config Validation**: Startup checks to ensure your configuration is valid.
 
-## Future Features
+## Roadmap
 
-* Adaptive window sizing based on content
-* Persistent layout save/load
-* Support for macOS Spaces
-* Window stacking in zones
-* Mouse-driven zone selection
-* Layout presets for workflows
+The product is in finish-and-ship territory. What's left — an App-Store-safe public Spaces provider, build/distribution plumbing, and opportunistic tech debt — is tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -230,15 +232,16 @@ You can extend the detection logic in `config.toml` under `[tiler.screen_detecti
 
 For detailed documentation, see the [docs/](docs/) folder:
 
-* **[Native Architecture](ARCHITECTURE.md)** - Design, layering (`ZTCore`/`ZTSystem`/`ZTUI`), conventions, feature status
-* **[Review](REVIEW.md)** - Engineering (Linus/Uncle Bob), performance (Carmack), and UI/UX (Rams/Kare) review plus the code-coverage breakdown
+* **[Architecture](ARCHITECTURE.md)** - Design, layering (`ZTCore`/`ZTSystem`/`ZTUI`), conventions, feature status
+* **[Roadmap & backlog](docs/ROADMAP.md)** - What's shipped, what's left, and the standing decisions
+* **[Review](REVIEW.md)** - Engineering / performance / UI-UX / algorithm review plus the code-coverage breakdown
+* **[Contributing](docs/CONTRIBUTING.md)** - Build, branch discipline, layering rules, TDD/verification
+* **[Automation](docs/AUTOMATION.md)** - The programmable surface (MCP, CLI, URL scheme, App Intents, rules engine)
 * **[Tutorial / Getting Started](Sources/ZTUI/Resources/Tutorial.md)** - New-user walkthrough (also in the menubar → Tutorial)
 * **[Keyboard Reference](docs/keyboard_shortcuts.md)** - Complete shortcut list
 * **[SentinelOne Performance](docs/SENTINELONE_INVESTIGATION.md)** - Why AX-call count is the primary perf constraint, and how the agent minimizes it (CGWindowList reads, memoized EnhancedUI toggle)
 * **[Auto-tiling Design](docs/auto-tiling_algorithmic_design.md)** - The cost-based backtracking solver and scoring
-* **[Spaces Research](docs/SPACES_RESEARCH.md)** - macOS Spaces implementation research (out of scope)
-
-Some files under `docs/` (and `REMAINING_PORT_PLAN.md`) are Hammerspoon-era history kept for reference.
+* **[Dev Signing](docs/DEV_SIGNING.md)** - Keeping the Accessibility (TCC) grant stable across rebuilds
 
 ---
 

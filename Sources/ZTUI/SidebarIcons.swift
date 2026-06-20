@@ -39,13 +39,25 @@ struct SidebarGlyph: View {
         case "layouts":           // main + sidebar split (a layout)
             line(rrect(3, 3, 4.5, 14, 1.2))
             line(rrect(9, 3, 8, 14, 1.2))
-        case "keys":              // a literal key (bow + shaft + teeth) — unambiguous, not a reticle
-            line(Path(ellipseIn: CGRect(x: 5.5, y: 3, width: 7.5, height: 7.5)))   // bow
-            var key = Path()
-            key.move(to: .init(x: 9.25, y: 10.3)); key.addLine(to: .init(x: 9.25, y: 17))   // shaft
-            key.move(to: .init(x: 9.25, y: 13.5)); key.addLine(to: .init(x: 12, y: 13.5))    // tooth 1
-            key.move(to: .init(x: 9.25, y: 16)); key.addLine(to: .init(x: 11.2, y: 16))      // tooth 2
-            line(key)
+        case "previews":          // Exposé & Hints: two mini screen frames side-by-side with small filled badges inside
+            line(rrect(2.5, 3.5, 6.5, 13, 1.2))
+            line(rrect(11.0, 3.5, 6.5, 13, 1.2))
+            fill(dot(5.75, 7.75, 1.2))
+            fill(dot(14.25, 11.75, 1.2))
+        case "keys":              // miniature computer keyboard (Kare clean metaphor)
+            line(rrect(2, 5, 16, 10, 2))
+            var keys = Path()
+            // Horizontal row divider
+            keys.move(to: .init(x: 2, y: 10))
+            keys.addLine(to: .init(x: 18, y: 10))
+            // Row 1 key dividers
+            keys.move(to: .init(x: 6, y: 5)); keys.addLine(to: .init(x: 6, y: 10))
+            keys.move(to: .init(x: 10, y: 5)); keys.addLine(to: .init(x: 10, y: 10))
+            keys.move(to: .init(x: 14, y: 5)); keys.addLine(to: .init(x: 14, y: 10))
+            // Row 2 key dividers (modifiers + spacebar)
+            keys.move(to: .init(x: 5, y: 10)); keys.addLine(to: .init(x: 5, y: 15))
+            keys.move(to: .init(x: 15, y: 10)); keys.addLine(to: .init(x: 15, y: 15))
+            line(keys)
         case "io":                // up / down arrows (input + output)
             var up = Path(); up.move(to: .init(x: 6, y: 15)); up.addLine(to: .init(x: 6, y: 5))
             up.move(to: .init(x: 3.5, y: 7.5)); up.addLine(to: .init(x: 6, y: 5)); up.addLine(to: .init(x: 8.5, y: 7.5))
@@ -71,9 +83,14 @@ struct SidebarGlyph: View {
                 fill(dot(kx, y, 2.0))
                 ctx.stroke(dot(kx, y, 2.0), with: GraphicsContext.Shading.color(.primary), style: StrokeStyle(lineWidth: lw))
             }
-        default:                  // general: toggle switch
-            line(Path(roundedRect: CGRect(x: 3, y: 6.5, width: 14, height: 7), cornerRadius: 3.5))
-            fill(dot(13, 10, 2.2))
+        default:                  // general: rotary dial knob
+            line(Path(ellipseIn: CGRect(x: 4, y: 4, width: 12, height: 12)))
+            var ticks = Path()
+            ticks.move(to: .init(x: 10, y: 1.5)); ticks.addLine(to: .init(x: 10, y: 3.5))
+            ticks.move(to: .init(x: 1.5, y: 10)); ticks.addLine(to: .init(x: 3.5, y: 10))
+            ticks.move(to: .init(x: 16.5, y: 10)); ticks.addLine(to: .init(x: 18.5, y: 10))
+            ticks.move(to: .init(x: 10, y: 10)); ticks.addLine(to: .init(x: 14, y: 6))
+            line(ticks)
         }
     }
 }
@@ -82,7 +99,8 @@ struct SidebarGlyph: View {
 /// grade loop (render via ZT_RENDER_UI=icons:/path.png).
 struct IconMontage: View {
     private let items: [(String, String)] = [
-        ("general", "General"), ("tiling", "Tiling"), ("layouts", "Layouts"), ("keys", "Keys"),
+        ("general", "General"), ("tiling", "Tiling"), ("layouts", "Layouts"),
+        ("previews", "Exposé & Hints"), ("keys", "Keys"),
         ("io", "Input & Output"), ("apps", "App Launcher"), ("pomodoro", "Pomodoro"),
         ("appearance", "Appearance"), ("automation", "Automation"), ("advanced", "Advanced"),
     ]

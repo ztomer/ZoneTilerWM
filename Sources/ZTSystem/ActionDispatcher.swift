@@ -34,6 +34,7 @@ public final class ActionDispatcher {
         public var pomodoro: (PomodoroCommand) -> ActionResult
         public var toggleResizeMode: () -> Void
         public var toggleWindowHints: () -> Void
+        public var toggleExpose: () -> Void
         public var peekZone: () -> Void
         public var toggleFloat: () -> ActionResult
         /// Returns whether the reload was applied (false = parse/validation failed, config kept).
@@ -63,6 +64,7 @@ public final class ActionDispatcher {
                     pomodoro: @escaping (PomodoroCommand) -> ActionResult,
                     toggleResizeMode: @escaping () -> Void,
                     toggleWindowHints: @escaping () -> Void,
+                    toggleExpose: @escaping () -> Void = {},
                     peekZone: @escaping () -> Void = {},
                     toggleFloat: @escaping () -> ActionResult,
                     reloadConfig: @escaping () -> Bool,
@@ -83,6 +85,7 @@ public final class ActionDispatcher {
             self.pomodoro = pomodoro
             self.toggleResizeMode = toggleResizeMode
             self.toggleWindowHints = toggleWindowHints
+            self.toggleExpose = toggleExpose
             self.peekZone = peekZone
             self.toggleFloat = toggleFloat
             self.reloadConfig = reloadConfig
@@ -173,6 +176,10 @@ public final class ActionDispatcher {
         case .toggleWindowHints:
             hooks.toggleWindowHints()
             return .modeToggled(mode: .windowHints)
+
+        case .toggleExpose:
+            hooks.toggleExpose()
+            return .modeToggled(mode: .expose)
 
         case .peekZone:
             hooks.peekZone()

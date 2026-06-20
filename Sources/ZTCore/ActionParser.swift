@@ -74,6 +74,8 @@ public enum ActionParser {
             return .success(.toggleResizeMode)
         case "window-hints":
             return .success(.toggleWindowHints)
+        case "expose":
+            return .success(.toggleExpose)
         case "save-layout":
             return requireNonEmpty(params, "name").map { .saveLayout(name: $0) }
         case "apply-layout":
@@ -139,6 +141,7 @@ public enum ActionParser {
         case .pomodoro(let cmd):                 return ("pomodoro", ["command": cmd.rawValue])
         case .toggleResizeMode:                  return ("resize-mode", [:])
         case .toggleWindowHints:                 return ("window-hints", [:])
+        case .toggleExpose:                      return ("expose", [:])
         case .saveLayout(let name):              return ("save-layout", ["name": name])
         case .applyLayout(let name):             return ("apply-layout", ["name": name])
         case .syncExport:                        return ("sync-export", [:])
@@ -230,6 +233,7 @@ public extension ActionParser {
                    params: [ActionParam(name: "command", required: true, description: "Timer command.", allowed: ["enable", "disable", "reset"])]),
         ActionSpec(name: "resize-mode", description: "Toggle the grid-line resize mode."),
         ActionSpec(name: "window-hints", description: "Toggle window hints (label each window, type to focus)."),
+        ActionSpec(name: "expose", description: "Toggle the exposé replacement: lay every window out in a grid with jump labels; type/click to focus, click × to close."),
         ActionSpec(name: "save-layout", description: "Save the current window arrangement as a named layout.",
                    params: [ActionParam(name: "name", required: true, description: "Layout name, e.g. coding.")]),
         ActionSpec(name: "apply-layout", description: "Restore a previously saved named layout.",

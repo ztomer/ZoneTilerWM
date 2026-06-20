@@ -18,6 +18,10 @@
 import AppKit
 import ZTCore
 
+// ⚠️ PRIVATE / EXPERIMENTAL — dlopens SkyLight.framework. Compiled in only under ZT_PRIVATE_APIS
+// (build_public.sh / build_dev.sh); a strict-MAS build (build_mas.sh) excludes it and uses the
+// public OverlayBorderRenderer.
+#if ZT_PRIVATE_APIS
 final class SkyLightBorderRenderer: BorderRenderer {
     private typealias MainConnFn      = @convention(c) () -> Int32
     private typealias NewRegionFn     = @convention(c) (UnsafePointer<CGRect>, UnsafeMutablePointer<CFTypeRef?>) -> Int32
@@ -129,3 +133,4 @@ private extension CGRect {
     /// Avoid the `w`/`h` shorthand clash with ZTRect by naming the size args.
     init(x: Double, y: Double, w0: Double, h0: Double) { self.init(x: x, y: y, width: w0, height: h0) }
 }
+#endif

@@ -256,6 +256,41 @@ public final class SettingsModel: ObservableObject {
         }
     }
 
+    public var exposeSpacesBarPositionChoice: String { config.exposeSpacesBarPosition }
+    public func setExposeSpacesBarPosition(_ choice: String) {
+        setOrAppend(section: "ui", key: "expose_spaces_bar_position", rawValue: "\"\(choice)\"")
+    }
+
+    public var exposeNavChoice: String { config.exposeNav }
+    public func setExposeNav(_ choice: String) {
+        setOrAppend(section: "ui", key: "expose_nav", rawValue: "\"\(choice)\"")
+    }
+
+    public var exposeScopeChoice: String { config.exposeScope }
+    public func setExposeScope(_ choice: String) {
+        setOrAppend(section: "ui", key: "expose_scope", rawValue: "\"\(choice)\"")
+    }
+
+    public var realSpacesEnabled: Bool { config.experimentalRealSpaces }
+    public func setRealSpaces(_ on: Bool) {
+        setOrAppend(section: "ui", key: "experimental_real_spaces", rawValue: on ? "true" : "false")
+    }
+
+    public var spacesMenubarEnabled: Bool { config.spacesMenubar }
+    public func setSpacesMenubar(_ on: Bool) {
+        setOrAppend(section: "ui", key: "spaces_menubar", rawValue: on ? "true" : "false")
+    }
+
+    public var spaceSwitchMethodChoice: String { config.spaceSwitchMethod }
+    public func setSpaceSwitchMethod(_ choice: String) {
+        setOrAppend(section: "ui", key: "space_switch_method", rawValue: "\"\(choice)\"")
+    }
+
+    public var spacesMenubarBracketChoice: String { config.spacesMenubarBracket }
+    public func setSpacesMenubarBracket(_ choice: String) {
+        setOrAppend(section: "ui", key: "spaces_menubar_bracket", rawValue: "\"\(choice)\"")
+    }
+
     // MARK: - Monitors (Layouts tab)
 
     private let screenProvider = NSScreenProvider()
@@ -361,22 +396,35 @@ public final class SettingsModel: ObservableObject {
 public struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     @State private var sel: String
+    @State private var search = ""   // the titlebar search field (filters the sidebar; ↵ jumps to first match)
 
-    /// The sidebar groups, in display order. SF Symbols stand in for the Kare/Rams custom icons
-    /// (those are generated via the Gemini asset loop as a follow-up — see V4_UX_BACKLOG.md).
-    private struct Group: Identifiable { let id: String; let title: String; let icon: String }
+    /// The sidebar groups, in display order. SF Symbols stand in for the Kare/Rams custom icons.
+    /// `keywords` lets the titlebar search match a pane by what's *inside* it, not just its title.
+    private struct Group: Identifiable { let id: String; let title: String; let icon: String; var keywords: [String] = [] }
+    // `keywords` indexes the *individual setting names* inside each pane (not just its title), so
+    // searching e.g. "dwell", "bracket", "motion prediction", or "socket" jumps to the right pane.
     private let groups: [Group] = [
-        .init(id: "general",    title: "General",        icon: "gearshape"),
-        .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3"),
-        .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group"),
-        .init(id: "keys",       title: "Keys",           icon: "keyboard"),
-        .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3"),
-        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2"),
-        .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer"),
-        .init(id: "appearance", title: "Appearance",     icon: "paintbrush"),
-        .init(id: "automation", title: "Automation",     icon: "terminal"),
-        .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver"),
+        .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: ["startup", "login", "launch at login", "config", "config file", "reveal", "open", "version", "reload"]),
+        .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3",               keywords: ["zones", "auto-tile", "autotile", "auto-tiling mode", "usage", "session", "placement strategy", "rotate", "largest free space", "hybrid", "center zones", "zone hud", "hud", "hold delay", "drag", "snap", "drag to snap", "resize mode", "zen mode", "float", "stacks", "stack next", "stack previous", "session sandbox", "move to monitor", "focus next screen", "working set", "working-set capacity", "working-set staleness"]),
+        .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group",             keywords: ["grid", "edit grid", "monitor", "zones", "edit zones", "editor", "cells", "tiles", "cycle order"]),
+        .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: ["expose", "exposé", "mission control", "window hints", "window grid", "spaces bar position", "navigation keys", "arrows", "vim", "wasd", "show windows from", "active monitor", "all monitors", "switching spaces", "switching method", "gesture", "trackpad", "keyboard shortcuts", "show spaces in the menu bar", "menubar", "bracket style", "real macos spaces", "switch"]),
+        .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: ["hotkeys", "shortcuts", "bindings", "modifiers", "modifier aliases", "actions", "conflicts", "app launcher", "hyper apps"]),
+        .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: ["keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "audio", "audio switcher", "output device", "switch hotkey", "run shortcut", "add device"]),
+        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: ["apps", "launch", "app launcher", "hyper apps", "app groups", "clusters", "scratchpad", "auto-dismiss", "app integrations", "add group"]),
+        .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: ["timer", "work period", "rest period", "break", "break screen", "color bar", "pomodoro keys", "focus"]),
+        .init(id: "appearance", title: "Appearance",     icon: "paintbrush",                    keywords: ["window border", "focus border", "renderer", "overlay", "window server", "motion prediction", "margins", "enable margins", "screen edges", "theme", "color", "glyph", "liquid glass"]),
+        .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: ["command palette", "natural language", "mcp", "enable mcp", "socket", "cli", "command line", "binary", "url scheme", "app intents", "rules", "arrangement events", "sync folder", "events"]),
+        .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: ["auto-tiler weights", "solver weights", "weights", "reset to defaults", "experimental", "private apis", "real spaces", "debug"]),
     ]
+
+    /// Panes matching the titlebar search (title or keyword substring). Empty query → all panes.
+    private var filteredGroups: [Group] {
+        let q = search.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return groups }
+        return groups.filter { g in
+            g.title.lowercased().contains(q) || g.keywords.contains { $0.contains(q) }
+        }
+    }
 
     public init(model: SettingsModel) {
         self.model = model
@@ -386,17 +434,28 @@ public struct SettingsView: View {
 
     public var body: some View {
         NavigationSplitView {
-            List(groups, selection: $sel) { g in
+            List(filteredGroups, selection: $sel) { g in
                 Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
             }
-            .navigationSplitViewColumnWidth(196)
+            .navigationSplitViewColumnWidth(155)
             .listStyle(.sidebar)
+            .overlay {   // honest empty state when a search matches nothing
+                if filteredGroups.isEmpty {
+                    Text("No settings match “\(search)”")
+                        .font(.caption).foregroundColor(.secondary)
+                        .multilineTextAlignment(.center).padding()
+                }
+            }
         } detail: {
             SettingsGroupDetail(model: model, id: sel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .navigationTitle(groups.first { $0.id == sel }?.title ?? "Settings")
+                .navigationTitle("")   // the titlebar hosts the search field, not a duplicate pane name
         }
-        .frame(minWidth: 880, idealWidth: 920, minHeight: 560, idealHeight: 620)
+        .frame(minWidth: 960, idealWidth: 1000, minHeight: 560, idealHeight: 620)
+        // The search field fills the once-empty titlebar. Filters the sidebar as you type; ↵ jumps to
+        // the first match so you can drive it entirely from the keyboard.
+        .searchable(text: $search, placement: .toolbar, prompt: "Search settings")
+        .onSubmit(of: .search) { if let first = filteredGroups.first { sel = first.id } }
     }
 }
 
@@ -409,6 +468,7 @@ struct SettingsGroupDetail: View {
         switch id {
         case "tiling":     TilingTab(model: model)
         case "layouts":    LayoutEditorView(model: model)
+        case "previews":   PreviewsTab(model: model)
         case "keys":       KeybindEditorView(model: model)
         case "io":         IOTab(model: model)
         case "apps":       AppLauncherTab(model: model)

@@ -94,10 +94,17 @@ public enum AppController {
         if let running = NSWorkspace.shared.runningApplications.first(where: {
             ($0.localizedName ?? "").caseInsensitiveCompare(name) == .orderedSame
         }) {
-            // unhide() FIRST: activate() alone does NOT reliably bring back a *hidden* app, so a
-            // toggle that just hid an app (esp. Electron) would fail to restore it. hs's
-            // launchOrFocus unhides as part of activate — we replicate that here.
+            // Restore via LaunchServices (openApplication) — the way hs.application.launchOrFocus did —
+            // NOT unhide()+activate(): Electron apps (Notion / Notion Calendar) take focus but stay
+            // *hidden* under the latter (same flakiness that forced the menu-item hide workaround).
+            // A LaunchServices "open" reliably unhides + activates. unhide() first as belt-and-braces.
             running.unhide()
+            if let url = running.bundleURL {
+                let cfg = NSWorkspace.OpenConfiguration()
+                cfg.activates = true
+                NSWorkspace.shared.openApplication(at: url, configuration: cfg)
+                return
+            }
             running.activate(options: [.activateAllWindows])
             return
         }

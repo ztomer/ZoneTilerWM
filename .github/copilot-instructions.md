@@ -1,73 +1,52 @@
 # Copilot Instructions for ZoneTilerWM
 
-**📚 Note:** For complete AI copilot instructions, see [docs/GEMINI.md](../docs/GEMINI.md). This file provides a quick reference.
+A quick reference for an AI agent working on this codebase. For the full picture read
+[ARCHITECTURE.md](../ARCHITECTURE.md), [docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md), and
+[docs/ROADMAP.md](../docs/ROADMAP.md).
 
----
+## 1. Big picture
 
-This document provides essential guidance for an AI agent working on the ZoneTilerWM codebase. Understanding these concepts is crucial for making effective contributions.
+ZoneTilerWM is a **native Swift macOS menubar agent** — a SwiftPM package at the repo root, no
+Hammerspoon. It maps window placement to your keyboard layout (zone tiling), learns preferences, and
+adds an automation spine, Exposé, and real macOS Spaces. (It began as a Hammerspoon/Lua config that
+was ported to Swift against the Lua as an executable spec; the Lua was removed at parity and lives in
+git history.)
 
-## 1. Big Picture: A Modular Hammerspoon Window Manager
+## 2. Layering (the contract)
 
-This project is a tiling window manager for macOS built entirely in **Lua** on the **Hammerspoon** framework. It is not a standalone application but a Hammerspoon configuration that lives in `~/.hammerspoon/`.
+- **`ZTCore`** — pure logic (solver, zones, placement, memory, auto-tiler, action vocabulary). **MUST
+  NOT import AppKit / ApplicationServices.** Operates on flat value snapshots; headless-testable.
+- **`ZTSystem`** — OS adapters (AX, CGWindowList, NSScreen, Carbon hotkeys, CoreAudio, TOML/JSON,
+  Spaces). Conforms to `ZTCore` protocols; dependency inversion lives **only** here, at the OS boundary.
+- **`ZTUI`** — SwiftUI settings + analytics. Depends on `ZTCore` only; reads and writes `config.toml`.
+- **`zt-agent`** — the `LSUIElement` menubar agent (composition root). Plus helper executables
+  `zt-mcp`, `zonetiler-cli`, and dev CLIs.
 
-The core design is modular, with a central configuration file (`config.lua`) driving the behavior of various components located in the `modules/` directory.
+## 3. Non-negotiables
 
-### Core Architectural Flow:
+- **Minimize AX calls — the primary perf gate.** SentinelOne hooks every Accessibility call, so cost
+  is AX-round-trip *count*, not CPU. Reads / occupancy / z-order go through `CGWindowListCopyWindowInfo`
+  (0 AX); AX is touched only to *mutate* + read the focused element. Never add per-window AX reads for
+  enumeration.
+- **Top-left CG coordinates everywhere** (`ZTRect`). Convert only inside `NSScreenProvider`.
+- **Single-threaded on main**; every event source hops to main before touching `config`/`coordinator`.
+- **One action vocabulary** — every front-end builds an `ActionRequest`; none re-implements an action.
+- **Private APIs gated** behind the `ZT_PRIVATE_APIS` compile flag (set by `build_*.sh`, not
+  `Package.swift`) + a runtime toggle, each with a public fallback. Test gated paths with
+  `swift test -Xswiftc -DZT_PRIVATE_APIS`.
 
-1.  **Entry Point (`init.lua`):** This is the main script that Hammerspoon loads. It requires `config.lua` and initializes the primary modules like `tiler.lua`, `app_switcher.lua`, and `window_memory.lua`.
-2.  **Central Configuration (`config.lua`):** This is the most important file for an agent to understand. **Nearly all user-facing behavior is defined here.** This includes:
-    *   Keybindings (`config.keys`).
-    *   Grid layouts for different screen sizes (`config.tiler.grids`, `config.tiler.layouts`).
-    *   Application-specific hotkeys and behaviors (`config.appCuts`, `config.app_switcher`).
-    *   Feature toggles and parameters for all modules (e.g., `config.tiler.debug`, `config.window_memory.enabled`).
-3.  **Orchestrator (`modules/tiler.lua`):** This module is the heart of the window manager. It initializes all other tiling-related sub-modules, binds hotkeys for window manipulation, and sets up watchers for window and screen events (`handle_window_created`, `handle_screen_change`).
-4.  **Module Responsibilities:**
-    *   `monitor_manager.lua`: Provides stable identifiers for monitors, which is critical for multi-monitor support.
-    *   `zone_calculator.lua`: Translates abstract grid definitions from `config.lua` (e.g., `"a1:b2"`) into concrete pixel coordinates (`hs.geometry`).
-    *   `window_state_manager.lua`: Tracks which window is in which "tile" (a specific rectangle within a zone).
-    *   `window_actions.lua`: Contains the fundamental functions to move and resize windows to calculated tiles.
-    *   `placement_strategy.lua`: Decides which tile to use when a zone has multiple options (e.g., cycling).
-    *   `smart_placer.lua`: Intelligently finds the best open spot for a new window when no specific rule applies.
-    *   `focus_manager.lua`: Handles window focus cycling within zones.
-    *   `layout_manager.lua`: Manages saving and loading of entire window layouts.
-    *   `window_memory.lua`: Persists and recalls window positions for specific applications, overriding default placement logic.
+## 4. Workflow
 
-## 2. Developer Workflow
+- Build/run: `./build.sh`, `./run.sh`. Verify: `make verify` (the Swift unit + golden tests — current
+  baseline **352 green**). `.app`: `make app`.
+- **`v2` branch only**, push only to `v2origin`. Never `git add -A`; never commit the user's config.
+- TDD-first for `ZTCore`; visual features get user-POV (run + screenshot) validation before a
+  deterministic test locks them in.
 
-*   **Editing:** The project is a live Hammerspoon configuration. Changes to `.lua` files are applied by reloading the Hammerspoon config.
-*   **Reloading:** A hotkey is configured for rapid iteration: `Shift+Ctrl+Cmd+R`. This is the primary way to apply changes.
-*   **Debugging:**
-    *   Enable debug logging by setting `config.tiler.debug = true` in `config.lua`.
-    *   Logs are printed to the **Hammerspoon Console**. This is the main place to look for errors and debug output.
-    *   The `tiler.debug_zone(zone_key)` function is a useful utility for inspecting the state of a specific zone.
+## 5. Documentation
 
-## 3. Key Conventions & Patterns
-
-*   **Configuration-Driven Development:** Before implementing new logic in a module, check if it can be expressed as a new option in `config.lua`. The goal is to keep the modules generic and push specifics into the configuration.
-*   **Hierarchy: Monitor -> Zone -> Tile:**
-    *   A **Monitor** is a physical screen.
-    *   A **Zone** is a logical area a window can be moved to, triggered by a hotkey (e.g., the "h" zone for the left side).
-    *   A **Tile** is a specific rectangular geometry within a zone. A zone can contain multiple tiles to cycle through (e.g., left half, left third, left two-thirds).
-*   **Event-Driven and Asynchronous:** Window and screen events are handled asynchronously with small delays (`hs.timer.doAfter`) to allow the OS to settle. This is important for stability, especially for `handle_window_created` and `handle_screen_change` in `modules/tiler.lua`.
-*   **Stable Monitor IDs:** Do not rely on `hs.screen:id()` directly. Use `monitor_manager.get_id(screen)` to get a stable, persistent identifier for a monitor, which is crucial for `window_memory.lua` and multi-monitor logic.
-
-## 4. How to Approach Common Tasks
-
-*   **Adding a new keybinding:**
-    1.  Define the key combination in `config.keys` if it's new.
-    2.  Add the binding in `init.lua` (for general features) or `modules/tiler.lua` (for tiling actions).
-    3.  Implement the function that the hotkey calls.
-*   **Changing a layout:**
-    1.  Modify the appropriate layout table in `config.tiler.layouts`. For example, to change the behavior of the 'h' key on a 4x3 grid, edit `config.tiler.layouts["4x3"]["h"]`.
-    2.  The values are grid coordinates (e.g., `"a1:c2"` means column 'a' row 1 to column 'c' row 2).
-*   **Supporting a new application:**
-    1.  For an app hotkey, add it to `config.appCuts`.
-    2.  If the app has unusual window behavior, add it to `config.tiler.problem_apps`.
-    3.  If it needs a default position, add it to `config.window_memory.app_zones`.
-
-## 5. Documentation References
-
-For more detailed information, see:
-- **[docs/GEMINI.md](../docs/GEMINI.md)** - Complete AI copilot guide
-- **[docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)** - System architecture and design
-- **[docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md)** - Contribution guidelines
+- **[ARCHITECTURE.md](../ARCHITECTURE.md)** — design, layering, conventions, feature status
+- **[docs/ROADMAP.md](../docs/ROADMAP.md)** — what's shipped / what's left / standing decisions
+- **[docs/CONTRIBUTING.md](../docs/CONTRIBUTING.md)** — build, branch discipline, layering rules
+- **[docs/AUTOMATION.md](../docs/AUTOMATION.md)** — the MCP / CLI / URL / Intents / rules surface
+- **[REVIEW.md](../REVIEW.md)** — engineering / perf / UI / algorithm review + coverage
