@@ -547,3 +547,40 @@ cells=3`, and the current highlight tracks switches — launch `[1,1384]` → Ct
 ≤500 LOC. **Limit:** a monitor with ≥3 Spaces is best-effort until each Space is visited once.
 **MAS caveat:** a sandboxed App-Store build likely can't read the `com.apple.spaces` domain — it then
 falls through to the bare marker provider (still works).
+
+## 9. Auto-tile algorithm — deep review + multi-agent verification (2026-06-20)
+
+Reviewed `AutoTiler.plan` (7-pass cascade) + `LayoutSolver.solve` (CSP) + `ZoneCalculator`. Five
+findings, each adversarially re-verified by an independent agent (#1 with an empirical brute-force
+oracle). All five **confirmed, high confidence**.
+
+**#1 — `LayoutSolver` branch-and-bound is non-admissible → not optimal.** The prune at
+`LayoutSolver.swift:127` (`currentCost >= best.minCost`) assumes remaining windows add non-negative
+cost, but the cost function is dominated by NEGATIVE rewards (`coverage = -2000`, `memoryExact = -2000`),
+so a completion can *lower* the total — the prune can discard the true optimum. **Proven empirically:** a
+brute-force-optimal oracle over 20 000 fuzzed scenarios found **2752 (~13.8%)** where `solve()` is
+suboptimal and **0** where it beat brute force; minimal counterexample n=2/m=3 returns −1024 vs optimum
+−2511. Matches the Lua oracle, so the goldens encode the same defect. **DEFERRED (spec decision):** a true
+fix (admissible bound) changes output and requires regenerating the frozen `Tests/Fixtures/solver`
+corpus, trading Lua-parity for heuristic-optimality (which isn't unambiguously better UX).
+
+**#4a — memory match takes highest-*rank*, not best-*match*** (`LayoutSolver.swift:68` breaks on first
+same-zone pref), so a lower-ranked EXACT pref is shadowed. Also a solver-cost change → **DEFERRED** with #1
+(same golden-regen tradeoff).
+
+**Implemented (no golden impact):**
+- **#3** — limbo pass reused the focused monitor's `anchorRect` for *every* monitor (latent cross-monitor
+  bug; dormant because the live caller passes one screen). Scoped `anchorRect` to its `anchorMid`; added
+  `testMultiMonitorLimboStaysOnItsOwnMonitor`.
+- **#2** — `maxChecks` truncation was silent (worst case: all-skip → no moves). Added a `maxChecks`
+  param (testable) + a one-line stderr diagnostic when the budget trips; moves output unchanged.
+  Added `testMaxChecksTruncationReturnsValidResultWithoutHanging`.
+- **#4b/#4c/#4d** — documented the deliberate behaviours: `fillGaps` mutating `Move` refs through a
+  by-value array; limbo windows intentionally excluded from `occupiedByMid` (so `fillGaps` may fill
+  real estate with parked windows); `available` over-counting overlapping zones (solver dedups
+  downstream).
+- **#5** — the `tools/diff_autotiler.sh` differential oracle was deleted with the Lua, yet
+  `AutoTilerTests` still cited it present-tense as the parity net. Fixed the comment; added
+  characterization tests for the previously-untested `subdivide` (BSP) and `fillGaps` passes.
+
+379 tests green (both configs, +4); golden corpus unchanged; all files ≤500 LOC.

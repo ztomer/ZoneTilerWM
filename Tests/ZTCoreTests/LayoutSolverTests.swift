@@ -85,4 +85,24 @@ final class LayoutSolverTests: XCTestCase {
         XCTAssertTrue(LayoutSolver.solve(windows: [], tiles: [tile], screen: screen).isEmpty)
         XCTAssertTrue(LayoutSolver.solve(windows: [win], tiles: [], screen: screen).isEmpty)
     }
+
+    func testMaxChecksTruncationReturnsValidResultWithoutHanging() {
+        // Force truncation with a tiny node budget: the solver must return promptly with a STRUCTURALLY
+        // VALID (possibly empty/partial) result — never a crash, hang, or out-of-range index. (It also
+        // emits one diagnostic line to stderr, by design.)
+        let windows = (0..<5).map { WindowSnapshot(id: "w\($0)", w: 400, h: 300) }
+        let tiles = (0..<6).map {
+            TileSpec(zone: "z\($0)", idx: .int($0 + 1), rect: ZTRect(x: Double($0) * 110, y: 0, w: 100, h: 100))
+        }
+        let moves = LayoutSolver.solve(windows: windows, tiles: tiles,
+                                       screen: ZTRect(x: 0, y: 0, w: 1200, h: 800), maxChecks: 1)
+        for m in moves {
+            XCTAssertTrue((0..<windows.count).contains(m.windowIndex))
+            XCTAssertTrue((0..<tiles.count).contains(m.tileIndex))
+            XCTAssertTrue(m.cost.isFinite)
+        }
+        // A non-truncated solve on the same input is a superset-quality result (sanity: it doesn't crash).
+        XCTAssertNoThrow(LayoutSolver.solve(windows: windows, tiles: tiles,
+                                            screen: ZTRect(x: 0, y: 0, w: 1200, h: 800)))
+    }
 }

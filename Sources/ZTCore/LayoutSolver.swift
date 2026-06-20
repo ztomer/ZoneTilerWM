@@ -9,6 +9,8 @@
 //     first-reached minimum-cost leaf wins ties.
 // All arithmetic is Double, matching Lua's numbers.
 
+import Foundation   // FileHandle.standardError — a single diagnostic line when the search is truncated
+
 /// Tunable cost weights. Defaults mirror the `WEIGHTS` table in layout_solver.lua;
 /// config.toml's [tiler.solver_weights] overrides them at the call site.
 public struct CostWeights: Equatable {
@@ -24,7 +26,11 @@ public struct CostWeights: Equatable {
 }
 
 public enum LayoutSolver {
-    static let maxChecks = 100_000
+    /// Backtracking node budget. A safety valve against pathological N×M blow-ups; on a real autotile
+    /// (n ≤ workingSetMaxCapacity, default 6) it is effectively never hit. Overridable per-call so a test
+    /// can force truncation. NOTE: hitting it returns the best COMPLETE assignment found so far — whose
+    /// floor is the all-skip leaf (an empty move list), since skip is explored first.
+    public static let defaultMaxChecks = 100_000
 
     /// One window→tile assignment in the optimal solution.
     public struct Move: Equatable {
@@ -85,7 +91,8 @@ public enum LayoutSolver {
     public static func solve(windows: [WindowSnapshot],
                              tiles: [TileSpec],
                              screen: ZTRect,
-                             weights: CostWeights = CostWeights()) -> [Move] {
+                             weights: CostWeights = CostWeights(),
+                             maxChecks: Int = defaultMaxChecks) -> [Move] {
         if windows.isEmpty || tiles.isEmpty { return [] }
         let n = windows.count
         let m = tiles.count
@@ -108,6 +115,7 @@ public enum LayoutSolver {
             var minCost = Double.infinity
             var assignments: [Int]
             var checks = 0
+            var truncated = false
             init(n: Int) { assignments = [Int](repeating: -1, count: n) }
         }
         let best = State(n: n)
@@ -126,7 +134,7 @@ public enum LayoutSolver {
             // Branch & bound prune.
             if currentCost >= best.minCost { return }
             best.checks += 1
-            if best.checks > maxChecks { return }
+            if best.checks > maxChecks { best.truncated = true; return }
 
             // Option A: skip this window (explored first, matching Lua; current stays -1).
             recurse(winIdx + 1, currentCost + weights.skipWindow)
@@ -148,6 +156,13 @@ public enum LayoutSolver {
         }
 
         recurse(0, 0)
+
+        // Truncation is normally unreachable; surface it (instead of silently dropping windows) so a
+        // pathological case is diagnosable in the agent log. One line, no AX cost.
+        if best.truncated {
+            FileHandle.standardError.write(Data(
+                "LayoutSolver: maxChecks (\(maxChecks)) exhausted at n=\(n) m=\(m) — assignment may be sub-optimal/partial\n".utf8))
+        }
 
         // Emit a Move per assigned window (skipped windows excluded); callers sort if needed.
         var moves: [Move] = []

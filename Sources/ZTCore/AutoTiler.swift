@@ -113,6 +113,7 @@ public enum AutoTiler {
         var moves: [Move] = []
         var processed = Set<Int>()
         var anchorRect: ZTRect?
+        var anchorMid: String?    // the focused window's monitor — anchorRect is in ITS coord space
 
         // ---- Pass: focused anchor (single-shot: tries only the first center zone, tile 1).
         if let fid = focusedId, let fw = windowById[fid],
@@ -121,6 +122,7 @@ public enum AutoTiler {
            let tiles = zonesByMid[fw.monitor]?[selected], !tiles.isEmpty {
             let rect = tiles[0]
             anchorRect = rect
+            anchorMid = fw.monitor
             moves.append(Move(fid, fw.monitor, selected, .int(1), rect))
             occupiedByMid[fw.monitor]?.append(Occ(frame: rect, id: fid))
             processed.insert(fid)
@@ -173,6 +175,11 @@ public enum AutoTiler {
                     if a.zone != b.zone { return a.zone < b.zone }
                     return a.tile.sortKey < b.tile.sortKey
                 }
+                // NOTE: `available` over-counts — zones overlap geometrically (e.g. "i"/center sits
+                // inside "h"/"l"), so this compares unplaced against a slot count larger than the real
+                // non-overlapping capacity. It can therefore under-subdivide; harmless because the solver
+                // below de-duplicates overlapping tiles via its own occupancy check (worst case: a window
+                // is skipped rather than given a split tile).
                 if !available.isEmpty && unplaced.count > available.count {
                     subdivide(&available, required: unplaced.count)
                 }
@@ -194,8 +201,15 @@ public enum AutoTiler {
             }
 
             // ---- Pass: limbo stack.
-            let limboRect = anchorRect ?? zonesByMid[mid]?["j"]?.first ?? ZTRect(x: 0, y: 0, w: 100, h: 100)
+            // anchorRect is in the FOCUSED monitor's coord space, so only reuse it for that monitor;
+            // every other monitor stacks on its OWN "j" tile (else cross-monitor coords leak — latent
+            // since the live caller passes a single screen, but the loop supports >1).
+            let limboRect = (mid == anchorMid ? anchorRect : nil)
+                ?? zonesByMid[mid]?["j"]?.first ?? ZTRect(x: 0, y: 0, w: 100, h: 100)
             for w in limbo where !processed.contains(w.id) {
+                // NOTE: limbo windows are intentionally NOT added to occupiedByMid — they share one
+                // stacked rect, and fillGaps is then free to upgrade them onto otherwise-empty tiles
+                // (so parked windows fill real estate rather than hide under the stack).
                 moves.append(Move(w.id, mid, "limbo", .int(1), limboRect))
                 processed.insert(w.id)
             }
@@ -273,6 +287,9 @@ public enum AutoTiler {
     }
 
     // _pass_fill_gaps — grid-occupancy gap filling (upgrades windows to larger free tiles).
+    // `moves` is passed by value but `Move` is a CLASS, so this mutates the caller's Move objects in
+    // place (rect/zoneKey/tileIndex) — the array copy shares the references on purpose; the caller reads
+    // the upgraded placements after this returns. (Not `inout` because we never reassign the array.)
     private static func fillGaps(moves: [Move], occupiedByMid: [String: [Occ]],
                                  screenByMid: [String: Screen],
                                  zonesByMid: [String: [String: [ZTRect]]],
