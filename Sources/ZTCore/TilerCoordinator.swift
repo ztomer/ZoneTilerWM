@@ -199,7 +199,8 @@ public final class TilerCoordinator {
     /// resolved. Learns + persists on success, like a manual tile.
     @discardableResult
     public func moveWindow(windowId: Int, toZone zoneKey: String) -> MoveOutcome? {
-        // Resolve the window + its screen via the zero-AX enumeration.
+        // Resolve the window + its screen via the zero-AX enumeration. (Scans once per screen; the
+        // WindowSystem protocol has no all-windows read, so this stays in-protocol — zero AX, CPU-only.)
         var found: (window: LiveWindow, uuid: String)?
         for s in screenProvider.allScreens() {
             if let w = windowSystem.windows(onScreen: s.uuid).first(where: { $0.id == windowId }) {

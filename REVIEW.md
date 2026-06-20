@@ -423,3 +423,31 @@ Real defects found and **fixed**:
 Left as documented (benign): a dropped menubar click in the instant the provider identity flips
 (experimental toggle) — already a safe no-op; and the inherent CG-snapshot-vs-AX-enumeration race in
 `resolveWindow` (a window closing mid-resolve → nil, the correct failure).
+
+### Round 4 (perf · arch · code · security · races) — same day
+
+A broad whole-system pass across all six dimensions.
+
+- **Security — SAFE (no findings).** The IPC socket is `0o700` (owner-only) with a 1 MB read cap and a
+  2 s recv timeout; every entry point (URL scheme, MCP, CLI, NL, `[[rules]]`, display presets) routes
+  through `ActionParser` reject-by-default — unknown verbs/params are dropped, nothing is `eval`'d.
+  External commands use `Process.arguments` (never `/bin/sh`), so the audio-Shortcut name and app names
+  can't inject. Sync/state writes use hardcoded filenames (no path traversal); NL model output and
+  config rules are re-validated through `ActionParser` before they run. The only standing properties
+  are by-design: any same-UID process can drive the socket (intended; local-user trust model).
+- **Architecture / code — clean.** Layering verified mechanically (ZTCore imports no AppKit; no
+  backwards deps). No dead code / TODO / FIXME / disabled tests. Force-unwraps all on guaranteed-safe
+  paths. The two-value-type window model (`WindowSnapshot` vs `LiveWindow`/`AutoTiler.Window` vs
+  `OnScreenWindow`…) is intentional, not a merge candidate. Protocols are all earned (1–2 impls each).
+  Nit (not taken): overlay alpha/color literals could be one `OverlayTheme` enum.
+- **Races — single-thread-on-main invariant holds.** Config-reload-mid-hotkey is safe (weak-self +
+  atomic config swap). Modal reentrancy is safe (the `active` gate + the 0.3 s deferred refresh; Carbon
+  can't re-enter a handler). IPC is bounded by the 2 s timeout. **Fixed [Low]:** a rapid second
+  menubar click could let the first click's 0.13 s deferred un-flash repaint stale groups — added a
+  click-generation guard. (The Exposé "stale selection after close" the panel flagged is a non-issue:
+  `mutateSelected` advances the selection to a live neighbour before the refresh.)
+- **Perf — AX strategy remains optimal** (all reads 0-AX via CGWindowList; AX only to mutate). Idle
+  timers are 0-AX. One zero-AX CPU note left as-is: `TilerCoordinator.moveWindow` scans once per screen
+  to locate a window (the `WindowSystem` protocol has no all-windows read; not worth expanding the
+  protocol for a CPU-only, non-hot path). The standing top AX-cost lever is still the per-move
+  `AXEnhancedUserInterface` toggle gating (item 5 / §6, deferred pending the live Firefox check).

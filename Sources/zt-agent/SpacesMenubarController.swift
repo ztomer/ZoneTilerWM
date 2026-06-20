@@ -20,6 +20,7 @@ final class SpacesMenubarController {
     private var layout: SpacesMenubar.Layout?
     private var cellSpaces: [RealSpace] = []                 // flat index → space (for click → switch)
     private var byDisplay: [String: [RealSpace]] = [:]
+    private var clickGen = 0                                 // invalidates a stale click's delayed un-flash
 
     init(enabled: @escaping () -> Bool, realSpaces: @escaping () -> Bool,
          switchMethod: @escaping () -> String = { "auto" }, bracketStyle: @escaping () -> String = { "bold" }) {
@@ -134,8 +135,14 @@ final class SpacesMenubarController {
         // just flashes (don't assert a state that might not happen). The 0.5s refresh reconciles truth.
         let (optGroups, flat) = buildGroups(from: fresh, override: confident ? (target.displayUUID, target.id) : nil)
         cellSpaces = flat
+        clickGen += 1
+        let gen = clickGen
         render(optGroups, flashIndex: idx)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.13) { [weak self] in self?.render(optGroups, flashIndex: nil) }
+        // Drop the delayed un-flash if a newer click already re-rendered, so it can't repaint stale groups.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.13) { [weak self] in
+            guard let self, self.clickGen == gen else { return }
+            self.render(optGroups, flashIndex: nil)
+        }
 
         SpaceSwitcher.switchTo(space: target, allSpaces: fresh[target.displayUUID] ?? [],
                                activeDisplayUUID: activeUUID, method: switchMethod())
