@@ -203,6 +203,11 @@ public final class MissionControlOverlay {
         DispatchQueue.main.async { [weak self] in self?.views.forEach { $0.selectedWindowId = windowId } }
     }
 
+    /// During "/" search: border the matching windows + dim the rest (pass nil to clear the effect).
+    public func updateMatches(_ ids: Set<Int>?) {
+        DispatchQueue.main.async { [weak self] in self?.views.forEach { $0.matchedWindowIds = ids } }
+    }
+
     public func hide() {
         DispatchQueue.main.async { [weak self] in self?.hideNow() }
     }

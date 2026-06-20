@@ -84,7 +84,32 @@ public final class GridOverlay {
 public final class HintOverlay {
     private var windows: [NSWindow] = []
     private var searchBar: NSWindow?
+    private var highlightWindows: [NSWindow] = []
     public init() {}
+
+    /// During "/" search: draw an accent border around each matching window's real frame (clears any
+    /// previous highlights; pass [] to clear). Click-through outline windows over the live desktop.
+    public func showHighlights(_ frames: [ZTRect]) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.highlightWindows.forEach { $0.orderOut(nil) }
+            self.highlightWindows = []
+            for f in frames {
+                let w = NSWindow(contentRect: CoordConvert.nsFrame(fromCG: f), styleMask: .borderless, backing: .buffered, defer: false)
+                w.isOpaque = false; w.backgroundColor = .clear; w.ignoresMouseEvents = true
+                w.level = .statusBar; w.hasShadow = false
+                w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+                let v = NSView(frame: NSRect(origin: .zero, size: w.frame.size))
+                v.wantsLayer = true
+                v.layer?.borderColor = NSColor.controlAccentColor.cgColor
+                v.layer?.borderWidth = 3
+                v.layer?.cornerRadius = 8
+                w.contentView = v
+                w.orderFront(nil)
+                self.highlightWindows.append(w)
+            }
+        }
+    }
 
     /// A small centered pill showing the live "/" filter query (pass nil to hide it).
     public func setSearchBar(_ text: String?) {
@@ -221,6 +246,7 @@ public final class HintOverlay {
     private func clear() {
         for w in windows { w.orderOut(nil) }
         windows.removeAll()
+        highlightWindows.forEach { $0.orderOut(nil) }; highlightWindows = []
         searchBar?.orderOut(nil); searchBar = nil
     }
 }

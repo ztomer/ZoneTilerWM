@@ -24,7 +24,7 @@ final class WindowHintsController {
     // "/" search: filter the shown windows by app name (letters build a query instead of jumping).
     private var searchMode = false
     private var query = ""
-    private var presented: [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int)] = []
+    private var presented: [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int, frame: ZTRect)] = []
 
     init(binder: CarbonHotkeyBinder, screens: NSScreenProvider, windowSystem: AXWindowSystem,
          keyboardLayout: @escaping () -> String,
@@ -101,7 +101,7 @@ final class WindowHintsController {
             }
             let icon = appIcon(for: w.appName)
             badges.append((label, w.appName, icon, center, zoneKey))
-            presented.append((app: w.appName, icon: icon, center: center, zone: zoneKey, id: w.id))
+            presented.append((app: w.appName, icon: icon, center: center, zone: zoneKey, id: w.id, frame: w.frame))
         }
         active = true
         overlay.show(badges)
@@ -180,7 +180,7 @@ final class WindowHintsController {
     private func backspaceQuery() { if !query.isEmpty { query.removeLast(); renderSearch() } }
     private func searchEscape() { if query.isEmpty { exit() } else { query = ""; renderSearch() } }
 
-    private func filteredPresented() -> [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int)] {
+    private func filteredPresented() -> [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int, frame: ZTRect)] {
         let q = query.lowercased()
         return q.isEmpty ? presented : presented.filter { Self.fuzzyMatch(q, $0.app.lowercased()) }
     }
@@ -189,6 +189,8 @@ final class WindowHintsController {
         let f = filteredPresented()
         // Badges show no jump key while searching (letters drive the filter) — icon + app only.
         overlay.show(f.map { (label: "", app: $0.app, icon: $0.icon, center: $0.center, zone: $0.zone) })
+        // Border each matching window's real frame (only once something is typed).
+        overlay.showHighlights(query.isEmpty ? [] : f.map { $0.frame })
         overlay.setSearchBar(query.isEmpty ? "type to find a window · ⏎ focus · ⎋ back" : "/ \(query)    \(f.count) match\(f.count == 1 ? "" : "es")")
     }
 

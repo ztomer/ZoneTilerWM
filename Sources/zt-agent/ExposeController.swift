@@ -382,6 +382,7 @@ final class ExposeController {
         let ids = matchingIds()
         if selectedId == nil || !ids.contains(selectedId!) { selectedId = ids.first }
         overlay.updateSelection(selectedId)
+        overlay.updateMatches(query.isEmpty ? nil : Set(ids))   // border matches, dim the rest
         overlay.setSearchBar(query.isEmpty ? "type to find a window · ↵ focus · ⎋ back"
                                            : "/ \(query)    \(ids.count) match\(ids.count == 1 ? "" : "es")")
     }

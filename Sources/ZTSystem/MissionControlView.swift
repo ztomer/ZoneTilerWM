@@ -41,6 +41,8 @@ final class MissionControlView: NSView {
 
     /// Keyboard-selected window (arrow / vim nav) — drawn with a highlight ring. nil = none.
     var selectedWindowId: Int? { didSet { if oldValue != selectedWindowId { needsDisplay = true } } }
+    /// During "/" search: windows matching the query are bordered and the rest dimmed. nil = no search.
+    var matchedWindowIds: Set<Int>? { didSet { if oldValue != matchedWindowIds { needsDisplay = true } } }
 
     var onJump: ((Int) -> Void)?
     var onClose: ((Int) -> Void)?
@@ -433,7 +435,18 @@ final class MissionControlView: NSView {
                     path.fill()
                 }
 
-                // Keyboard-selection ring hugging the screenshot (#6).
+                // "/" search: dim non-matches so the matching windows stand out, and border each match.
+                if let matches = matchedWindowIds {
+                    if matches.contains(h.windowId) {
+                        let bord = NSBezierPath(roundedRect: pf.insetBy(dx: -1, dy: -1), xRadius: 9, yRadius: 9)
+                        NSColor.controlAccentColor.setStroke(); bord.lineWidth = 2.5; bord.stroke()
+                    } else {
+                        NSColor.black.withAlphaComponent(0.6).setFill()
+                        NSBezierPath(roundedRect: pf, xRadius: 8, yRadius: 8).fill()
+                    }
+                }
+
+                // Keyboard-selection ring hugging the screenshot (#6) — drawn last so it sits on top.
                 if h.windowId == selectedWindowId {
                     let ring = NSBezierPath(roundedRect: pf.insetBy(dx: -2, dy: -2), xRadius: 10, yRadius: 10)
                     NSColor.controlAccentColor.setStroke(); ring.lineWidth = 3.5; ring.stroke()
