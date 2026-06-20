@@ -211,6 +211,26 @@ final class AutoTilerTests: XCTestCase {
         XCTAssertGreaterThan(minCoverage, 0.80, "stretch should fill the screen well across all layouts")
     }
 
+    func testCenterTileIndexCyclesFocusedWindowThroughZoneTiles() {
+        // "j" has 3 tiles; repeated auto-tile (centerTileIndex 0,1,2,3,…) cycles the focused window
+        // through them and wraps — so pressing auto-tile again rotates the centre window's shape.
+        let zc = ZoneConfig(grids: ["2x2": GridConfig(cols: 2, rows: 2)],
+                            layouts: ["2x2": ["j": ["a1:b2", "a1", "b2"], "y": ["a1"], "i": ["b1"], "n": ["a2"]]],
+                            margins: Margins(enabled: false, size: 0, screen_edge: false))
+        let cfg = AutoTiler.Config(centerZones: ["j"], workingSetTimeLimit: 1800, workingSetMaxCapacity: 6,
+                                   mode: "usage", weights: CostWeights(), zoneConfig: zc)
+        let w = AutoTiler.Window(id: 1, app: "X", monitor: "M1",
+                                 frame: ZTRect(x: 0, y: 0, w: 800, h: 600), lastFocusedTime: 10_000)
+        func anchorTile(_ ci: Int) -> TileIndex? {
+            AutoTiler.plan(config: cfg, screens: [screen], windows: [w], zOrder: [1], focusedId: 1,
+                           memory: [:], now: 10_000, centerTileIndex: ci).first { $0.windowId == 1 }?.tileIndex
+        }
+        XCTAssertEqual(anchorTile(0), .int(1))   // j[0]
+        XCTAssertEqual(anchorTile(1), .int(2))   // j[1]
+        XCTAssertEqual(anchorTile(2), .int(3))   // j[2]
+        XCTAssertEqual(anchorTile(3), .int(1))   // wraps back to j[0]
+    }
+
     func testDenseRealLayoutFillsScreenNoTruncationGaps() {
         // The real DELL 4x3 produces ~34 candidate tiles (many zones share a rect); before the dedup +
         // cap, the CSP solver exhausted its node budget on n=6 and returned a partial, gap-leaving

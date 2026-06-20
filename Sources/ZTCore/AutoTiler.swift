@@ -93,7 +93,8 @@ public enum AutoTiler {
                             zOrder: [Int],
                             focusedId: Int?,
                             memory: [String: [MemoryPref]],
-                            now: Int) -> [PlannedMove] {
+                            now: Int,
+                            centerTileIndex: Int = 0) -> [PlannedMove] {
 
         let windowById = Dictionary(uniqueKeysWithValues: windows.map { ($0.id, $0) })
 
@@ -118,15 +119,18 @@ public enum AutoTiler {
         var anchorRect: ZTRect?
         var anchorMid: String?    // the focused window's monitor — anchorRect is in ITS coord space
 
-        // ---- Pass: focused anchor (single-shot: tries only the first center zone, tile 1).
+        // ---- Pass: focused anchor — the focused window goes to the first center zone. `centerTileIndex`
+        // cycles through that zone's tiles on repeated auto-tiles (so pressing it again rotates the
+        // centre window's size/shape, like the manual zone cycle), wrapping deterministically.
         if let fid = focusedId, let fw = windowById[fid],
            fw.isStandard, !fw.isMinimized, screenByMid[fw.monitor] != nil,
            let selected = config.centerZones.first,
            let tiles = zonesByMid[fw.monitor]?[selected], !tiles.isEmpty {
-            let rect = tiles[0]
+            let idx = ((centerTileIndex % tiles.count) + tiles.count) % tiles.count   // safe wrap
+            let rect = tiles[idx]
             anchorRect = rect
             anchorMid = fw.monitor
-            moves.append(Move(fid, fw.monitor, selected, .int(1), rect))
+            moves.append(Move(fid, fw.monitor, selected, .int(idx + 1), rect))
             occupiedByMid[fw.monitor]?.append(Occ(frame: rect, id: fid))
             processed.insert(fid)
         }

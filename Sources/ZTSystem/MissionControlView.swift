@@ -427,8 +427,9 @@ final class MissionControlView: NSView {
                 if let image = windowImages[h.windowId] {
                     NSGraphicsContext.saveGraphicsState()
                     path.addClip()
-                    NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
-                        .draw(in: pf, from: .zero, operation: .sourceOver, fraction: 1.0)
+                    // Use drawUpright (CG bottom-up image into this flipped/top-left view) — NSImage.draw
+                    // here renders the preview upside-down. Matches the strip-thumbnail path.
+                    drawUpright(image, in: pf)
                     NSGraphicsContext.restoreGraphicsState()
                 } else {
                     NSColor.white.withAlphaComponent(0.08).setFill()

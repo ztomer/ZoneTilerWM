@@ -33,6 +33,8 @@ public final class TilerCoordinator {
     private let isFloated: (_ windowId: Int) -> Bool
     private let focusCycler = FocusManager.Cycler()
     private let focusTracker = WindowFocusTracker()
+    // Repeated auto-tile of the same focused window cycles its centre ("j") zone through its tiles.
+    private var autoTileCycle: (id: Int, index: Int)?
 
     // Optional adaptive memory: when present, manual zone moves are learned + persisted, and
     // auto-tile becomes memory-augmented. monitorManager maps screen UUID -> the logical id
@@ -250,12 +252,20 @@ public final class TilerCoordinator {
         let focusedId = windowSystem.focusedWindow()?.id
         let screens = [AutoTiler.Screen(uuid: uuid, name: screen.name, frame: screen.frame)]
 
+        // Cycle the centre zone: re-tiling the SAME focused window advances its "j" tile; a different
+        // (or no) focused window restarts at tile 0.
+        let cycleIndex: Int
+        if let fid = focusedId, let prev = autoTileCycle, prev.id == fid { cycleIndex = prev.index + 1 }
+        else { cycleIndex = 0 }
+        autoTileCycle = focusedId.map { ($0, cycleIndex) }
+
         // Memory-augmented: ranked preferences per app for this monitor (logical id key),
         // recency-weighted by `now` so recent habits outrank stale ones.
         let memory = memoryOverride ?? rankedMemory(forApps: Set(live.map { $0.appName }), screenUUID: uuid, now: now)
 
         let moves = AutoTiler.plan(config: autoTilerConfig, screens: screens, windows: windows,
-                                   zOrder: zOrder, focusedId: focusedId, memory: memory, now: now)
+                                   zOrder: zOrder, focusedId: focusedId, memory: memory, now: now,
+                                   centerTileIndex: cycleIndex)
         for m in moves { windowSystem.move(windowId: m.windowId, to: m.rect) }
         return moves
     }
