@@ -181,11 +181,14 @@ final class ExposeController {
         // shows each monitor's real Spaces as a bordered group; only the current Space's windows can be
         // screenshotted (the rest show their wallpaper). Click a Space → switch to it. Drop a window on
         // ANOTHER monitor's Space → move it to that monitor (autotiled).
-        // Real macOS Spaces only when BOTH the runtime toggle is on AND the private-API path is
-        // compiled in (ZT_PRIVATE_APIS). Otherwise → public fallback (one synthetic current Space).
-        let useReal = realSpacesEnabled() && SpacesReader.experimentalEnabled
-        let spacesByDisplay = useReal ? SpacesReader.spacesByDisplay() : [:]
-        let spaceWP = useReal ? SpacesReader.wallpapersBySpaceUUID() : [:]
+        // All real Spaces per display, via the layered provider: private CGS reader when the experimental
+        // toggle is on + compiled in (exact, with wallpapers), else the plist-backed hybrid (reads every
+        // Space with NO private API — same source the menu bar uses), else the marker fallback. This is
+        // why the strip now shows every Space even with "Use real macOS Spaces" off.
+        let provider = Spaces.provider(experimentalEnabled: realSpacesEnabled())
+        provider.start()
+        let spacesByDisplay = provider.spacesByDisplay()
+        let spaceWP = provider.wallpapersBySpaceUUID()
 
         var panels: [MissionControlOverlay.Panel] = []
         var strip: [MissionControlOverlay.SpaceInfo] = []
