@@ -35,10 +35,14 @@ final class WindowHintsTests: XCTestCase {
 
     func testEmptyAndCap() {
         XCTAssertEqual(WindowHints.labels(count: 0), [])
-        // More windows than the alphabet: labels cap at the alphabet size (rest unlabeled).
+        // The flat label pool extends past the 26 lowercase keys into digits + uppercase (62 total),
+        // so >26 windows stay typed-jumpable; only beyond 62 are windows left unlabeled.
         let many = WindowHints.labels(count: 100)
-        XCTAssertEqual(many.count, WindowHints.alphabet.count)
-        XCTAssertEqual(Set(many).count, many.count)
+        XCTAssertEqual(many.count, WindowHints.labelPool.count)   // 62
+        XCTAssertEqual(many.count, 62)
+        XCTAssertEqual(Set(many).count, many.count, "all labels distinct (case-significant)")
+        // First 26 stay the home-row lowercase keys (unchanged for the common case).
+        XCTAssertEqual(WindowHints.labels(count: 26), (0..<26).map { String(WindowHints.alphabet[$0]) })
     }
 
     // MARK: - deoverlap (badge dodging so hints don't hide each other)

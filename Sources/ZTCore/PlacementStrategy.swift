@@ -60,7 +60,9 @@ public enum PlacementStrategy {
     /// Port of find_by_rotation: cycle to (current % n) + 1 (1-based).
     static func rotate(tiles: [ZTRect], currentTileIndex: Int?) -> ZTRect? {
         if tiles.isEmpty { return nil }
-        let current = currentTileIndex ?? 0
+        // Clamp to >= 0: Swift's % keeps the dividend's sign, so a negative stored index would make
+        // `next - 1` negative and crash on tiles[negative]. (Production always passes nil here.)
+        let current = max(0, currentTileIndex ?? 0)
         let next = (current % tiles.count) + 1
         return tiles[next - 1]
     }

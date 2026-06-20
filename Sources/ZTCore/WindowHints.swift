@@ -4,14 +4,22 @@
 
 public enum WindowHints {
 
-    /// Single-character labels (home-row-first, like vimium) for up to `alphabet.count`
-    /// windows. Returns one label per window in order; windows beyond the alphabet get no
-    /// label (caller logs the cap). Single-char keeps the key-capture modal a flat keymap.
+    /// Home-row-first lowercase keys (like vimium). Used by `spatialLabels` (one physical key per
+    /// window) and as the first, easiest tier of `labelPool`.
     public static let alphabet = Array("asdfghjklqwertyuiopzxcvbnm")
 
+    /// Single-character label pool for `labels`, in ergonomic order so the *flat* hint overlay can
+    /// label far more than 26 windows while staying a one-keystroke modal: lowercase (no modifier) →
+    /// digits (no modifier) → shifted uppercase. 62 labels total — beyond that a window gets no label
+    /// (reach it via the `/` search or arrow-nav). The caller binds uppercase with the shift modifier.
+    public static let labelPool: [Character] =
+        alphabet + Array("1234567890") + Array("ASDFGHJKLQWERTYUIOPZXCVBNM")
+
+    /// One label per window in order, drawn from `labelPool` (so up to 62 windows are typed-jumpable).
+    /// Windows beyond the pool get no label.
     public static func labels(count: Int) -> [String] {
         guard count > 0 else { return [] }
-        return (0..<min(count, alphabet.count)).map { String(alphabet[$0]) }
+        return (0..<min(count, labelPool.count)).map { String(labelPool[$0]) }
     }
 
     /// Spatially assign a hint key to each window so the key's physical keyboard position roughly

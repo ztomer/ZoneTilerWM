@@ -31,10 +31,28 @@ final class MissionControlTests: XCTestCase {
         XCTAssertEqual(h[0].close.w, 14)                                     // close clamped to min dim
     }
 
-    func testResolveTypedLabelCaseInsensitive() {
-        let h = MissionControl.hints(for: tiles())
-        XCTAssertEqual(MissionControl.resolve(typed: h[1].label.uppercased(), in: h), 20)
+    func testResolveTypedLabelCaseSensitive() {
+        // Labels are case-significant now (uppercase is the >26-window overflow tier), so resolve must
+        // be case-sensitive — typing the wrong case must NOT match a different window.
+        let h = MissionControl.hints(for: tiles())                 // labels a, s, d (lowercase)
+        XCTAssertEqual(MissionControl.resolve(typed: h[1].label, in: h), 20)         // exact "s"
+        XCTAssertNil(MissionControl.resolve(typed: h[1].label.uppercased(), in: h))  // "S" ≠ "s"
         XCTAssertNil(MissionControl.resolve(typed: "zzz", in: h))
+    }
+
+    func testLabelsExtendBeyond26WithDigitsThenUppercase() {
+        // 40 windows: every one gets a unique, non-empty single-char label (no "" collisions). The
+        // 27th spills into digits, the 37th into shifted uppercase.
+        let many = (0..<40).map { MissionControl.Tile(windowId: $0, frame: ZTRect(x: 0, y: 0, w: 200, h: 200)) }
+        let h = MissionControl.hints(for: many)
+        let labels = h.map { $0.label }
+        XCTAssertEqual(labels.count, 40)
+        XCTAssertFalse(labels.contains(""), "no window is left unlabeled within the 62-label pool")
+        XCTAssertEqual(Set(labels).count, 40, "all labels are distinct")
+        XCTAssertTrue(labels[26].first!.isNumber, "27th label is a digit (no modifier)")
+        XCTAssertTrue(labels[36].first!.isUppercase, "37th label is shifted uppercase")
+        // And resolve round-trips the case-significant labels exactly.
+        XCTAssertEqual(MissionControl.resolve(typed: labels[36], in: h), 36)
     }
 
     func testMatchesPrefix() {

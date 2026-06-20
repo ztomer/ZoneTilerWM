@@ -1,5 +1,6 @@
-// PlacementStrategyTests — behavioral spec for the PlacementStrategy port. Lua↔Swift parity
-// is covered by tools/diff_strategy.sh; these assert the intended behavior directly.
+// PlacementStrategyTests — behavioral spec for the PlacementStrategy port. Lua↔Swift parity was
+// originally validated by the (now-removed) tools/diff_strategy.sh differential oracle; that harness
+// was deleted with the Lua. These tests are now the spec.
 
 import XCTest
 @testable import ZTCore
@@ -10,6 +11,14 @@ final class PlacementStrategyTests: XCTestCase {
         ZTRect(x: 0, y: 0, w: 960, h: 1080),
         ZTRect(x: 960, y: 0, w: 960, h: 1080),
     ]
+
+    func testRotateClampsNegativeIndexInsteadOfCrashing() {
+        // A negative stored tile index must not index tiles[-1] (Swift % keeps the sign). Clamped to 0,
+        // so it returns the first tile rather than trapping.
+        XCTAssertEqual(PlacementStrategy.rotate(tiles: tiles, currentTileIndex: -1), tiles[0])
+        XCTAssertEqual(PlacementStrategy.rotate(tiles: tiles, currentTileIndex: -7), tiles[0])
+        XCTAssertNil(PlacementStrategy.rotate(tiles: [], currentTileIndex: -3))
+    }
 
     func testStrategyConfigMapping() {
         XCTAssertEqual(PlacementStrategy.Strategy(config: "largest_free_space"), .largestFreeSpace)

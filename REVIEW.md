@@ -590,3 +590,30 @@ strongest (most-negative) bonus, so an exact zone+tile match wins. Corpus unaffe
 
 380 tests green (both configs); golden corpus unchanged (the optimality + memory fixes happened not to
 alter the 7 curated cases); all files ≤500 LOC.
+
+## 10. Auto-tile / pure-logic sweep round 2 (2026-06-20)
+
+Second algo-review pass (skill `algo-review`) over the algorithms NOT covered in §9 — a 5-agent
+read-only hunt across WindowMemory, MissionControl, ZoneCalculator, PlacementStrategy + SmartPlacer,
+and the grid-math cohort (FocusManager/ResizeManager/GridLines/GridCells/ZoneOccupancy). **ZoneCalculator
+and the grid-math cohort came back fully clean; everything else was refuted as by-design/guarded except
+four findings — all `safe` (no golden-corpus impact). Fixed, then re-reviewed clean (adversarial verifier:
+all CORRECT, no regressions).**
+
+- **MissionControl 26-window cap (medium).** In Exposé, windows past the 26-letter alphabet got an empty
+  hint label → unreachable by typed-jump and collapsed in the `label→id` dict, silently. Fixed per the
+  user's call: extended `WindowHints.labelPool` to a 62-char single-key pool (lowercase → digits →
+  uppercase), made `MissionControl.resolve`/`matches` case-sensitive (labels are now case-significant),
+  and taught `ExposeController.bindModal` to bind digits (no modifier) and uppercase (shift). Now up to
+  62 windows are typed-jumpable; beyond that they're reachable via `/` search + arrow-nav.
+- **WindowMemory.decodeStringy crash on a degenerate legacy Double (low).** `Int(d)` traps on NaN/Inf/
+  out-of-Int-range; a malformed legacy `window_positions.json` would crash the whole load. Guarded with
+  `d.isFinite && d == d.rounded() && abs(d) < Double(Int.max)`, else fall back to `String(d)`.
+- **PlacementStrategy.rotate crash on a negative tile index (low).** Swift `%` keeps the dividend's sign →
+  `tiles[-1]`. Reachable via the oracle API (production passes nil). Clamped with `max(0, …)`.
+- **Stale test-header comments (low).** `PlacementStrategyTests`/`SmartPlacerTests` cited the removed
+  `tools/diff_strategy.sh`/`diff_place.sh`; corrected to reflect the deleted Lua oracle.
+
+Locked with tests (`testLabelsExtendBeyond26…`, `testResolveTypedLabelCaseSensitive`,
+`testRotateClampsNegativeIndexInsteadOfCrashing`, updated `testEmptyAndCap`). 382 tests green (both
+configs); all files ≤500 LOC. Surface is clean → version bumped to 2.6.0.

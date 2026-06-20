@@ -321,9 +321,14 @@ final class ExposeController {
         }
         let navLetters = Set(letterNav.map { $0.0 })
 
+        // Labels past the 26 lowercase keys spill into digits, then shifted uppercase (see
+        // WindowHints.labelPool) — so >26 windows stay typed-jumpable. keyCode() lowercases, so an
+        // uppercase label reuses its letter's keycode with the shift modifier.
+        let shift = KeyMap.modifierMask(for: ["shift"])
         for label in labels where !navLetters.contains(label) {
             guard let code = KeyMap.keyCode(for: label) else { continue }
-            bindKey(code, mods: 0) { [weak self] in
+            let mods: UInt32 = (label.first?.isUppercase == true) ? shift : 0
+            bindKey(code, mods: mods) { [weak self] in
                 guard let self, let wid = self.targets[label] else { return }
                 self.windowSystem.focus(windowId: wid)   // AX raise + focus
                 self.exit()

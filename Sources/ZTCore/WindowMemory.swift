@@ -18,7 +18,11 @@ extension KeyedDecodingContainer {
         if let s = try? decode(String.self, forKey: key) { return s }
         if let i = try? decode(Int.self, forKey: key) { return String(i) }
         if let d = try? decode(Double.self, forKey: key) {
-            return d == d.rounded() ? String(Int(d)) : String(d)
+            // Only coerce to Int when it's actually representable — a NaN/Inf or out-of-Int-range
+            // legacy value would TRAP in Int(d), crashing the whole load; fall back to the Double's
+            // string form instead.
+            if d.isFinite && d == d.rounded() && abs(d) < Double(Int.max) { return String(Int(d)) }
+            return String(d)
         }
         throw DecodingError.dataCorruptedError(
             forKey: key, in: self,

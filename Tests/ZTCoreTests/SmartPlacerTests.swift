@@ -1,5 +1,6 @@
-// SmartPlacerTests — behavioral spec for the SmartPlacer port. Lua↔Swift parity is covered
-// by tools/diff_place.sh; these assert the intended scoring behavior directly.
+// SmartPlacerTests — behavioral spec for the SmartPlacer port. Lua↔Swift parity was originally
+// validated by the (now-removed) tools/diff_place.sh differential oracle; that harness was deleted
+// with the Lua. These tests are now the spec.
 
 import XCTest
 @testable import ZTCore

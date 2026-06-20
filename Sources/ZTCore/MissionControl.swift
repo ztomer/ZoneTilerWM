@@ -205,17 +205,18 @@ public enum MissionControl {
         }
     }
 
-    /// The window whose hint label exactly equals `typed` (case-insensitive), or nil.
+    /// The window whose hint label exactly equals `typed`, or nil. CASE-SENSITIVE: labels can now be
+    /// uppercase (the overflow tier past 26 windows — see `WindowHints.labelPool`), so "A" and "a" are
+    /// distinct windows and must not collide.
     public static func resolve(typed: String, in hints: [Hint]) -> Int? {
-        let t = typed.lowercased()
-        return hints.first { $0.label == t }?.windowId
+        return hints.first { $0.label == typed }?.windowId
     }
 
-    /// Hints whose label starts with `prefix` (for two-key labels / live filtering as you type).
+    /// Hints whose label starts with `prefix` (live filtering as you type). Case-sensitive, matching
+    /// `resolve` — uppercase labels are distinct from lowercase.
     public static func matches(prefix: String, in hints: [Hint]) -> [Hint] {
         guard !prefix.isEmpty else { return hints }
-        let p = prefix.lowercased()
-        return hints.filter { $0.label.hasPrefix(p) }
+        return hints.filter { $0.label.hasPrefix(prefix) }
     }
 
     /// The window whose close-button rect contains the point (top-left CG), or nil — for clicking ×.
