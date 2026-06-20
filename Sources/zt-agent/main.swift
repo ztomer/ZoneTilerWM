@@ -312,11 +312,13 @@ final class AgentController: NSObject {
         commandPalette = CommandPaletteController(
             perform: { [unowned self] in self.dispatcher.perform($0) },
             nlEnabled: { [unowned self] in self.config.nlEnabled },   // on-device NL fallback (merged in)
-            interpretNL: { [unowned self] text in
+            interpretNL: { text in
                 let prompt = NLCommand.systemPrompt(catalog: ActionParser.catalog)
                 if case .requests(let r) = await NLInterpreter.interpret(text, systemPrompt: prompt) { return r }
                 return []
-            })
+            },
+            windows: { [unowned self] in self.paletteWindows() },                       // find-a-window-by-typing
+            focusWindow: { [unowned self] id in self.windowSystem.focus(windowId: id) })
         zoneHUD = ZoneHUDController(
             screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },

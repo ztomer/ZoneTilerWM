@@ -10,7 +10,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SEED="${1:-$ROOT/config.toml}"
 
-"$ROOT/build.sh"
+# Build WITH the private-API flag so dev runs get the real-Spaces reader + SkyLight border
+# (still runtime-gated by [ui] experimental_real_spaces). Matches build_dev.sh.
+"$ROOT/build.sh" -Xswiftc -DZT_PRIVATE_APIS
 pkill -x zt-agent 2>/dev/null || true
 sleep 0.3
 

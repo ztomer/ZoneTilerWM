@@ -9,6 +9,25 @@ import ZTUI
 
 extension AgentController {
 
+    /// Live windows for the command palette's "find a window by typing": app name + a best-zone
+    /// locator. Enumeration is CGWindowList (0 AX); only the focus-on-select touches AX (like hints).
+    func paletteWindows() -> [(id: Int, app: String, detail: String)] {
+        let mine = NSRunningApplication.current.localizedName
+        let all = screens.allScreens()
+        return windowSystem.allWindows().compactMap { w -> (id: Int, app: String, detail: String)? in
+            guard !w.appName.isEmpty, w.appName != mine else { return nil }
+            var detail = ""
+            let cx = w.frame.x + w.frame.w / 2, cy = w.frame.y + w.frame.h / 2
+            if let s = all.first(where: { cx >= $0.frame.x && cx < $0.frame.x + $0.frame.w
+                                       && cy >= $0.frame.y && cy < $0.frame.y + $0.frame.h }) {
+                let info = ZoneCalculator.ScreenInfo(name: s.name, frame: s.frame)
+                let zones = ZoneCalculator.computeZones(screen: info, config: config.zoneConfig, offsets: { _, _ in 0 }).zones
+                if let z = ZoneOccupancy.bestZone(window: w.frame, zones: zones) { detail = "zone \(z)" }
+            }
+            return (id: w.id, app: w.appName, detail: detail)
+        }
+    }
+
     // MARK: - Layout snapshots
 
     /// Current arrangement as value snapshots via the read-only query provider (0 AX).

@@ -111,13 +111,12 @@ struct PreviewsTab: View {
             Section("Show Spaces (menu bar + Exposé)") {
                 Toggle("Show Spaces in the menu bar", isOn: Binding(
                     get: { model.spacesMenubarEnabled }, set: { model.setSpacesMenubar($0) }))
-                    .disabled(!model.realSpacesEnabled)
-                if model.spacesMenubarEnabled && model.realSpacesEnabled {
+                if model.spacesMenubarEnabled {
                     MenubarBracketPicker(model: model)
                 }
                 Toggle("Use real macOS Spaces (experimental)", isOn: Binding(
                     get: { model.realSpacesEnabled }, set: { model.setRealSpaces($0) }))
-                Text("Switching (above) needs none of this. Showing WHICH Spaces exist, which is current, and their wallpapers reads live desktop info via private APIs — experimental, excluded from App Store builds. Off → Exposé shows the current Space only.")
+                Text("With experimental real Spaces ON, the menu bar + Exposé show ALL your Spaces (grouped per monitor) via a private API — the complete picture, with wallpapers. OFF → a public-API fallback that learns Spaces as you visit them (best-effort: visited Spaces only, no wallpapers). Switching Spaces needs neither.")
                     .font(.caption).foregroundColor(.secondary)
             }
         }

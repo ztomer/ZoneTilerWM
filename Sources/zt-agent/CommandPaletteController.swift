@@ -23,20 +23,30 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
     /// config toggle takes effect without rebuilding the panel.
     private let nlEnabled: () -> Bool
     private let interpretNL: (String) async -> [ActionRequest]
+    /// Live open windows (id, app name, a short locator like its zone) — 0 AX (CGWindowList), read
+    /// fresh each keystroke so "find a window by typing" reflects what's on screen now.
+    private let windows: () -> [(id: Int, app: String, detail: String)]
+    private let focusWindow: (Int) -> Void
     private var panel: KeyPanel?
     private var field: NSTextField!
     private var listStack: NSStackView!
     private var hintLabel: NSTextField!
-    private var results: [ActionSpec] = []
+    /// A palette row is either a catalog command or an open window to focus.
+    private enum Item { case command(ActionSpec); case window(id: Int, app: String, detail: String) }
+    private var items: [Item] = []
     private var selection = 0
     private var busy = false
 
     init(perform: @escaping (ActionRequest) -> ActionResult,
          nlEnabled: @escaping () -> Bool = { false },
-         interpretNL: @escaping (String) async -> [ActionRequest] = { _ in [] }) {
+         interpretNL: @escaping (String) async -> [ActionRequest] = { _ in [] },
+         windows: @escaping () -> [(id: Int, app: String, detail: String)] = { [] },
+         focusWindow: @escaping (Int) -> Void = { _ in }) {
         self.perform = perform
         self.nlEnabled = nlEnabled
         self.interpretNL = interpretNL
+        self.windows = windows
+        self.focusWindow = focusWindow
     }
 
     func toggle() {
@@ -90,7 +100,7 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
 
         field = NSTextField()
         field.font = .systemFont(ofSize: 20, weight: .regular)
-        field.placeholderString = "Run a command, or describe a layout —  tile h · zen · \"put terminal left\""
+        field.placeholderString = "Run a command, find a window, or describe a layout —  tile h · safari · zen"
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
@@ -159,49 +169,96 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
     // MARK: results
 
     private func refresh(_ query: String) {
-        results = CommandPalette.match(query)
+        let cmds = CommandPalette.match(query).map { Item.command($0) }
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        // Open windows are only searched once something is typed; fuzzy-match the app name.
+        let wins: [Item] = q.isEmpty ? [] : windows()
+            .filter { Self.fuzzy(q, in: $0.app.lowercased()) }
+            .prefix(8)
+            .map { Item.window(id: $0.id, app: $0.app, detail: $0.detail) }
+        items = cmds + wins
         selection = 0
         rebuildList()
     }
 
+    /// Loose subsequence match (so "sf" finds "Safari"), with a substring fast-path.
+    private static func fuzzy(_ needle: String, in hay: String) -> Bool {
+        if needle.isEmpty || hay.contains(needle) { return true }
+        var idx = hay.startIndex
+        for ch in needle {
+            guard let found = hay[idx...].firstIndex(of: ch) else { return false }
+            idx = hay.index(after: found)
+        }
+        return true
+    }
+
     private func rebuildList() {
         listStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for (i, spec) in results.enumerated() {
-            let row = rowView(spec, selected: i == selection)
+        for (i, item) in items.enumerated() {
+            let row = rowView(item, selected: i == selection)
             listStack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true   // now share an ancestor
+            row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true
         }
-        if results.isEmpty {
+        hintLabel.stringValue = hintText()
+    }
+
+    private func hintText() -> String {
+        guard !items.isEmpty else {
             let typed = !field.stringValue.trimmingCharacters(in: .whitespaces).isEmpty
-            hintLabel.stringValue = (typed && nlEnabled()) ? "⏎ to ask the on-device model" : "no matching command"
-        } else {
-            let spec = results[min(selection, results.count - 1)]
+            return (typed && nlEnabled()) ? "⏎ to ask the on-device model" : "no matching command or window"
+        }
+        switch items[min(selection, items.count - 1)] {
+        case .window(_, let app, _): return "⏎ focus \(app)"
+        case .command(let spec):
             let params = spec.params.map { $0.required ? "<\($0.name)>" : "[\($0.name)]" }.joined(separator: " ")
-            hintLabel.stringValue = params.isEmpty ? "⏎ run \(spec.name)" : "\(spec.name)  \(params)   ·   ⏎ run · Tab complete"
+            return params.isEmpty ? "⏎ run \(spec.name)" : "\(spec.name)  \(params)   ·   ⏎ run · Tab complete"
         }
     }
 
-    private func rowView(_ spec: ActionSpec, selected: Bool) -> NSView {
+    private func rowView(_ item: Item, selected: Bool) -> NSView {
+        switch item {
+        case .command(let spec):
+            return makeRow(icon: nil, title: spec.name, mono: true, detail: spec.description, selected: selected)
+        case .window(_, let app, let detail):
+            return makeRow(icon: "macwindow", title: app, mono: false, detail: detail.isEmpty ? "focus window" : detail, selected: selected)
+        }
+    }
+
+    private func makeRow(icon: String?, title: String, mono: Bool, detail: String, selected: Bool) -> NSView {
         let row = NSView()
         row.wantsLayer = true
         row.layer?.cornerRadius = 6
         row.layer?.backgroundColor = selected ? NSColor.controlAccentColor.withAlphaComponent(0.28).cgColor : NSColor.clear.cgColor
         row.translatesAutoresizingMaskIntoConstraints = false
 
-        let name = NSTextField(labelWithString: spec.name)
-        name.font = .monospacedSystemFont(ofSize: 13, weight: .medium)
+        let name = NSTextField(labelWithString: title)
+        name.font = mono ? .monospacedSystemFont(ofSize: 13, weight: .medium) : .systemFont(ofSize: 13, weight: .medium)
         name.textColor = .labelColor
         name.translatesAutoresizingMaskIntoConstraints = false
-        let desc = NSTextField(labelWithString: spec.description)
+        let desc = NSTextField(labelWithString: detail)
         desc.font = .systemFont(ofSize: 12)
         desc.textColor = NSColor.labelColor.withAlphaComponent(0.72)   // brighter than .secondary on the dark material
         desc.lineBreakMode = .byTruncatingTail
         desc.translatesAutoresizingMaskIntoConstraints = false
 
+        var leadingAnchor: NSLayoutXAxisAnchor = row.leadingAnchor
+        var leadingPad: CGFloat = 10
+        if let icon, let img = NSImage(systemSymbolName: icon, accessibilityDescription: nil) {
+            let iv = NSImageView(image: img)
+            iv.contentTintColor = NSColor.labelColor.withAlphaComponent(0.7)
+            iv.translatesAutoresizingMaskIntoConstraints = false
+            row.addSubview(iv)
+            NSLayoutConstraint.activate([
+                iv.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 10),
+                iv.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                iv.widthAnchor.constraint(equalToConstant: 15),
+            ])
+            leadingAnchor = iv.trailingAnchor; leadingPad = 8
+        }
         row.addSubview(name); row.addSubview(desc)
         NSLayoutConstraint.activate([
             row.heightAnchor.constraint(equalToConstant: 30),
-            name.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 10),
+            name.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leadingPad),
             name.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             name.widthAnchor.constraint(equalToConstant: 130),
             desc.leadingAnchor.constraint(equalTo: name.trailingAnchor, constant: 10),
@@ -212,15 +269,14 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
     }
 
     private func move(_ delta: Int) {
-        guard !results.isEmpty else { return }
-        selection = max(0, min(results.count - 1, selection + delta))
+        guard !items.isEmpty else { return }
+        selection = max(0, min(items.count - 1, selection + delta))
         rebuildList()
     }
 
-    /// Replace the action token with the highlighted result; keep any typed args.
+    /// Replace the action token with the highlighted command; keep any typed args. (Windows: no-op.)
     private func autocomplete() {
-        guard !results.isEmpty else { return }
-        let spec = results[min(selection, results.count - 1)]
+        guard !items.isEmpty, case .command(let spec) = items[min(selection, items.count - 1)] else { return }
         let rest = field.stringValue.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
         let args = rest.count > 1 ? " " + rest[1] : (spec.params.isEmpty ? "" : " ")
         field.stringValue = spec.name + args
@@ -231,19 +287,21 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
     private func run() {
         let raw = field.stringValue.trimmingCharacters(in: .whitespaces)
         if raw.isEmpty || busy { return }
-        // No fuzzy action match → fall back to the on-device model (if enabled) on the raw text.
-        if results.isEmpty {
+        // Nothing matched → fall back to the on-device model (if enabled) on the raw text.
+        if items.isEmpty {
             if nlEnabled() { runNL(raw) }
             return
         }
+        // Selected an open window → focus it.
+        if case .window(let id, _, _) = items[min(selection, items.count - 1)] {
+            focusWindow(id); hide(); return
+        }
+        // Otherwise run the selected command, snapping the token to it when the user typed a prefix.
+        guard case .command(let spec) = items[min(selection, items.count - 1)] else { return }
         var input = raw
-        // Snap the action token to the highlighted result when the user typed a fuzzy prefix.
-        if !results.isEmpty {
-            let spec = results[min(selection, results.count - 1)]
-            let toks = input.split(separator: " ", maxSplits: 1).map(String.init)
-            if toks.first?.lowercased() != spec.name {
-                input = spec.name + (toks.count > 1 ? " " + toks[1] : "")
-            }
+        let toks = input.split(separator: " ", maxSplits: 1).map(String.init)
+        if toks.first?.lowercased() != spec.name {
+            input = spec.name + (toks.count > 1 ? " " + toks[1] : "")
         }
         switch CommandPalette.resolve(input) {
         case .success(let request):
@@ -265,7 +323,7 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
         hintLabel.stringValue = "thinking…"
         Task { [weak self] in
             let reqs = await self?.interpretNL(text) ?? []
-            await MainActor.run {
+            await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.busy = false
                 if reqs.isEmpty {
