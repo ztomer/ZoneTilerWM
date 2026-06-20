@@ -83,6 +83,9 @@ public enum AutoTiler {
     }
 
     private static let solverZoneKeys = ["h", "j", "k", "l", "i", "u", "y", "o", "n", "m"]
+    // Max distinct candidate tiles handed to the CSP solver. Bounds its node count so it can't exhaust
+    // maxChecks and return a partial placement; well above a 12-cell grid, so coverage is unaffected.
+    private static let solverTileCap = 16
 
     public static func plan(config: Config,
                             screens: [Screen],
@@ -175,11 +178,21 @@ public enum AutoTiler {
                     if a.zone != b.zone { return a.zone < b.zone }
                     return a.tile.sortKey < b.tile.sortKey
                 }
-                // NOTE: `available` over-counts — zones overlap geometrically (e.g. "i"/center sits
-                // inside "h"/"l"), so this compares unplaced against a slot count larger than the real
-                // non-overlapping capacity. It can therefore under-subdivide; harmless because the solver
-                // below de-duplicates overlapping tiles via its own occupancy check (worst case: a window
-                // is skipped rather than given a split tile).
+                // Drop geometrically-identical candidates: many zones resolve to the SAME rect (in the
+                // 4x3 layout "i"/"l"/"," all start at d1:d3), which triples the solver's branching factor
+                // for no benefit and can blow its node budget (maxChecks) on dense layouts — exhausting
+                // the budget returns a partial assignment that leaves the desktop half-tiled. Keeping one
+                // representative per distinct rect (the sort makes it deterministic) keeps the solver fast.
+                var seen: [ZTRect] = []
+                available = available.filter { c in
+                    if seen.contains(where: { abs($0.x - c.rect.x) < 1 && abs($0.y - c.rect.y) < 1
+                        && abs($0.w - c.rect.w) < 1 && abs($0.h - c.rect.h) < 1 }) { return false }
+                    seen.append(c.rect); return true
+                }
+                // Hard-cap the candidate set so the CSP's node budget can't be exhausted (which would
+                // truncate to a partial, gap-leaving placement). The list is area-sorted, so we keep the
+                // biggest/most-useful tiles; stretch-to-fill absorbs any slack a smaller set leaves.
+                if available.count > solverTileCap { available = Array(available.prefix(solverTileCap)) }
                 if !available.isEmpty && unplaced.count > available.count {
                     subdivide(&available, required: unplaced.count)
                 }

@@ -211,6 +211,37 @@ final class AutoTilerTests: XCTestCase {
         XCTAssertGreaterThan(minCoverage, 0.80, "stretch should fill the screen well across all layouts")
     }
 
+    func testDenseRealLayoutFillsScreenNoTruncationGaps() {
+        // The real DELL 4x3 produces ~34 candidate tiles (many zones share a rect); before the dedup +
+        // cap, the CSP solver exhausted its node budget on n=6 and returned a partial, gap-leaving
+        // placement. With 9 windows (>capacity → limbo) the screen must still end up ~fully covered.
+        let layout4x3: [String: [String]] = [
+            "y": ["a1:a2", "a1", "a1:b2"], "h": ["a1:b3", "a1:a3", "a1:c3", "a2"],
+            "n": ["a3", "a2:a3", "a3:b3"], "u": ["b1:b3", "b1:b2", "b1", "b1:c1"],
+            "j": ["b1:c3", "b1:b3", "b2", "b1:d3"], "m": ["b1:b3", "b2:c3", "b3"],
+            "i": ["d1:d3", "d1:d2", "d1"], "k": ["c1:d3", "c1:c3", "c2"],
+            ",": ["d1:d3", "d2:d3", "d3"], "o": ["c1:d1", "d1", "c1:d2"],
+            "l": ["d1:d3", "c1:d3", "b1:d3", "d2"], ".": ["d3", "d2:d3", "c3:d3"], "0": ["a1:d3"],
+        ]
+        let zc = ZoneConfig(grids: ["4x3": GridConfig(cols: 4, rows: 3)], layouts: ["4x3": layout4x3],
+                            margins: Margins(enabled: true, size: 5, screen_edge: true),
+                            custom_screens: ["DELL U3223QE": CustomScreen(layout: "4x3")])
+        let cfg = AutoTiler.Config(centerZones: ["j", "center", "0"], workingSetTimeLimit: 1800,
+                                   workingSetMaxCapacity: 6, mode: "usage", weights: CostWeights(), zoneConfig: zc)
+        let screen = AutoTiler.Screen(uuid: "D", name: "DELL U3223QE", frame: ZTRect(x: 0, y: 30, w: 3360, h: 1860))
+        let sizes: [(Double, Double)] = [(2400, 1500), (900, 1400), (1600, 900), (835, 1235),
+                                         (1200, 800), (3000, 1800), (700, 1300), (1900, 1100), (1000, 1000)]
+        let wins = sizes.enumerated().map { (i, s) in AutoTiler.Window(id: i + 1, app: "A\(i)", monitor: "D",
+            frame: ZTRect(x: 0, y: 0, w: s.0, h: s.1), lastFocusedTime: 10_000) }
+        let placed = AutoTiler.plan(config: cfg, screens: [screen], windows: wins,
+                                    zOrder: Array(1...9), focusedId: 1, memory: [:], now: 10_000)
+            .filter { $0.zoneKey != "limbo" }
+        let cov = placed.reduce(0.0) { $0 + $1.rect.w * $1.rect.h } / (3360 * 1860)
+        XCTAssertGreaterThan(cov, 0.95, "dense real layout must fill the screen (no truncation gaps)")
+        for a in 0..<placed.count { for b in (a + 1)..<placed.count {
+            XCTAssertFalse(rectsOverlap(placed[a].rect, placed[b].rect)) } }
+    }
+
     func testStretchToFillCoversScreenWithoutOverlap() {
         // The whole point: after tiling, the desktop is actually full. Use the real DELL 4x3 layout
         // (where the focused "j" zone is only the middle half) — a single window must still fill the

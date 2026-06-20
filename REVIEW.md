@@ -635,3 +635,26 @@ inter-window margin is preserved. Verified theoretically (the coverage is a pure
 coverage now **99.3% / 99.1% / 99.0% / 99.0% / 98.9% / 98.8%** for n=1..6 (the residual ~1% is the 5px
 margins). Locked with `testStretchToFillCoversScreenWithoutOverlap` (≥97% coverage + pairwise
 non-overlap + on-screen for n=1,2,3,6). 383 tests green (both configs); AutoTiler.swift 439 LOC.
+
+## 12. Auto-tile empty-space — the REAL root cause (2026-06-20, live-verified by screenshot)
+
+§11's stretch-to-fill was unit-true but the LIVE desktop still left the right third empty (confirmed by
+screenshot). Live debugging (CGWindowList dump + screencapture) found the actual cause, in two parts:
+
+1. **The agent was tiling its own 1×1 Spaces-marker windows.** `HybridSpacesProvider`/`PublicSpacesProvider`
+   (the Spaces feature added earlier today) pin invisible 1×1 marker windows per Space. `onScreenWindows()`
+   enumerated them as real windows, so auto-tile allocated whole tile slots (e.g. cols c–d) to invisible
+   markers → that region rendered as bare wallpaper. A regression my own Spaces work introduced.
+   **Fix:** `AXWindowSystem.onScreenWindows()` now skips windows owned by the agent's own pid (`getpid()`)
+   — markers, overlays (HUD/hints/exposé/focus-border/search pill), and the settings window.
+2. **The solver was truncating.** The real DELL 4x3 yields ~34 candidate tiles (many zones map to the
+   same rect — `i`/`l`/`,` all start at `d1:d3`), and the (now-exact) admissible-bound CSP exhausted its
+   100k node budget on n=6, returning a partial, gap-leaving placement (`LayoutSolver: maxChecks exhausted`
+   in the live log). **Fix:** in `AutoTiler.plan`, dedupe geometrically-identical candidate tiles and cap
+   the set to 16 (area-sorted, so the biggest survive); the node budget now holds and `maxChecks` no
+   longer fires.
+
+Live-verified end-to-end: screenshot before = right third bare wallpaper; after = a clean 4-column tiling
+covering the whole screen (`h2`/`j2`/`k2`/`i1`). 384 tests green (both configs) + a dense-layout coverage
+regression test; all files ≤500 LOC. The marker-exclusion lives in the (screenshot-validated) adapter
+layer; the dedup/cap is unit-tested.

@@ -238,11 +238,17 @@ public final class AXWindowSystem: WindowSystem {
         guard let infoList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
+        let ownPID = getpid()   // never enumerate OUR OWN windows
         var result: [OnScreenWindow] = []
         for (i, info) in infoList.enumerated() {
             guard let num = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
                   let pid = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value
             else { continue }
+            // Skip windows owned by the agent itself: the 1x1 Spaces marker windows
+            // (HybridSpacesProvider/PublicSpacesProvider), the overlays (HUD, hints, focus border,
+            // exposé, search pill), and the settings window. Otherwise auto-tile/hints/exposé would
+            // treat those invisible helpers as real windows and waste real tile slots on them.
+            if pid == ownPID { continue }
             let owner = info[kCGWindowOwnerName as String] as? String ?? ""
             let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
             var bounds = CGRect.zero
