@@ -40,8 +40,8 @@ if first == "get" {
     switch client.send(.query(query)) {
     case .query(let result):
         if jsonMode { emitJSON(result) } else { out(CLIFormat.summary(result)) }
-    case .error(let message): err("error: \(message)"); exit(2)
-    case .action: err("error: unexpected action response"); exit(2)
+    case .error(let message): err(Kare.mark(Kare.err, message)); exit(2)
+    case .action: err(Kare.mark(Kare.err, "unexpected action response")); exit(2)
     }
     exit(0)
 }
@@ -49,15 +49,16 @@ if first == "get" {
 // Otherwise: an action. The argv (name + --key value pairs) maps through the shared parser.
 switch ActionParser.parse(argv: args) {
 case .failure(let parseError):
-    err("error: \(CLIFormat.describe(parseError))")
-    err("run `zonetiler-cli --help` for the action list.")
+    err(Kare.mark(Kare.err, CLIFormat.describe(parseError)))
+    err(Kare.mark(Kare.start, "run `zonetiler-cli --help` for the action list."))
     exit(2)
 case .success(let request):
     switch client.send(.action(request)) {
     case .action(let result):
-        if jsonMode { emitJSON(result) } else { out(CLIFormat.summary(result)) }
+        if jsonMode { emitJSON(result) }
+        else { out(Kare.mark(CLIFormat.isFailure(result) ? Kare.err : Kare.ok, CLIFormat.summary(result))) }
         exit(CLIFormat.isFailure(result) ? 1 : 0)
-    case .error(let message): err("error: \(message)"); exit(2)
-    case .query: err("error: unexpected query response"); exit(2)
+    case .error(let message): err(Kare.mark(Kare.err, message)); exit(2)
+    case .query: err(Kare.mark(Kare.err, "unexpected query response")); exit(2)
     }
 }

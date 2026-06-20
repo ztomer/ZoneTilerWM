@@ -10,7 +10,8 @@
 import Foundation
 import ZTCore
 
-private func logErr(_ s: String) { FileHandle.standardError.write(Data(("zt-agent[ipc]: " + s + "\n").utf8)) }
+private func logErr(_ s: String) { FileHandle.standardError.write(Data((Kare.err + " zt-agent[ipc]: " + s + "\n").utf8)) }
+private func logInfo(_ s: String) { FileHandle.standardError.write(Data((Kare.start + " zt-agent[ipc]: " + s + "\n").utf8)) }
 
 public final class AgentSocketServer {
     private let path: String
@@ -52,7 +53,7 @@ public final class AgentSocketServer {
         src.setEventHandler { [weak self] in self?.acceptOne() }
         src.resume()
         source = src
-        logErr("listening on \(path)")
+        logInfo("listening on \(path)")
     }
 
     public func stop() {

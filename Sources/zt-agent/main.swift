@@ -10,7 +10,14 @@ import ZTCore
 import ZTSystem
 import ZTUI
 
-func log(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
+// Kare-styled stderr log: every line carries a status glyph (→ info · ✓ ok · ⚠ warn). The bare
+// `log` is the default info channel; `logOK`/`logWarn` mark success / caution.
+private func emit(_ glyph: String, _ s: String) {
+    FileHandle.standardError.write(Data((glyph + " " + s + "\n").utf8))
+}
+func log(_ s: String) { emit(Kare.start, s) }
+func logOK(_ s: String) { emit(Kare.ok, s) }
+func logWarn(_ s: String) { emit(Kare.warn, s) }
 
 /// Runtime set of "floated" window ids (excluded from auto-tile). A reference type so the
 /// coordinator's isFloated closure can capture it without capturing the controller.
@@ -487,5 +494,5 @@ if let nlText = ProcessInfo.processInfo.environment["ZT_NL"] {
     exit(0)
 }
 
-log("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")
+logOK("zt-agent: ready — <modifier>+<zone> tiles the focused window; HYPER+return auto-tiles the screen. Edits to config.toml live-reload. ⌘Q to quit.")
 app.run()
