@@ -451,3 +451,35 @@ A broad whole-system pass across all six dimensions.
   to locate a window (the `WindowSystem` protocol has no all-windows read; not worth expanding the
   protocol for a CPU-only, non-hot path). The standing top AX-cost lever is still the per-move
   `AXEnhancedUserInterface` toggle gating (item 5 / §6, deferred pending the live Firefox check).
+
+### Round 5 (fresh territory: core algorithms, coords, TOML, hotkeys, MCP, build) — same day
+
+Aimed at code NOT touched in rounds 1–4. The ZTCore algorithms came back **all VERIFIED** (every
+output-affecting sort is a total order with a unique tie-break; division guards present in
+`LayoutSolver`/`SmartPlacer`/`WindowMemory`/`FocusManager`; `ZoneCalculator` regex anchored; AutoTiler
+fill-gaps/BSP math correct; running-mean + recency-decay exact; all clocks injected). Findings:
+
+- **[High — FALSE POSITIVE, not changed] Multi-display coordinate flip.** A reviewer flagged
+  `CoordConvert.nsFrame` flipping against `CGMainDisplayID().height` for all displays as a bug.
+  Verified it's **correct**: this is a *global* CG→NS transform; both coordinate systems are anchored
+  to the main display's origin, so the flip constant is the main height regardless of which display the
+  rect is on (its own x/y encode the display). The proposed "fix" would break secondary-display
+  overlays that work today (and the live-validated Exposé all-monitors panels).
+- **[Med — FIXED] KeyMap F-key gap.** Only `f1`/`f2` were mapped; a config binding `f3`–`f20` returned
+  `nil` and silently failed to bind. Added `f3`–`f20`.
+- **[Med — FIXED] Carbon `InstallEventHandler` silent failure.** Its status was unchecked; if it ever
+  failed, *no* hotkey would fire with no signal. Now logged to stderr.
+- **[Med — left, cosmetic] `TOMLEditor.setOrAppend`** inserts a new key right after the section header
+  (above a leading comment). Valid TOML, key-order-irrelevant — not worth the corruption risk of
+  changing the surgical config writer.
+- **[High — already tracked] `project.yml` doesn't thread `ZT_PRIVATE_APIS`**, so `make app` builds
+  MAS-clean (no experimental features). This is the deferred build-variant work (ROADMAP §B4), not a
+  new bug; the `build_*.sh` scripts pass the flag correctly.
+- **VERIFIED correct:** MCP tool schema ↔ ActionParser catalog (no drift), `HotkeyConflicts` modifier
+  canonicalization, the IPC 1 MB cap + 2 s timeout. Left as low/theoretical: `zt-mcp`'s stdin
+  `readLine` has no size cap (trusted client) and `CarbonHotkeyBinder.nextID` could wrap after 2³²
+  registrations.
+
+**Convergence:** across five rounds the yield fell from structural (R1) → one real bug each (R2 pinning,
+R3 degenerate-input cluster) → ~nothing (R4) → two minor completeness fixes + a false positive (R5).
+The codebase is thoroughly reviewed; the core algorithms are clean.

@@ -55,7 +55,7 @@ public final class CarbonHotkeyBinder {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                  eventKind: UInt32(kEventHotKeyPressed))
         let context = Unmanaged.passUnretained(self).toOpaque()
-        InstallEventHandler(GetApplicationEventTarget(), { _, event, userData -> OSStatus in
+        let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, userData -> OSStatus in
             guard let event, let userData else { return OSStatus(eventNotHandledErr) }
             var hkID = EventHotKeyID()
             let err = GetEventParameter(event, EventParamName(kEventParamDirectObject),
@@ -66,5 +66,9 @@ public final class CarbonHotkeyBinder {
             binder.actions[hkID.id]?()
             return noErr
         }, 1, &spec, context, &handlerRef)
+        // If this fails, NO hotkey ever fires — surface it instead of failing silently.
+        if status != noErr {
+            FileHandle.standardError.write(Data("zt-agent[hotkey]: InstallEventHandler failed (\(status)) — hotkeys disabled\n".utf8))
+        }
     }
 }
