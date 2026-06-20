@@ -156,6 +156,61 @@ final class AutoTilerTests: XCTestCase {
         XCTAssertEqual(moves.first?.rect, ZTRect(x: 0, y: 0, w: 1512, h: 982))
     }
 
+    // Property-based fuzz: across thousands of random layouts / screen sizes / window counts / sizes /
+    // margins, the stretch-to-fill pass must ALWAYS hold its safety invariants (no overlap, on-screen)
+    // and its purpose (high coverage). Catches overlap/escape combos a few hand-picked cases would miss.
+    func testStretchToFillInvariantsFuzz() {
+        struct LCG { var s: UInt64
+            mutating func u() -> UInt64 { s = s &* 6364136223846793005 &+ 1442695040888963407; return s }
+            mutating func i(_ lo: Int, _ hi: Int) -> Int { lo + Int((u() >> 33)) % (hi - lo + 1) } }
+
+        // Two real layouts spanning simple → complex.
+        let l2x2: [String: [String]] = ["y": ["a1"], "h": ["a1:a2"], "n": ["a2"], "u": ["a1:b1"],
+            "j": ["a1:b2"], "m": ["a2:b2"], "i": ["b1"], "k": ["b1:b2"], ",": ["b2"], "0": ["a1:b2"]]
+        let l4x3: [String: [String]] = ["y": ["a1:a2", "a1"], "h": ["a1:b3", "a1:a3", "a2"], "n": ["a3"],
+            "u": ["b1:b3", "b1"], "j": ["b1:c3", "b2"], "m": ["b1:b3", "b3"], "i": ["d1:d3", "d1"],
+            "k": ["c1:d3", "c2"], ",": ["d1:d3", "d3"], "o": ["c1:d1"], "l": ["d1:d3", "d2"], "0": ["a1:d3"]]
+        let grids = [("2x2", 2, 2, l2x2), ("4x3", 4, 3, l4x3)]
+
+        var lcg = LCG(s: 0xDEADBEEF)
+        var minCoverage = 1.0, overlaps = 0, escapes = 0
+        let trials = 3000
+        for _ in 0..<trials {
+            let (gk, cols, rows, layout) = grids[lcg.i(0, 1)]
+            let sw = Double(lcg.i(1000, 4000)), sh = Double(lcg.i(800, 2400))
+            let ox = Double(lcg.i(0, 200)), oy = Double(lcg.i(0, 100))   // non-zero screen origin too
+            let marginsOn = lcg.i(0, 1) == 1
+            let zc = ZoneConfig(grids: [gk: GridConfig(cols: cols, rows: rows)], layouts: [gk: layout],
+                                margins: Margins(enabled: marginsOn, size: Double(lcg.i(0, 12)), screen_edge: marginsOn))
+            let cfg = AutoTiler.Config(centerZones: ["j", "0"], workingSetTimeLimit: 1800,
+                                       workingSetMaxCapacity: 6, mode: "usage", weights: CostWeights(), zoneConfig: zc)
+            let screen = AutoTiler.Screen(uuid: "S", name: "fuzz", frame: ZTRect(x: ox, y: oy, w: sw, h: sh))
+            let n = lcg.i(1, 6)   // <= capacity, so nothing goes to limbo (coverage stays meaningful)
+            let wins = (1...n).map { AutoTiler.Window(id: $0, app: "A\($0)", monitor: "S",
+                frame: ZTRect(x: 0, y: 0, w: Double(lcg.i(200, Int(sw))), h: Double(lcg.i(200, Int(sh)))),
+                lastFocusedTime: 10_000) }
+            let focused = lcg.i(0, 1) == 1 ? 1 : nil
+            let placed = AutoTiler.plan(config: cfg, screens: [screen], windows: wins,
+                                        zOrder: Array(1...n), focusedId: focused, memory: [:], now: 10_000)
+                .filter { $0.zoneKey != "limbo" }
+
+            for a in 0..<placed.count {
+                // On-screen (0.5px float tolerance).
+                let r = placed[a].rect
+                if r.x < screen.frame.x - 0.5 || r.y < screen.frame.y - 0.5
+                    || r.x + r.w > screen.frame.x + screen.frame.w + 0.5
+                    || r.y + r.h > screen.frame.y + screen.frame.h + 0.5 { escapes += 1 }
+                for b in (a + 1)..<placed.count where rectsOverlap(placed[a].rect, placed[b].rect) { overlaps += 1 }
+            }
+            let cov = placed.reduce(0.0) { $0 + $1.rect.w * $1.rect.h } / (sw * sh)
+            if !placed.isEmpty { minCoverage = min(minCoverage, cov) }
+        }
+        print("FUZZ \(trials) trials: overlaps=\(overlaps) escapes=\(escapes) minCoverage=\(String(format: "%.3f", minCoverage))")
+        XCTAssertEqual(overlaps, 0, "stretched windows must never overlap")
+        XCTAssertEqual(escapes, 0, "stretched windows must never leave the screen")
+        XCTAssertGreaterThan(minCoverage, 0.80, "stretch should fill the screen well across all layouts")
+    }
+
     func testStretchToFillCoversScreenWithoutOverlap() {
         // The whole point: after tiling, the desktop is actually full. Use the real DELL 4x3 layout
         // (where the focused "j" zone is only the middle half) — a single window must still fill the
