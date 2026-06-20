@@ -514,21 +514,36 @@ Bug: with "Use real macOS Spaces" OFF, the menu-bar widget collapsed to a single
 disappeared"). Root cause: the public fallback was the marker-window provider, which can only see the
 *current* Space until you visit the others. The marker technique can't enumerate.
 
-Fix — `PlistSpacesProvider` (+ `PlistSpacesReader`): enumerate the full Spaces layout from the plain
-preferences file `~/Library/Preferences/com.apple.spaces.plist` — **zero private APIs**. It mirrors the
-private `CGSCopyManagedDisplaySpaces` structure field-for-field, so the parse reuses the same shape.
-`Spaces.provider` now layers private → plist → marker.
+Fix — a **hybrid** public provider (`HybridSpacesProvider`), no private API, joining the two techniques
+that each know half the picture:
+- **Layout** (count / order / per-display / UUIDs / full-screen) ← `PlistSpacesReader`, the plain
+  preferences file `~/Library/Preferences/com.apple.spaces.plist` (mirrors the private
+  `CGSCopyManagedDisplaySpaces` structure field-for-field, so the parse reuses the same shape).
+- **Live current Space** ← a 1×1 marker window pinned per Space (the WhichSpace trick):
+  `CGWindowListCopyWindowInfo(.optionOnScreenOnly)` lists only windows on each display's current Space.
+- **Join** (opaque marker id ⇄ plist `ManagedSpaceID`) ← `MarkerSpaceResolver`: launch-seed from a fresh
+  plist + elimination as Spaces are visited.
+`Spaces.provider` now layers private → hybrid → bare-marker.
 
 Investigated before building (not assumed):
 - **`kCGWindowWorkspace` is dead** on this macOS — `CGWindowListCopyWindowInfo` returns no workspace key
-  / values. So no exact live-current from the window list.
+  / values. So no exact live-current from the window list; hence the marker trick for current.
 - **The plist's `Current Space` does NOT move on a plain Ctrl+→ switch** (tested live: stayed `1`/`1384`
-  across two switches). It updates only on Space create/delete. So `isCurrent` is best-effort with the
-  plist; exact live current stays the private path's advantage. Count/order/UUID/full-screen are exact.
+  across switches). It refreshes only on Space create/delete — so the plist is the *layout* source, the
+  markers are the *current* source. Count/order/UUID/full-screen are exact.
 - The plist remembers **disconnected displays** (stale `Spaces=[]` and remembered non-empty entries) and
   stores the primary as `"Main"` — the parser filters to connected displays and remaps `"Main"` → UUID.
 
-Verified live: with the toggle OFF the menu bar now reports `provider=PlistSpacesProvider displays=2
-cells=3` — the real layout — instead of the old 1-cell collapse. 367 tests green (both configs;
-`PlistSpacesReaderTests` ×6), all files ≤500 LOC. **MAS caveat:** a sandboxed App-Store build likely
-can't read the `com.apple.spaces` domain — it then falls through to the marker provider (still works).
+Two marker-lifecycle bugs caught by live debugging (not by tests — they're window-server timing):
+- a freshly-created marker window is **not listed on-screen synchronously**, so an "ensure on every read"
+  loop created duplicates every call → fixed by gating rescan/creation on a **self-detected** Space
+  change (the set of our on-screen markers changing), independent of observer ordering vs. the menubar;
+- the current marker must be taken **optimistically at creation** (can't wait for on-screen confirmation).
+
+Verified live end-to-end (toggle OFF): menu bar reports `provider=HybridSpacesProvider displays=2
+cells=3`, and the current highlight tracks switches — launch `[1,1384]` → Ctrl+→ (Main 1→3) `[3,1384]`
+→ Ctrl+→ (rightmost, correct no-wrap) `[3,1384]` → Ctrl+← (3→1, marker reuse) `[1,1384]`, no leak.
+375 tests green (both configs; `PlistSpacesReaderTests` ×6, `MarkerSpaceResolverTests` ×8), all files
+≤500 LOC. **Limit:** a monitor with ≥3 Spaces is best-effort until each Space is visited once.
+**MAS caveat:** a sandboxed App-Store build likely can't read the `com.apple.spaces` domain — it then
+falls through to the bare marker provider (still works).

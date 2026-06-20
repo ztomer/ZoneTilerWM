@@ -64,18 +64,21 @@ Condensed by theme — everything here is **done and in the build**.
    by `Spaces.provider(experimentalEnabled:)`:
    - `PrivateSpacesProvider` — wraps the CGS `SpacesReader` (`ZT_PRIVATE_APIS` + runtime toggle on).
      Exact live current + wallpapers + native full-screen.
-   - `PlistSpacesProvider` — **NEW (2026-06-20):** reads the Spaces LAYOUT (count / order / per-display
-     / UUIDs / full-screen) straight from `~/Library/Preferences/com.apple.spaces.plist`
-     (`SpacesDisplayConfiguration → Management Data → Monitors`), **no private API, no onboarding**.
-     This is what fixed "turning off real Spaces makes them disappear" — the menu bar now shows the
-     real per-display counts with the private toggle off. Parser drops stale/disconnected-display
-     entries and remaps the primary's `"Main"` id → its CGDisplay UUID (`PlistSpacesReaderTests`, 6).
-     **Honest limit:** the plist's `Current Space` only updates on Space *create/delete*, not a plain
-     switch (verified live; `kCGWindowWorkspace` is also dead), so `isCurrent` is best-effort and can
-     lag — exact live current needs the private path.
-   - `PublicSpacesProvider` — marker-window technique (1×1 pinned window per Space, "which marker is
-     on-screen" = current). Now the *deepest* fallback, for when even the plist is unreadable (a
-     sandboxed App-Store build). Limits: visited-Spaces only, visit-order, no wallpapers, synthetic ids.
+   - `HybridSpacesProvider` — **NEW (2026-06-20):** the best public path, **no private API**. Joins two
+     halves: the **layout** (count / order / per-display / UUIDs / full-screen) from
+     `~/Library/Preferences/com.apple.spaces.plist` (`PlistSpacesReader`; parser drops
+     stale/disconnected-display entries and remaps the primary's `"Main"` → its CGDisplay UUID), and the
+     **live current Space** from a 1×1 marker window pinned per Space (the WhichSpace trick). The join —
+     opaque marker id ⇄ plist `ManagedSpaceID` — is `MarkerSpaceResolver`: **launch-seed** from the
+     plist when it's fresh + **elimination** as Spaces are visited. This fixed "turning off real Spaces
+     makes them disappear" AND keeps the current highlight live. Live-validated: launch `[1,1384]` →
+     Ctrl+→ `[3,1384]` → Ctrl+← `[1,1384]`, no marker leak. **Honest limit:** a monitor with ≥3 Spaces
+     resolves the launch Space + any visited-by-elimination, else best-effort plist value (the plist's
+     `Current Space` only refreshes on create/delete; `kCGWindowWorkspace` is dead). Exact-always = the
+     private path. Tests: `PlistSpacesReaderTests` ×6, `MarkerSpaceResolverTests` ×8.
+   - `PublicSpacesProvider` — bare marker-window technique. Now the *deepest* fallback, for when even the
+     plist is unreadable (a sandboxed App-Store build). Limits: visited-Spaces only, visit-order, no
+     wallpapers, synthetic ids.
    `switching` is provider-independent and best-effort (step count assumes desktop order).
 2. ⏸ **Move a window between real Spaces.** Needs private `CGSAddWindowsToSpaces` (SIP-touchy) or AX
    emulation (grab-titlebar + switch). Cross-*monitor* move already works (autotile on drop). Decide

@@ -48,7 +48,8 @@ final class SpacesMenubarController {
             teardown(); return
         }
         let spaces = provider.spacesByDisplay()
-        log("spaces-menubar: refresh provider=\(type(of: provider)) available=\(provider.isAvailable) displays=\(spaces.count) cells=\(spaces.values.reduce(0){$0+$1.count})")
+        let curIds = spaces.values.map { list in list.first(where: { $0.isCurrent })?.id ?? -1 }
+        log("spaces-menubar: refresh provider=\(type(of: provider)) available=\(provider.isAvailable) displays=\(spaces.count) cells=\(spaces.values.reduce(0){$0+$1.count}) current=\(curIds.sorted())")
         // CGS can momentarily return nothing DURING a Space switch — do NOT tear the widget down on a
         // transient empty read (that's what made it vanish on click); keep the last render.
         guard !spaces.isEmpty else { return }

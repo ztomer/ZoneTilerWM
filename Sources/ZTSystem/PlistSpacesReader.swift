@@ -34,6 +34,13 @@ public enum PlistSpacesReader {
     /// Whether the plist is readable AND yields at least one Space (drives provider selection / the gate).
     public static var isAvailable: Bool { !spacesByDisplay().isEmpty }
 
+    /// The plist's last-modified time. The WindowServer rewrites the file on a Space create/delete (so
+    /// its "Current Space" is then trustworthy) but NOT on a plain switch — the hybrid uses a change here
+    /// as the "plist is fresh, safe to seed" signal. Nil if the file is missing.
+    public static func sourceModified() -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate]) as? Date
+    }
+
     // MARK: - pure parsing (unit-tested)
 
     /// Turn the raw `Monitors` array into per-display Spaces. Pure given the environment inputs so it can
