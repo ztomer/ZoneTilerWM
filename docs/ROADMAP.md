@@ -8,7 +8,31 @@ queues, backlogs), which were consolidated here and removed (recoverable in git 
 spine and the real-Spaces / Exposé workstream. What's left is small: the App-Store-safe Spaces
 fallback, build/distribution plumbing, a little verification owed, and opportunistic tech debt.
 
-Legend: 🔴 high · 🟡 medium · ⚪ low · ⏸ deferred (needs a decision / risky)
+Legend: [P1] high · [P2] medium · [P3] low · [deferred] (needs a decision / risky)
+
+---
+
+## 0. Recently shipped (2026-06-20, v2.6 → v2.7)
+
+- **Auto-tile correctness.** `LayoutSolver` made provably globally-optimal (admissible branch-and-bound
+  bound; was suboptimal on ~14% of inputs) + best-match window memory. Solver candidate set deduped +
+  capped (the real 4×3 made ~34 tiles and the solver was silently truncating to a partial, gap-leaving
+  placement). New `stretchToFill` pass grows placed windows into empty space so the desktop is actually
+  full (was 49–90% coverage → ~99%). Repeated auto-tile now cycles the centre "j" zone.
+- **The empty-desktop root cause:** auto-tile was tiling the agent's own 1×1 Spaces-marker windows;
+  `onScreenWindows()` now excludes our own pid (markers, overlays, settings window).
+- **Spaces (no private API):** `HybridSpacesProvider` (plist layout + 1×1-marker live current) — the menu
+  bar AND Exposé strip now show every Space with the experimental toggle off; per-Space wallpapers wired
+  through (plain plist read). Rename-a-Space works in Exposé (double-click a thumbnail).
+- **Exposé fixes:** window previews were upside-down (CGImage into a flipped view → now uses `drawUpright`).
+- **NOT viable — off-Space window previews/outlines.** Proven empirically: the window-image API returns
+  nil for every off-Space window, AND `CGSCopySpacesForWindows` returns an empty space list for windows
+  not on the current Space — so off-Space windows can be neither captured nor even *attributed* to a
+  Space via point-in-time queries. The only path is a heavy always-on window→Space tracking + thumbnail
+  cache subsystem (AltTab/yabai-style); out of scope. Non-current Spaces show their (correct) wallpaper.
+- **Style:** Susan Kare TUI glyphs (`ZTCore.Kare`: → · ✓ ✗ ⚠, mirrored from `~/projects/scripts/_stylerc`)
+  for the CLI + agent log; **emoji are a failure state**, enforced by `EmojiPolicyTest` over all Swift
+  sources (kare glyphs are the only allowlist).
 
 ---
 
@@ -60,7 +84,7 @@ Condensed by theme — everything here is **done and in the build**.
 ## 2. What's left
 
 ### A. Spaces — finish the App-Store story
-1. ✅ **Public-API `SpacesProvider`** (built 2026-06-20; live-validated). Three impls selected in order
+1. [done] **Public-API `SpacesProvider`** (built 2026-06-20; live-validated). Three impls selected in order
    by `Spaces.provider(experimentalEnabled:)`:
    - `PrivateSpacesProvider` — wraps the CGS `SpacesReader` (`ZT_PRIVATE_APIS` + runtime toggle on).
      Exact live current + wallpapers + native full-screen.
@@ -80,50 +104,50 @@ Condensed by theme — everything here is **done and in the build**.
      plist is unreadable (a sandboxed App-Store build). Limits: visited-Spaces only, visit-order, no
      wallpapers, synthetic ids.
    `switching` is provider-independent and best-effort (step count assumes desktop order).
-2. ⏸ **Move a window between real Spaces.** Needs private `CGSAddWindowsToSpaces` (SIP-touchy) or AX
+2. [deferred] **Move a window between real Spaces.** Needs private `CGSAddWindowsToSpaces` (SIP-touchy) or AX
    emulation (grab-titlebar + switch). Cross-*monitor* move already works (autotile on drop). Decide
    whether to attempt at all.
-3. ⚪ **Fullscreen-space + monitor-label polish.** `SpacesReader` flags `isFullscreen` (type 4) — verify
+3. [P3] **Fullscreen-space + monitor-label polish.** `SpacesReader` flags `isFullscreen` (type 4) — verify
    it renders sanely and doesn't break ordering; prefer the real display product name over "Monitor N"
    where available (the DELL already shows "DELL U3223QE").
 
-### B. Distribution & App Store  ⏸ (DEFERRED — no Apple Developer account)
+### B. Distribution & App Store  [deferred] (DEFERRED — no Apple Developer account)
 > All signed/notarized/MAS distribution is **blocked on an Apple Developer account**, which we don't
 > have. Deferred until one exists. The `build_*.sh` variants + ad-hoc/dev-signed `.app` still work for
 > local/dev use; only public/notarized/MAS distribution is gated.
-4. ✅ **`.app` build variants** (done 2026-06-20). Three package builders emit a full `.app`:
+4. [done] **`.app` build variants** (done 2026-06-20). Three package builders emit a full `.app`:
    `./package_dev.sh` (Debug/arm64, private APIs on, dev-signed), `./package_public.sh` (Release
    universal, private on, zipped), `./package_mas.sh` (Release universal, private OFF — verified
    MAS-clean by an `nm` leak guard, zipped). `ZT_PRIVATE_APIS` now threads into the `.app` via
    `Package.swift` reading the env var (xcodebuild's SwiftPM manifest eval picks it up) + the app
    target's `OTHER_SWIFT_FLAGS`. Verified: dev `.app` links the SkyLight SPIs, mas `.app` links none.
    (Real distribution *signing*/notarization of these bundles is still account-blocked, below.)
-5. ⏸ **Notarization + Sparkle auto-update** — needs an Apple Developer account (Developer ID + notary).
-6. ⏸ **Full MAS submission** — App Sandbox + entitlements (Accessibility, Apple Events) + distribution
+5. [deferred] **Notarization + Sparkle auto-update** — needs an Apple Developer account (Developer ID + notary).
+6. [deferred] **Full MAS submission** — App Sandbox + entitlements (Accessibility, Apple Events) + distribution
    signing + notarization. Needs an Apple Developer account.
 
-### C. Verification owed (live, user-POV)  🔴 / 🟡
-7. 🔴 **#6 Notion / Notion Calendar unhide.** The port-parity fix (`AppController.launchOrFocus` →
+### C. Verification owed (live, user-POV)  [P1] / [P2]
+7. [P1] **#6 Notion / Notion Calendar unhide.** The port-parity fix (`AppController.launchOrFocus` →
    `NSWorkspace.openApplication`) is in but not yet live-confirmed from a Cmd-H state via the app
    shortcut. Verify both apps.
-8. 🟡 **Keyboard actions in Exposé.** Live key-capture confirm for ↵/⌘W/⌘M/⌘Q and arrow / vim-hjkl /
+8. [P2] **Keyboard actions in Exposé.** Live key-capture confirm for ↵/⌘W/⌘M/⌘Q and arrow / vim-hjkl /
    wasd nav (Carbon binds while the modal is up). Pure nav logic is unit-tested; the capture path isn't.
-9. ⚪ **Liquid Glass final look.** Eyeball `NSGlassEffectView` + dark tint once more on the real display
+9. [P3] **Liquid Glass final look.** Eyeball `NSGlassEffectView` + dark tint once more on the real display
    against Mission Control (⌃↑) and tune the tint if needed.
 
-### D. Tech debt / infra (opportunistic)  ✅ DONE 2026-06-20
+### D. Tech debt / infra (opportunistic)  [done] DONE 2026-06-20
 > **Ground rule established: no source file over 500 LOC.** Enforced — every file was split to comply.
-10. ✅ **`AgentController` / `main.swift` god-object** — split into `main.swift` (props + init + bootstrap)
+10. [done] **`AgentController` / `main.swift` god-object** — split into `main.swift` (props + init + bootstrap)
     + `AgentController+Setup.swift` + `AgentController+Runtime.swift` (members made internal for the
     cross-file extensions). Also split: `SettingsGroups`→`SettingsPreviews`, `FeatureSettings`→
     `SettingsRows`, `EditorViews`→`LayoutEditorView`, `MissionControlOverlay`→`MissionControlView`(+`Mouse`),
     `ConfigLoader`→`+Accessors`. All 6 over-limit files now <500.
-11. ✅ **MAS AX-fallback tie-breaker.** `windowID(of:pid:)` now filters pid+frame matches and breaks ties
+11. [done] **MAS AX-fallback tie-breaker.** `windowID(of:pid:)` now filters pid+frame matches and breaks ties
     by **z-order** (frontmost = focused), logging the ambiguous case. Title rejected (kCGWindowName is
     usually empty without screen-recording permission).
-12. ✅ **Dead-code / cleanup.** Removed `AXWindowSystem.allWindowsAcrossSpaces()` (no callers) and the
+12. [done] **Dead-code / cleanup.** Removed `AXWindowSystem.allWindowsAcrossSpaces()` (no callers) and the
     `scratch_*.swift` probes. (`getSpaceWallpapers` was already gone.)
-13. ⚪ **Targeted unit tests.** Golden coverage for the per-display Exposé layout math
+13. [P3] **Targeted unit tests.** Golden coverage for the per-display Exposé layout math
     (`ExposeController.layoutFrame(for:union:pos:)`) and `SpacesReader` plist parsing (against a fixture)
     if worth it; the long-standing ZTCore coverage gaps (AutoTiler / PlacementStrategy /
     TilerCoordinator / ConfigLoader) tracked in [REVIEW.md](../REVIEW.md).

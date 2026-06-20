@@ -100,12 +100,21 @@ Two later surfaces extend beyond Lua parity:
   windows via CGWindowList (0 AX), lays out a per-display grid (the pure layout math is in `ZTCore`,
   mirroring how `MissionControl` is the pure layer under the overlay), type-to-jump labels, ↵/⌘W/⌘M/⌘Q
   actions, arrow/vim/wasd nav, a modal safety-timeout, and a Liquid-Glass Spaces strip.
-- **Real macOS Spaces** — `SpacesReader` reads real Spaces per display (private CGS
-  `CGSCopyManagedDisplaySpaces`, read-only); `SpaceSwitcher` switches (synthetic dock-swipe `CGEvent`
-  on the active display, "Switch to Desktop N" keyboard fallback cross-display); `SpaceNameStore`
-  persists rename by real-Space UUID; and the menubar widget is the usual pure-layer-under-OS-shell
-  split — `SpacesMenubar` (pure layout in `ZTCore`) → `SpacesMenubarRenderer` → the
-  `SpacesMenubarController` NSStatusItem.
+- **Real macOS Spaces** — read through a layered `SpacesProvider` (`Spaces.provider(experimentalEnabled:)`):
+  `PrivateSpacesProvider` (CGS `CGSCopyManagedDisplaySpaces`, gated, exact) → `HybridSpacesProvider`
+  (**no private API**: `PlistSpacesReader` reads the Space layout from `com.apple.spaces.plist`, and a
+  1×1 marker window per Space gives the live current Space; `MarkerSpaceResolver` joins the opaque marker
+  id to the plist `ManagedSpaceID` by launch-seed + elimination) → `PublicSpacesProvider` (bare markers).
+  So the menu bar + Exposé strip show every Space + per-Space wallpaper with the experimental toggle off.
+  `SpaceSwitcher` switches; `SpaceNameStore` persists rename by Space UUID; the menubar widget is the
+  pure-layer-under-OS-shell split (`SpacesMenubar` → `SpacesMenubarRenderer` → `SpacesMenubarController`).
+  **Hard limit (empirically proven):** off-Space windows can be neither captured (window-image API → nil)
+  nor attributed to a Space (`CGSCopySpacesForWindows` → empty for off-current windows) by point-in-time
+  query, so non-current Spaces show only their wallpaper, not window previews.
+
+**TUI style.** `ZTCore.Kare` holds the Susan Kare status glyphs (→ · ✓ ✗ ⚠, mirrored from
+`~/projects/scripts/_stylerc`) used by the CLI + agent log. Emoji are a failure state — `EmojiPolicyTest`
+fails on any emoji in the Swift sources; the kare glyphs are the only allowlist.
 
 **Private-API gating.** Three surfaces touch private APIs — CGS Spaces, the `_AXUIElementGetWindow`
 AX SPI, and the SkyLight focus-border renderer. Each is wrapped in `#if ZT_PRIVATE_APIS` **and** a

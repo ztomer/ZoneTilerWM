@@ -658,3 +658,27 @@ Live-verified end-to-end: screenshot before = right third bare wallpaper; after 
 covering the whole screen (`h2`/`j2`/`k2`/`i1`). 384 tests green (both configs) + a dense-layout coverage
 regression test; all files ≤500 LOC. The marker-exclusion lives in the (screenshot-validated) adapter
 layer; the dedup/cap is unit-tested.
+
+## 13. Exposé / Spaces / style round (2026-06-20, live-validated by screenshot)
+
+- **Exposé previews upside-down.** The main preview drew the captured `CGImage` via
+  `NSImage(cgImage:).draw(in:)` into the flipped (top-left) `MissionControlView` — inverted. Switched to
+  the existing `drawUpright` helper (the one the strip thumbnails already used). Screenshot-confirmed.
+- **Auto-tile didn't cycle the centre zone.** The anchor always used tile 0. Added `centerTileIndex` to
+  `AutoTiler.plan` (wraps the centre zone's tiles); `TilerCoordinator` tracks a per-focused-window
+  counter that advances on each consecutive auto-tile and resets on focus change. Live: j1→j2→j3.
+- **Exposé hid the 2nd Space + wrong wallpaper.** The strip still gated on
+  `realSpacesEnabled() && experimentalEnabled`, falling back to one synthetic "Desktop 1". Switched it to
+  the layered `Spaces.provider` (the same source the menu bar uses) so it lists every Space with no
+  private API; wired `HybridSpacesProvider.wallpapersBySpaceUUID()` (a plain wallpaper-plist read) so each
+  Space shows its own wallpaper. Renaming already existed (double-click), now usable. Screenshot-confirmed
+  (2nd Space shows its distinct wallpaper).
+- **Off-Space window previews — NOT viable (empirical).** The window-image API returns nil for every
+  off-Space window; `CGSCopySpacesForWindows` returns `[]` for any window not on the current Space. So
+  off-Space windows can't be captured *or* attributed to a Space by point-in-time query — only a heavy
+  always-on tracking/cache subsystem could, which is out of scope. Non-current Spaces show wallpaper.
+- **Emoji are a failure state.** `EmojiPolicyTest` scans every Swift source and fails on any emoji
+  (default-emoji presentation, pictographic planes, emoji variation/keycap/flag selectors); the only
+  allowlist is the kare glyphs (→ · ✓ ✗ ⚠, from `~/projects/scripts/_stylerc`). Cleaned the existing
+  offenders (FE0F variation selectors, heavy check/ballot-X). `ZTCore.Kare` provides the glyphs; the CLI
+  and agent log are styled with them.
