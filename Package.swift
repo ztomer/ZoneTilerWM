@@ -1,5 +1,14 @@
 // swift-tools-version:5.9
 import PackageDescription
+import Foundation
+
+// Private-API gate (ZT_PRIVATE_APIS): the binary build scripts pass `-Xswiftc -DZT_PRIVATE_APIS` for
+// `swift build`, but that cannot reach the package targets when the .app is built by xcodebuild. So we
+// ALSO honor a `ZT_PRIVATE_APIS` environment variable here: the package_*.sh app builders set it, and
+// this manifest adds the `.define` to the targets that contain `#if ZT_PRIVATE_APIS` (currently just
+// ZTSystem). Either mechanism enables the same code; with neither, the build is strict-MAS-clean.
+let ztPrivateAPIs = ProcessInfo.processInfo.environment["ZT_PRIVATE_APIS"] != nil
+let ztPrivateSettings: [SwiftSetting] = ztPrivateAPIs ? [.define("ZT_PRIVATE_APIS")] : []
 
 // Native Swift port of ZoneTilerWM (v2). Lives under  to stay cleanly separated
 // from the Lua source tree (modules/, tests/) which remains the executable spec.
@@ -31,11 +40,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "ZTCore"),
-        // NOTE: the `ZT_PRIVATE_APIS` compile flag (gates ALL private-API code: the SkyLight Spaces
-        // reader, the _AXUIElementGetWindow AX SPI, and the SkyLight focus-border renderer) is passed
-        // by the build scripts (build_public.sh / build_dev.sh), NOT hardcoded here — so the default
-        // `swift build` is strict-MAS-leaning (public fallbacks only). build_mas.sh omits the flag.
-        .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"]),
+        // `ZT_PRIVATE_APIS` gates ALL private-API code here (SkyLight Spaces reader, _AXUIElementGetWindow
+        // AX SPI, SkyLight focus-border renderer). It is NEVER hardcoded on — it comes from the build
+        // scripts (`-Xswiftc -DZT_PRIVATE_APIS`) or the `ZT_PRIVATE_APIS` env var (see top of file), so
+        // the default build is strict-MAS-clean (public fallbacks only).
+        .target(name: "ZTSystem", dependencies: ["ZTCore", "TOMLKit"], swiftSettings: ztPrivateSettings),
         .target(name: "ZTUI", dependencies: ["ZTCore", "ZTSystem"], resources: [.process("Resources")]),
         .executableTarget(name: "zt-oracle", dependencies: ["ZTCore"]),
         .executableTarget(name: "zt-axspike", dependencies: ["ZTSystem"]),

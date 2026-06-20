@@ -80,10 +80,13 @@ Condensed by theme — everything here is **done and in the build**.
 > All signed/notarized/MAS distribution is **blocked on an Apple Developer account**, which we don't
 > have. Deferred until one exists. The `build_*.sh` variants + ad-hoc/dev-signed `.app` still work for
 > local/dev use; only public/notarized/MAS distribution is gated.
-4. 🟡 **`.app` build variants.** Thread `ZT_PRIVATE_APIS` into `project.yml` (XcodeGen) so `make app`
-   can emit MAS / public / dev `.app` bundles matching the three `build_*.sh` scripts (the flag is
-   currently wired only for `swift build`). (Doable now without an account; the *signing* of those
-   bundles is what's blocked.)
+4. ✅ **`.app` build variants** (done 2026-06-20). Three package builders emit a full `.app`:
+   `./package_dev.sh` (Debug/arm64, private APIs on, dev-signed), `./package_public.sh` (Release
+   universal, private on, zipped), `./package_mas.sh` (Release universal, private OFF — verified
+   MAS-clean by an `nm` leak guard, zipped). `ZT_PRIVATE_APIS` now threads into the `.app` via
+   `Package.swift` reading the env var (xcodebuild's SwiftPM manifest eval picks it up) + the app
+   target's `OTHER_SWIFT_FLAGS`. Verified: dev `.app` links the SkyLight SPIs, mas `.app` links none.
+   (Real distribution *signing*/notarization of these bundles is still account-blocked, below.)
 5. ⏸ **Notarization + Sparkle auto-update** — needs an Apple Developer account (Developer ID + notary).
 6. ⏸ **Full MAS submission** — App Sandbox + entitlements (Accessibility, Apple Events) + distribution
    signing + notarization. Needs an Apple Developer account.

@@ -27,10 +27,16 @@ Develop, test, and build:
 ./build.sh         # build the native package (pass-through flags, e.g. ./build.sh -c release)
 ./run.sh           # build and launch the agent in the foreground (Ctrl-C to quit)
 make verify        # swift unit + golden tests
-make app           # build ZoneTilerWM.app (Release) via xcodegen + xcodebuild
-./build_package.sh # build + zip the .app (signs with the local "ZoneTilerWM Dev" cert if present)
-./build_dist.sh    # build an AD-HOC .app + zip to hand to someone on another Mac
+
+# Package builders — produce a ZoneTilerWM.app, threading the ZT_PRIVATE_APIS gate correctly:
+./package_dev.sh    # Debug/arm64, private APIs ON, dev-signed — fast local install
+./package_public.sh # Release universal, private APIs ON (off by default at runtime), signed + zipped
+./package_mas.sh    # Release universal, NO private APIs (verified MAS-clean by an nm leak guard), zipped
 ```
+
+The three `package_*.sh` are the canonical `.app` builders (they thread `ZT_PRIVATE_APIS` into both the
+SwiftPM package targets and the app target). `make app` / `build_package.sh` remain as the simpler
+single-config `.app` build.
 
 > **Signing:** local builds (`make app`, `build_package.sh`) sign with a stable self-signed
 > `ZoneTilerWM Dev` identity when it exists in the keychain, so the Accessibility (TCC) grant
