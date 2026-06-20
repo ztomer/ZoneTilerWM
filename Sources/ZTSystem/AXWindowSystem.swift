@@ -41,7 +41,18 @@ public struct AXMoveError: Error, CustomStringConvertible {
 public final class AXWindowSystem: WindowSystem {
 
     private let screenProvider: ScreenProvider
-    public init(screenProvider: ScreenProvider) { self.screenProvider = screenProvider }
+    public init(screenProvider: ScreenProvider) {
+        self.screenProvider = screenProvider
+        // macOS recycles pids: invalidate a pid's EnhancedUI memo when ANY app launches, so a new app
+        // can't inherit a quit app's cached toggle state and get the wrong AX dance on its first move.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+                self?.enhancedUICache[app.processIdentifier] = nil
+            }
+        }
+    }
 
     /// Per-pid memo of "does this app have AXEnhancedUserInterface on?". SentinelOne hooks and
     /// analyzes every AX call, so the read below is itself a real cost; the flag is set by the
@@ -66,8 +77,10 @@ public final class AXWindowSystem: WindowSystem {
     private func setFrameWithEnhancedToggle(_ window: AXUIElement, app: AXUIElement, pid: pid_t, rect: CGRect) {
         let wasEnhanced = appUsesEnhancedUI(app, pid: pid)
         if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanFalse) }
+        // defer the restore so EnhancedUI is turned back on even if setFrame bails — never leave an
+        // app stuck with EnhancedUI off (that breaks its native rendering).
+        defer { if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanTrue) } }
         Self.setFrame(window, rect)
-        if wasEnhanced { AXUIElementSetAttributeValue(app, Self.kAXEnhancedUserInterface, kCFBooleanTrue) }
     }
 
     // MARK: - WindowSystem (live AX)
@@ -186,6 +199,9 @@ public final class AXWindowSystem: WindowSystem {
         return _AXUIElementGetWindow(axWin, &wid) == .success ? wid : nil
         #else
         let f = Self.frame(of: axWin)
+        // A zero/degenerate AX frame (read failed, or mid-animation) must NOT fall through to the
+        // pid+frame match — it would match whatever window sits near the origin. Fail closed.
+        guard f.size.width > 1, f.size.height > 1 else { return nil }
         let matches = (onScreen ?? Self.onScreenWindows()).filter {
             $0.pid == pid
                 && abs($0.bounds.origin.x - f.origin.x) < 2 && abs($0.bounds.origin.y - f.origin.y) < 2

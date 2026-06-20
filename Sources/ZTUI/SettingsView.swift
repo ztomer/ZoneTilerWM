@@ -448,7 +448,9 @@ public struct SettingsView: View {
                 }
             }
         } detail: {
-            SettingsGroupDetail(model: model, id: sel)
+            // Show the first match when the current selection was filtered out, so the detail never
+            // displays a pane the (filtered) sidebar no longer lists.
+            SettingsGroupDetail(model: model, id: filteredGroups.contains { $0.id == sel } ? sel : (filteredGroups.first?.id ?? sel))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .navigationTitle("")   // the titlebar hosts the search field, not a duplicate pane name
         }

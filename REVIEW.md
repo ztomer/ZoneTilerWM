@@ -393,3 +393,33 @@ timer / notification / file-watch / IPC source runs on or hops to main), **no re
   `queue: .main`.
 - **[Low] Markers are never torn down** (small leak; harmless) and a theoretical `windowNumber`
   cross-process collision — left as documented low-risk.
+
+### Round 3 (edge-case hunt) — same day
+
+Boundary/degenerate/race hunt across the Spaces subsystem, settings search, the Exposé/hints modals,
+and the AX resolve path. Re-confirmed clean: the Exposé hot-plug observer (reentrancy-safe, removed in
+`exit()`), double/triple `exit()` (idempotent), the hints guards, and `SpaceSwitcher.plan` edge inputs.
+Real defects found and **fixed**:
+
+- **[High] AX zero-frame match.** `windowID(of:pid:)` (public path) fell through to a pid+frame match
+  even when `frame(of:)` returned a degenerate/zero rect (AX read failed / mid-animation) — matching
+  whatever sat near the origin. Now fails closed (`guard width>1, height>1`).
+- **[High] EnhancedUI pid-reuse + non-restore.** The per-pid `enhancedUICache` could hand a recycled
+  pid a quit app's toggle state → wrong AX dance on a new app. Now invalidated on
+  `didLaunchApplicationNotification`. Also `defer`-restore the toggle so an app is never left stuck
+  with EnhancedUI off if `setFrame` bails.
+- **[High] Public Spaces transient-empty read** collapsed the cached current-Space to nil during a
+  Space transition (same class as the old "widget vanished" bug). Now the cache is kept on an empty
+  on-screen read and retried.
+- **[Med] Public Spaces disconnected-display markers** stayed in the list (stale windowNumber could
+  false-match). Now pruned on `didChangeScreenParametersNotification`.
+- **[Med] Empty display-UUID collision.** A failed `CGDisplayCreateUUIDFromDisplayID` collapsed two
+  displays into the `""` group (mis-grouping + name-key collision). Now falls back to a stable
+  per-screen key.
+- **[Low/UX] Settings search** showed a detail pane the filtered sidebar no longer listed. The detail
+  now shows the first match when the selection is filtered out; removed an orphan "liquid glass"
+  keyword from Appearance (moved to the Exposé pane, where the material actually lives).
+
+Left as documented (benign): a dropped menubar click in the instant the provider identity flips
+(experimental toggle) — already a safe no-op; and the inherent CG-snapshot-vs-AX-enumeration race in
+`resolveWindow` (a window closing mid-resolve → nil, the correct failure).

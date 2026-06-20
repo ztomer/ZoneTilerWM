@@ -35,10 +35,21 @@ public final class PublicSpacesProvider: SpacesProvider {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.spaceChanged() }
+        // Prune markers for displays that get unplugged — a stale marker's gone windowNumber could
+        // otherwise false-match a recycled number and report the wrong current Space.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.pruneDisconnectedDisplays() }
         ensureMarkerOnCurrentSpace()
     }
 
     private func spaceChanged() { needsRescan = true; ensureMarkerOnCurrentSpace() }
+
+    private func pruneDisconnectedDisplays() {
+        let connected = Set(NSScreen.screens.compactMap { Self.displayUUID(of: $0) })
+        markers.removeAll { !$0.displayUUID.isEmpty && !connected.contains($0.displayUUID) }
+        needsRescan = true
+    }
 
     /// True until the provider has learned more than the Space it started on (drives the onboarding
     /// nudge). Once the user has visited ≥2 Spaces we assume they understand the cycle.
@@ -76,7 +87,9 @@ public final class PublicSpacesProvider: SpacesProvider {
         // display is correct. A robust fix needs the display that actually changed Spaces (no public API).
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         guard let screen else { return }
-        let displayUUID = Self.displayUUID(of: screen) ?? ""
+        // Fall back to a stable per-screen key if the UUID API fails, so two displays don't both
+        // collapse into the "" group (which would mis-group + mis-key persisted names).
+        let displayUUID = Self.displayUUID(of: screen) ?? "screen@\(Int(screen.frame.minX)),\(Int(screen.frame.minY))"
         // 1×1, ~transparent, on-screen (so optionOnScreenOnly lists it on its Space), click-through,
         // pinned to THIS Space (default collectionBehavior — explicitly NOT canJoinAllSpaces).
         let frame = NSRect(x: screen.frame.minX + 1, y: screen.frame.minY + 1, width: 1, height: 1)
@@ -103,8 +116,12 @@ public final class PublicSpacesProvider: SpacesProvider {
     private func onScreenMarkerID() -> Int? {
         if needsRescan {
             let onScreen = Self.onScreenWindowNumbers()
-            cachedCurrentID = markers.first { onScreen.contains($0.window.windowNumber) }?.id
-            needsRescan = false
+            // During a Space transition the on-screen list can be transiently empty — don't collapse
+            // the cached current-Space to nil on that; keep the last value and retry on the next read.
+            if !onScreen.isEmpty {
+                cachedCurrentID = markers.first { onScreen.contains($0.window.windowNumber) }?.id
+                needsRescan = false
+            }
         }
         return cachedCurrentID
     }

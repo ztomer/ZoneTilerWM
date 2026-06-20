@@ -61,7 +61,7 @@ func boolBind(_ model: SettingsModel, _ keyPath: KeyPath<ConfigLoader.LoadedConf
 
 struct PreviewsTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["window hints", "window hints hotkey", "exposé", "expose", "mission control", "window grid", "spaces bar position", "navigation keys", "arrows", "vim", "wasd", "show windows from", "active monitor", "all monitors", "switching spaces", "switching method", "auto", "keyboard shortcuts", "trackpad gesture", "gesture", "show spaces in the menu bar", "menu bar", "menubar", "bracket style", "use real macos spaces", "real spaces"]
+    static let searchKeywords: [String] = ["window hints", "window hints hotkey", "exposé", "expose", "mission control", "window grid", "spaces bar position", "navigation keys", "arrows", "vim", "wasd", "show windows from", "active monitor", "all monitors", "switching spaces", "switching method", "auto", "keyboard shortcuts", "trackpad gesture", "gesture", "show spaces in the menu bar", "menu bar", "menubar", "bracket style", "use real macos spaces", "real spaces", "liquid glass"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -405,7 +405,7 @@ struct AppGroupsSection: View {
 
 struct AppearanceTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["window border", "focus border", "color", "width", "corner radius", "renderer", "overlay", "window server", "motion prediction", "margins", "enable margins", "size", "apply margin at screen edges", "theme", "glyph", "liquid glass"]
+    static let searchKeywords: [String] = ["window border", "focus border", "color", "width", "corner radius", "renderer", "overlay", "window server", "motion prediction", "margins", "enable margins", "size", "apply margin at screen edges", "theme", "glyph"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
