@@ -57,13 +57,18 @@ Condensed by theme — everything here is **done and in the build**.
 
 ## 2. What's left
 
-### A. Spaces — finish the App-Store story  🟡
-1. 🟡 **Public-API `SpacesProvider`.** Define a `SpacesProvider` protocol; `SpacesReader` (private CGS)
-   is one impl. Add the App-Store-safe public impl (WhichSpace/AirSpace technique: an invisible 1×1
-   `.dynamic` `NSWindow` per Space cross-referenced via `kCGWindowWorkspace` +
-   `activeSpaceDidChangeNotification`, plus a one-time "cycle your Spaces" onboarding step). Selector
-   picks the impl by `ZT_PRIVATE_APIS` + the runtime toggle. Limits to document: no create/destroy, no
-   native-fullscreen tracking. → so a MAS build is more than "current space only".
+### A. Spaces — finish the App-Store story
+1. ✅ **Public-API `SpacesProvider`** (built 2026-06-20, **public path needs live validation**).
+   `SpacesProvider` protocol with two impls — `PrivateSpacesProvider` (wraps the CGS `SpacesReader`)
+   and `PublicSpacesProvider` (marker-window technique: one ~invisible 1×1 window pinned per Space,
+   "which marker is on-screen" = current Space, Spaces learned as the user visits them +
+   `activeSpaceDidChangeNotification`). `Spaces.provider(experimentalEnabled:)` selects by
+   `ZT_PRIVATE_APIS` + the runtime toggle; the menubar widget now consumes the protocol, so a
+   no-private build shows real Spaces instead of "current only". **Documented limits of the public
+   path:** visited-Spaces only, visit-order (not desktop order), no wallpapers, no native-full-screen,
+   synthetic ids not stable across relaunch, and **switching is best-effort** (step count assumes
+   desktop order). Onboarding is passive-learning (`PublicSpacesProvider.onboardingMessage`); a guided
+   prompt + Exposé integration are the remaining polish. Live-validate on a real multi-Space session.
 2. ⏸ **Move a window between real Spaces.** Needs private `CGSAddWindowsToSpaces` (SIP-touchy) or AX
    emulation (grab-titlebar + switch). Cross-*monitor* move already works (autotile on drop). Decide
    whether to attempt at all.
@@ -71,14 +76,17 @@ Condensed by theme — everything here is **done and in the build**.
    it renders sanely and doesn't break ordering; prefer the real display product name over "Monitor N"
    where available (the DELL already shows "DELL U3223QE").
 
-### B. Distribution & App Store  🟡 / ⏸
+### B. Distribution & App Store  ⏸ (DEFERRED — no Apple Developer account)
+> All signed/notarized/MAS distribution is **blocked on an Apple Developer account**, which we don't
+> have. Deferred until one exists. The `build_*.sh` variants + ad-hoc/dev-signed `.app` still work for
+> local/dev use; only public/notarized/MAS distribution is gated.
 4. 🟡 **`.app` build variants.** Thread `ZT_PRIVATE_APIS` into `project.yml` (XcodeGen) so `make app`
    can emit MAS / public / dev `.app` bundles matching the three `build_*.sh` scripts (the flag is
-   currently wired only for `swift build`).
-5. ⏸ **Notarization + Sparkle auto-update** — deferred to ~v2.3 (needs EDR re-validation under a
-   notarized build).
+   currently wired only for `swift build`). (Doable now without an account; the *signing* of those
+   bundles is what's blocked.)
+5. ⏸ **Notarization + Sparkle auto-update** — needs an Apple Developer account (Developer ID + notary).
 6. ⏸ **Full MAS submission** — App Sandbox + entitlements (Accessibility, Apple Events) + distribution
-   signing + notarization. Only if actually shipping to the App Store.
+   signing + notarization. Needs an Apple Developer account.
 
 ### C. Verification owed (live, user-POV)  🔴 / 🟡
 7. 🔴 **#6 Notion / Notion Calendar unhide.** The port-parity fix (`AppController.launchOrFocus` →
@@ -89,15 +97,18 @@ Condensed by theme — everything here is **done and in the build**.
 9. ⚪ **Liquid Glass final look.** Eyeball `NSGlassEffectView` + dark tint once more on the real display
    against Mission Control (⌃↑) and tune the tint if needed.
 
-### D. Tech debt / infra (opportunistic)  🟡 / ⚪
-10. 🟡 **`AgentController` / `main.swift` god-object** (~1.2k lines) — split the binding tables + modal
-    sub-controllers + QA hooks into extensions/types.
-11. 🟡 **MAS AX-fallback tie-breaker.** The MAS-safe `windowID(of:pid:)` matches by pid+frame and is
-    fragile when an app has multiple identical-size windows — add a z-order/title tie-breaker or accept
-    the limit explicitly.
-12. ⚪ **Dead-code / cleanup.** `ExposeController.getSpaceWallpapers()` and
-    `AXWindowSystem.allWindowsAcrossSpaces()` (no callers since the on-screen-only switch); the
-    `scratch_*.swift` probes in the repo root.
+### D. Tech debt / infra (opportunistic)  ✅ DONE 2026-06-20
+> **Ground rule established: no source file over 500 LOC.** Enforced — every file was split to comply.
+10. ✅ **`AgentController` / `main.swift` god-object** — split into `main.swift` (props + init + bootstrap)
+    + `AgentController+Setup.swift` + `AgentController+Runtime.swift` (members made internal for the
+    cross-file extensions). Also split: `SettingsGroups`→`SettingsPreviews`, `FeatureSettings`→
+    `SettingsRows`, `EditorViews`→`LayoutEditorView`, `MissionControlOverlay`→`MissionControlView`(+`Mouse`),
+    `ConfigLoader`→`+Accessors`. All 6 over-limit files now <500.
+11. ✅ **MAS AX-fallback tie-breaker.** `windowID(of:pid:)` now filters pid+frame matches and breaks ties
+    by **z-order** (frontmost = focused), logging the ambiguous case. Title rejected (kCGWindowName is
+    usually empty without screen-recording permission).
+12. ✅ **Dead-code / cleanup.** Removed `AXWindowSystem.allWindowsAcrossSpaces()` (no callers) and the
+    `scratch_*.swift` probes. (`getSpaceWallpapers` was already gone.)
 13. ⚪ **Targeted unit tests.** Golden coverage for the per-display Exposé layout math
     (`ExposeController.layoutFrame(for:union:pos:)`) and `SpacesReader` plist parsing (against a fixture)
     if worth it; the long-standing ZTCore coverage gaps (AutoTiler / PlacementStrategy /

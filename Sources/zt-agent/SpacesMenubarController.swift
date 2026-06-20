@@ -33,13 +33,19 @@ final class SpacesMenubarController {
                                                name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
 
+    /// The Spaces source for the current settings: the private CGS reader when experimental real Spaces
+    /// is on (and compiled in), else the App-Store-safe public marker-window provider.
+    private var provider: SpacesProvider { Spaces.provider(experimentalEnabled: realSpaces()) }
+
     /// (Re)build the widget, or tear it down if the feature is off / unavailable.
     @objc func refresh() {
-        guard enabled(), realSpaces(), SpacesReader.experimentalEnabled else {
-            log("spaces-menubar: gate off (enabled=\(enabled()) real=\(realSpaces()) exp=\(SpacesReader.experimentalEnabled))")
+        let provider = self.provider
+        provider.start()   // idempotent; lets the public provider begin learning Spaces
+        guard enabled(), provider.isAvailable else {
+            log("spaces-menubar: gate off (enabled=\(enabled()) available=\(provider.isAvailable))")
             teardown(); return
         }
-        let spaces = SpacesReader.spacesByDisplay()
+        let spaces = provider.spacesByDisplay()
         // CGS can momentarily return nothing DURING a Space switch — do NOT tear the widget down on a
         // transient empty read (that's what made it vanish on click); keep the last render.
         guard !spaces.isEmpty else { return }
@@ -116,7 +122,8 @@ final class SpacesMenubarController {
         let clicked = cellSpaces[idx]
         // Re-read Spaces FRESH so the current-space index (→ gesture step count) is accurate; the
         // dock-swipe only affects the display under the mouse, so pass it as the active display.
-        let fresh = SpacesReader.spacesByDisplay()
+        // (On the public provider, ordering is visit-order so the step count is best-effort.)
+        let fresh = provider.spacesByDisplay()
         guard let target = fresh[clicked.displayUUID]?.first(where: { $0.id == clicked.id }), !target.isCurrent else { return }
         let activeUUID = displayUUIDUnderMouse()
         let confident = (activeUUID == nil || activeUUID == target.displayUUID)   // gesture path → safe to predict

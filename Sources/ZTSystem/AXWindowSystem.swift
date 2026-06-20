@@ -108,31 +108,6 @@ public final class AXWindowSystem: WindowSystem {
         }
     }
 
-    public func allWindowsAcrossSpaces() -> [LiveWindow] {
-        let options: CGWindowListOption = [.excludeDesktopElements]
-        guard let infoList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
-            return []
-        }
-        var result: [LiveWindow] = []
-        for w in infoList {
-            guard let num = (w[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
-                  let owner = w[kCGWindowOwnerName as String] as? String
-            else { continue }
-            let pid = (w[kCGWindowOwnerPID as String] as? NSNumber)?.intValue
-            let layer = (w[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
-            guard layer == 0 else { continue }
-            var bounds = CGRect.zero
-            if let boundsDict = w[kCGWindowBounds as String] as? NSDictionary {
-                CGRectMakeWithDictionaryRepresentation(boundsDict as CFDictionary, &bounds)
-            }
-            result.append(LiveWindow(id: Int(num), appName: owner,
-                                     frame: ZTRect(x: bounds.origin.x, y: bounds.origin.y,
-                                                   w: bounds.size.width, h: bounds.size.height),
-                                     screenUUID: nil, pid: pid))
-        }
-        return result
-    }
-
     @discardableResult
     public func moveFocusedWindow(to rect: ZTRect) -> Bool {
         guard let app = NSWorkspace.shared.frontmostApplication,
@@ -198,19 +173,26 @@ public final class AXWindowSystem: WindowSystem {
     }
 
     /// AX window → CGWindowID. Uses the private SPI when compiled in (ZT_PRIVATE_APIS), else matches
-    /// by pid + frame against the CGWindowList (public; slightly fragile when an app has multiple
-    /// same-size windows, but adequate for the MAS-safe fallback build).
+    /// by pid + frame against the CGWindowList (public, MAS-safe). When an app has multiple windows of
+    /// the same size at the same spot the frame match is ambiguous; we break the tie by **z-order** —
+    /// `onScreenWindows()` is front-to-back, and the focused window is the frontmost of its app, so the
+    /// first match is the right one. (Title would be a second signal but `kCGWindowName` is usually
+    /// empty without screen-recording permission, so it's not reliable here.)
     private func windowID(of axWin: AXUIElement, pid: pid_t) -> CGWindowID? {
         #if ZT_PRIVATE_APIS
         var wid: CGWindowID = 0
         return _AXUIElementGetWindow(axWin, &wid) == .success ? wid : nil
         #else
         let f = Self.frame(of: axWin)
-        return Self.onScreenWindows().first {
+        let matches = Self.onScreenWindows().filter {
             $0.pid == pid
                 && abs($0.bounds.origin.x - f.origin.x) < 2 && abs($0.bounds.origin.y - f.origin.y) < 2
                 && abs($0.bounds.size.width - f.size.width) < 2 && abs($0.bounds.size.height - f.size.height) < 2
-        }?.windowID
+        }
+        if matches.count > 1 {
+            FileHandle.standardError.write(Data("zt-agent[ax]: windowID match ambiguous (\(matches.count) same-pid/same-frame windows) — using frontmost\n".utf8))
+        }
+        return matches.first?.windowID   // front-to-back order → frontmost (= focused) wins the tie
         #endif
     }
 

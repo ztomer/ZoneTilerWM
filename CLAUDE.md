@@ -22,6 +22,8 @@ quick operational guide.
 - **Verify with `make verify`** (= `swift test`) before considering anything done.
 - Quality bar: TDD-first; data structures over clever code; dependency-inversion only at
   the OS boundary; AX-call-count-aware in the hot path (see below).
+- **Ground rule: no source file over 500 LOC.** Split by concern (cohesive types → own file;
+  a god-object class → `Type+Area.swift` extensions, making members internal as needed).
 
 ## Verify / test
 
