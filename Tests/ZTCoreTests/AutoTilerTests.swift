@@ -152,6 +152,50 @@ final class AutoTilerTests: XCTestCase {
                                    zOrder: [1], focusedId: nil, memory: memory, now: 10_000)
         XCTAssertEqual(moves.count, 1)
         XCTAssertEqual(moves.first?.zoneKey, "l", "fillGaps upgraded the quarter-tile window to the free half")
-        XCTAssertEqual(moves.first?.rect, ZTRect(x: 756, y: 0, w: 756, h: 982))
+        // …then stretch-to-fill grows the lone window to the whole screen (margins off here, so full).
+        XCTAssertEqual(moves.first?.rect, ZTRect(x: 0, y: 0, w: 1512, h: 982))
+    }
+
+    func testStretchToFillCoversScreenWithoutOverlap() {
+        // The whole point: after tiling, the desktop is actually full. Use the real DELL 4x3 layout
+        // (where the focused "j" zone is only the middle half) — a single window must still fill the
+        // screen, and N windows must cover ~all of it with no overlaps and the configured margin kept.
+        let layout4x3: [String: [String]] = [
+            "y": ["a1:a2", "a1"], "h": ["a1:b3", "a1:a3", "a2"], "n": ["a3", "a2:a3"],
+            "u": ["b1:b3", "b1"], "j": ["b1:c3", "b2"], "m": ["b1:b3", "b3"],
+            "i": ["d1:d3", "d1"], "k": ["c1:d3", "c2"], ",": ["d1:d3", "d3"],
+            "o": ["c1:d1", "d1"], "l": ["d1:d3", "d2"], ".": ["d3"], "0": ["a1:d3"],
+        ]
+        let zc = ZoneConfig(grids: ["4x3": GridConfig(cols: 4, rows: 3)],
+                            layouts: ["4x3": layout4x3],
+                            margins: Margins(enabled: true, size: 5, screen_edge: true))
+        let cfg = AutoTiler.Config(centerZones: ["j", "center", "0"], workingSetTimeLimit: 1800,
+                                   workingSetMaxCapacity: 6, mode: "usage", weights: CostWeights(), zoneConfig: zc)
+        let big = AutoTiler.Screen(uuid: "D", name: "DELL U3223QE", frame: ZTRect(x: 0, y: 0, w: 3840, h: 2160))
+        let area = 3840.0 * 2160.0
+
+        for n in [1, 2, 3, 6] {
+            let wins = (1...n).map { AutoTiler.Window(id: $0, app: "A\($0)", monitor: "D",
+                frame: ZTRect(x: 0, y: 0, w: 1200, h: 900), lastFocusedTime: 10_000) }
+            let moves = AutoTiler.plan(config: cfg, screens: [big], windows: wins,
+                                       zOrder: Array(1...n), focusedId: 1, memory: [:], now: 10_000)
+            let placed = moves.filter { $0.zoneKey != "limbo" }
+            let covered = placed.reduce(0.0) { $0 + $1.rect.w * $1.rect.h }
+            XCTAssertGreaterThan(covered / area, 0.97, "n=\(n): autotile should fill ≥97% of the screen")
+            // No two placed windows overlap.
+            for i in 0..<placed.count {
+                for j in (i + 1)..<placed.count {
+                    XCTAssertFalse(rectsOverlap(placed[i].rect, placed[j].rect),
+                                   "n=\(n): windows \(placed[i].windowId)/\(placed[j].windowId) overlap")
+                }
+            }
+            // Everything stays on-screen.
+            for p in placed {
+                XCTAssertGreaterThanOrEqual(p.rect.x, big.frame.x - 0.5)
+                XCTAssertGreaterThanOrEqual(p.rect.y, big.frame.y - 0.5)
+                XCTAssertLessThanOrEqual(p.rect.x + p.rect.w, big.frame.x + big.frame.w + 0.5)
+                XCTAssertLessThanOrEqual(p.rect.y + p.rect.h, big.frame.y + big.frame.h + 0.5)
+            }
+        }
     }
 }

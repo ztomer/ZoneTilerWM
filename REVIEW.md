@@ -617,3 +617,21 @@ all CORRECT, no regressions).**
 Locked with tests (`testLabelsExtendBeyond26…`, `testResolveTypedLabelCaseSensitive`,
 `testRotateClampsNegativeIndexInsteadOfCrashing`, updated `testEmptyAndCap`). 382 tests green (both
 configs); all files ≤500 LOC. Surface is clean → version bumped to 2.6.0.
+
+## 11. Auto-tile coverage — stretch-to-fill (2026-06-20)
+
+Bug (user): "autotile doesn't use all the available space on the desktop" — with few visible windows
+(several apps minimized to the Dock), large areas stay empty. Measured on the real DELL 4x3 layout: a
+single focused window covered only **49.5%** (the center "j" zone is `b1:c3`, the middle half), two
+windows 74%, and even six dropped to 90% (an odd count leaves a grid cell empty). Root cause: placement
+is zone-based, and `fillGaps` only upgrades a window to a *larger predefined free tile* — it never grows
+a window into arbitrary leftover space.
+
+Fix: a final `stretchToFill` pass in `AutoTiler.plan` — each placed (non-limbo) window grows
+left/right/up/down into adjacent empty space until it is `margin` px from the nearest neighbour sharing
+that edge's span, or from the screen edge. Windows grow in a deterministic top-left-first order and are
+treated as obstacles once grown, so the result never overlaps and stays on-screen; the configured
+inter-window margin is preserved. Verified theoretically (the coverage is a pure function of the layout):
+coverage now **99.3% / 99.1% / 99.0% / 99.0% / 98.9% / 98.8%** for n=1..6 (the residual ~1% is the 5px
+margins). Locked with `testStretchToFillCoversScreenWithoutOverlap` (≥97% coverage + pairwise
+non-overlap + on-screen for n=1,2,3,6). 383 tests green (both configs); AutoTiler.swift 439 LOC.

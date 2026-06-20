@@ -218,6 +218,13 @@ public enum AutoTiler {
         fillGaps(moves: moves, occupiedByMid: occupiedByMid,
                  screenByMid: screenByMid, zonesByMid: zonesByMid, gridByMid: gridByMid)
 
+        // Final pass: grow placed windows into any remaining empty space so the desktop is actually
+        // filled (a lone focused window in the center "j" zone, or an odd window count, otherwise
+        // leaves whole columns/cells empty). Keeps the configured inter-window margin.
+        let m = config.zoneConfig.margins
+        stretchToFill(moves: moves, screenByMid: screenByMid,
+                      gap: (m?.enabled == true) ? (m?.size ?? 0) : 0)
+
         // Dedup: last move per window wins (mirrors _execute_moves).
         var byId: [Int: Move] = [:]
         for m in moves { byId[m.windowId] = m }
@@ -382,6 +389,50 @@ public enum AutoTiler {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // _pass_stretch_to_fill — grow each placed window outward into adjacent empty space so the desktop
+    // is fully used (a single centered window, or an odd count that leaves a column/cell empty). Each
+    // window expands left/right/up/down until it is `gap` px from the nearest placed neighbour that
+    // shares that edge's span, or `gap` px from the screen edge. Windows are grown in a deterministic
+    // order (top-left first) and treated as obstacles once grown, so results never overlap. Limbo
+    // windows (stacked, not on the grid) are left alone. Mutates the Move objects in place.
+    private static func stretchToFill(moves: [Move], screenByMid: [String: Screen], gap: Double) {
+        for mid in screenByMid.keys.sorted() {
+            guard let sf = screenByMid[mid]?.frame else { continue }
+            let placed = moves.filter { $0.monitorId == mid && $0.zoneKey != "limbo" }
+            guard placed.count > 0 else { continue }
+            let order = placed.sorted { a, b in
+                if a.rect.y != b.rect.y { return a.rect.y < b.rect.y }
+                if a.rect.x != b.rect.x { return a.rect.x < b.rect.x }
+                return a.windowId < b.windowId
+            }
+            for mv in order {
+                var r = mv.rect
+                let others = placed.filter { $0.windowId != mv.windowId }   // current (possibly-grown) rects
+                func vSpan(_ o: ZTRect) -> Bool { o.y < r.y + r.h && o.y + o.h > r.y }
+                func hSpan(_ o: ZTRect) -> Bool { o.x < r.x + r.w && o.x + o.w > r.x }
+                // Left: nearest right-edge of a window to our left that shares our vertical span.
+                let left = others.filter { vSpan($0.rect) && $0.rect.x + $0.rect.w <= r.x + 0.5 }
+                    .map { $0.rect.x + $0.rect.w + gap }.max() ?? (sf.x + gap)
+                let newX = min(r.x, max(left, sf.x + gap))
+                r.w += r.x - newX; r.x = newX
+                // Right: nearest left-edge of a window to our right.
+                let right = others.filter { vSpan($0.rect) && $0.rect.x >= r.x + r.w - 0.5 }
+                    .map { $0.rect.x - gap }.min() ?? (sf.x + sf.w - gap)
+                r.w = max(r.w, min(right, sf.x + sf.w - gap) - r.x)
+                // Up: nearest bottom-edge of a window above us that shares our (now-grown) horizontal span.
+                let up = others.filter { hSpan($0.rect) && $0.rect.y + $0.rect.h <= r.y + 0.5 }
+                    .map { $0.rect.y + $0.rect.h + gap }.max() ?? (sf.y + gap)
+                let newY = min(r.y, max(up, sf.y + gap))
+                r.h += r.y - newY; r.y = newY
+                // Down: nearest top-edge of a window below us.
+                let down = others.filter { hSpan($0.rect) && $0.rect.y >= r.y + r.h - 0.5 }
+                    .map { $0.rect.y - gap }.min() ?? (sf.y + sf.h - gap)
+                r.h = max(r.h, min(down, sf.y + sf.h - gap) - r.y)
+                mv.rect = r
             }
         }
     }
