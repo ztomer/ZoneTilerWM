@@ -13,7 +13,7 @@
 import AppKit
 
 #if ZT_PRIVATE_APIS
-// ⚠️ PRIVATE / EXPERIMENTAL — these CGS/SkyLight symbols are undocumented and NOT App-Store-safe.
+// ⚠ PRIVATE / EXPERIMENTAL — these CGS/SkyLight symbols are undocumented and NOT App-Store-safe.
 // Compiled in only when ZT_PRIVATE_APIS is defined (see Package.swift). The App-Store-safe
 // alternative (see docs/ROADMAP.md §A) is NSWorkspaceActiveSpaceDidChangeNotification +
 // an invisible 1×1 window per Space cross-referenced via CGWindowListCopyWindowInfo's

@@ -39,7 +39,7 @@ func printMove(_ result: Result<AXWindowSystem.MoveResult, AXMoveError>, side: S
         print("  after:  \(describe(m.after))")
         print("  enhancedUI toggle used: \(m.usedEnhancedUIToggle) (was enabled: \(m.wasEnhancedUI))")
         let moved = abs(m.after.origin.x - m.before.origin.x) > 1 || abs(m.after.size.width - m.before.size.width) > 1
-        print(moved ? "  RESULT: window moved ✔" : "  RESULT: window did NOT move ✘")
+        print(moved ? "  RESULT: window moved ✓" : "  RESULT: window did NOT move ✗")
     case .failure(let e):
         print("FAILED: \(e)")
     }

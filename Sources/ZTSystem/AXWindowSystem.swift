@@ -14,7 +14,7 @@ import ApplicationServices
 import ZTCore
 
 #if ZT_PRIVATE_APIS
-// ⚠️ PRIVATE / EXPERIMENTAL — `_AXUIElementGetWindow` is an undocumented AX SPI (the standard
+// ⚠ PRIVATE / EXPERIMENTAL — `_AXUIElementGetWindow` is an undocumented AX SPI (the standard
 // yabai-style way to map an AX window element to its CGWindowID). NOT App-Store-safe; compiled in
 // only under ZT_PRIVATE_APIS (set by build_public.sh / build_dev.sh). The public fallback below
 // (match by pid + frame) is used otherwise — see `AXWindowSystem.windowID(of:pid:)`.

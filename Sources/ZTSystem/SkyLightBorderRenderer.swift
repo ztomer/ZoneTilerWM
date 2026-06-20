@@ -18,7 +18,7 @@
 import AppKit
 import ZTCore
 
-// ⚠️ PRIVATE / EXPERIMENTAL — dlopens SkyLight.framework. Compiled in only under ZT_PRIVATE_APIS
+// ⚠ PRIVATE / EXPERIMENTAL — dlopens SkyLight.framework. Compiled in only under ZT_PRIVATE_APIS
 // (build_public.sh / build_dev.sh); a strict-MAS build (build_mas.sh) excludes it and uses the
 // public OverlayBorderRenderer.
 #if ZT_PRIVATE_APIS
