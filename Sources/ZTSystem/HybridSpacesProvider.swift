@@ -39,7 +39,9 @@ public final class HybridSpacesProvider: SpacesProvider {
     }
 
     public var isAvailable: Bool { PlistSpacesReader.isAvailable }
-    public func wallpapersBySpaceUUID() -> [String: NSImage] { [:] }   // not available without private API
+    // Per-Space wallpapers come from the wallpaper Store plist keyed by Space UUID — a plain file read,
+    // NOT a private API — so each Space's strip thumbnail shows its own wallpaper even with the toggle off.
+    public func wallpapersBySpaceUUID() -> [String: NSImage] { SpacesReader.wallpapersBySpaceUUID() }
 
     public func spacesByDisplay() -> [String: [RealSpace]] {
         let layout = PlistSpacesReader.spacesByDisplay()
