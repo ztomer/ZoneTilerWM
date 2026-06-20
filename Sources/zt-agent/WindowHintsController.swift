@@ -21,6 +21,10 @@ final class WindowHintsController {
     private var modalIDs: [UInt32] = []
     private var targets: [String: Int] = [:]
     private var iconCache: [String: NSImage?] = [:]
+    // "/" search: filter the shown windows by app name (letters build a query instead of jumping).
+    private var searchMode = false
+    private var query = ""
+    private var presented: [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int)] = []
 
     init(binder: CarbonHotkeyBinder, screens: NSScreenProvider, windowSystem: AXWindowSystem,
          keyboardLayout: @escaping () -> String,
@@ -79,6 +83,8 @@ final class WindowHintsController {
             log("zt-agent: window hints — \(wins.count) windows, \(labeled.count) labeled")
         }
         targets = [:]
+        presented = []
+        searchMode = false; query = ""
         var badges: [(label: String, app: String, icon: NSImage?, center: ZTRect, zone: String?)] = []
         let zConfig = zoneConfig()
         var screenZones: [String: [String: [ZTRect]]] = [:]
@@ -93,17 +99,21 @@ final class WindowHintsController {
             if let uuid = w.screenUUID, let zones = screenZones[uuid] {
                 zoneKey = ZoneOccupancy.bestZone(window: w.frame, zones: zones)
             }
-            badges.append((label, w.appName, appIcon(for: w.appName), center, zoneKey))
+            let icon = appIcon(for: w.appName)
+            badges.append((label, w.appName, icon, center, zoneKey))
+            presented.append((app: w.appName, icon: icon, center: center, zone: zoneKey, id: w.id))
         }
         active = true
         overlay.show(badges)
+        overlay.setSearchBar("press / to search")
         bindModal(labels: labeled.map { $0.0 })
-        log("zt-agent: window hints ON (\(targets.count) windows) — type a label, ESC cancels")
+        log("zt-agent: window hints ON (\(targets.count) windows) — type a label, / to search, ESC cancels")
     }
 
     func exit() {
         guard active else { return }
         active = false
+        searchMode = false; query = ""; presented = []
         log("zt-agent: window hints OFF (dismissed)")
         for id in modalIDs { binder.unbind(id) }
         modalIDs = []
@@ -139,5 +149,60 @@ final class WindowHintsController {
            let id = binder.register(keyCode: esc, modifiers: 0, action: { [weak self] in self?.exit() }) {
             modalIDs.append(id)
         }
+        if let slash = KeyMap.keyCode(for: "/"),
+           let id = binder.register(keyCode: slash, modifiers: 0, action: { [weak self] in self?.startSearch() }) {
+            modalIDs.append(id)
+        }
+    }
+
+    // MARK: - "/" search (filter the shown windows by app name)
+
+    /// Switch from label-jump mode to search mode: rebind so letters/digits build a query.
+    private func startSearch() {
+        guard active, !searchMode else { return }
+        searchMode = true
+        query = ""
+        for id in modalIDs { binder.unbind(id) }
+        modalIDs = []
+        let chars = "abcdefghijklmnopqrstuvwxyz0123456789".map(String.init) + ["space"]
+        for ch in chars {
+            guard let code = KeyMap.keyCode(for: ch) else { continue }
+            let c = ch == "space" ? " " : ch
+            if let id = binder.register(keyCode: code, modifiers: 0, action: { [weak self] in self?.appendQuery(c) }) { modalIDs.append(id) }
+        }
+        if let del = KeyMap.keyCode(for: "delete"), let id = binder.register(keyCode: del, modifiers: 0, action: { [weak self] in self?.backspaceQuery() }) { modalIDs.append(id) }
+        if let ret = KeyMap.keyCode(for: "return"), let id = binder.register(keyCode: ret, modifiers: 0, action: { [weak self] in self?.focusTopMatch() }) { modalIDs.append(id) }
+        if let esc = KeyMap.keyCode(for: "escape"), let id = binder.register(keyCode: esc, modifiers: 0, action: { [weak self] in self?.searchEscape() }) { modalIDs.append(id) }
+        renderSearch()
+    }
+
+    private func appendQuery(_ c: String) { query += c; renderSearch() }
+    private func backspaceQuery() { if !query.isEmpty { query.removeLast(); renderSearch() } }
+    private func searchEscape() { if query.isEmpty { exit() } else { query = ""; renderSearch() } }
+
+    private func filteredPresented() -> [(app: String, icon: NSImage?, center: ZTRect, zone: String?, id: Int)] {
+        let q = query.lowercased()
+        return q.isEmpty ? presented : presented.filter { Self.fuzzyMatch(q, $0.app.lowercased()) }
+    }
+
+    private func renderSearch() {
+        let f = filteredPresented()
+        // Badges show no jump key while searching (letters drive the filter) — icon + app only.
+        overlay.show(f.map { (label: "", app: $0.app, icon: $0.icon, center: $0.center, zone: $0.zone) })
+        overlay.setSearchBar(query.isEmpty ? "type to find a window · ⏎ focus · ⎋ back" : "/ \(query)    \(f.count) match\(f.count == 1 ? "" : "es")")
+    }
+
+    private func focusTopMatch() {
+        guard let w = filteredPresented().first else { return }
+        windowSystem.focus(windowId: w.id)
+        exit()
+    }
+
+    /// Loose subsequence match (so "sf" finds "Safari"), substring fast-path.
+    private static func fuzzyMatch(_ needle: String, _ hay: String) -> Bool {
+        if needle.isEmpty || hay.contains(needle) { return true }
+        var idx = hay.startIndex
+        for ch in needle { guard let f = hay[idx...].firstIndex(of: ch) else { return false }; idx = hay.index(after: f) }
+        return true
     }
 }

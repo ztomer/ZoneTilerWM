@@ -83,7 +83,36 @@ public final class GridOverlay {
 /// half of hs.hints.windowHints). The key capture lives in the agent's hints modal.
 public final class HintOverlay {
     private var windows: [NSWindow] = []
+    private var searchBar: NSWindow?
     public init() {}
+
+    /// A small centered pill showing the live "/" filter query (pass nil to hide it).
+    public func setSearchBar(_ text: String?) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard let text, let scr = NSScreen.main else { self.searchBar?.orderOut(nil); self.searchBar = nil; return }
+            let label = NSTextField(labelWithString: text)
+            label.font = .monospacedSystemFont(ofSize: 15, weight: .medium)
+            label.textColor = .white
+            label.sizeToFit()
+            let w = max(240, label.frame.width + 36), h: CGFloat = 38
+            let card = NSView(frame: NSRect(x: 0, y: 0, width: w, height: h))
+            card.wantsLayer = true
+            card.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.82).cgColor
+            card.layer?.cornerRadius = 10
+            label.frame = NSRect(x: (w - label.frame.width) / 2, y: (h - label.frame.height) / 2,
+                                 width: label.frame.width, height: label.frame.height)
+            card.addSubview(label)
+            let win = self.searchBar ?? NSWindow(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
+            win.isOpaque = false; win.backgroundColor = .clear; win.ignoresMouseEvents = true
+            win.level = .statusBar; win.hasShadow = true
+            win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            win.setFrame(NSRect(x: scr.frame.midX - w / 2, y: scr.frame.maxY - 130, width: w, height: h), display: true)
+            win.contentView = card
+            win.orderFront(nil)
+            self.searchBar = win
+        }
+    }
 
     /// Show a hint badge centered on each window: app icon (recognition) + the key (the action)
     /// + the app name (a small confirm). `center` is the window's top-left CG center point.
@@ -190,6 +219,7 @@ public final class HintOverlay {
     private func clear() {
         for w in windows { w.orderOut(nil) }
         windows.removeAll()
+        searchBar?.orderOut(nil); searchBar = nil
     }
 }
 
