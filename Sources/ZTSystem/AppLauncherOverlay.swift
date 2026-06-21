@@ -29,14 +29,8 @@ public final class AppLauncherOverlay {
             w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
             let size = NSRect(origin: .zero, size: nsFrame.size)
-            if #available(macOS 26.0, *), !caps.isEmpty {
-                w.contentView = AppLauncherOverlay.glassChips(caps: caps, bounds: size)
-            } else {
-                let view = AppLauncherView(frame: size)
-                view.drawsPanelBackground = true
-                view.caps = caps
-                w.contentView = view
-            }
+            w.contentView = caps.isEmpty ? NSView(frame: size)
+                                         : AppLauncherOverlay.glassChips(caps: caps, bounds: size)
             w.alphaValue = 0
             w.orderFrontRegardless()
             NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.12; w.animator().alphaValue = 1 }
@@ -45,31 +39,22 @@ public final class AppLauncherOverlay {
     }
 
     /// A Liquid-Glass keyboard: one NSGlassEffectView chip per shortcut, merged in a container.
-    @available(macOS 26.0, *)
     private static func glassChips(caps: [AppLauncherHUD.Cap], bounds: NSRect) -> NSView {
         let cellW = AppLauncherView.cellW, cellH = AppLauncherView.cellH
         let pad = AppLauncherView.pad, inset = AppLauncherView.inset
         let minRow = caps.map(\.row).min() ?? 0, minCol = caps.map(\.col).min() ?? 0
         let size = AppLauncherView.panelSize(for: caps)
-        let ox = bounds.midX - size.width / 2, oy = bounds.midY - size.height / 2
-        let gx = ox + pad, gy = oy + pad
-
-        let container = NSGlassEffectContainerView(frame: bounds)
-        container.spacing = 22         // > the ~12pt chip gap, so neighbours BRIDGE fluidly (the liquid blend)
-        let content = FlippedView(frame: bounds)   // top-left origin so chip coords match the layout
+        let gx = bounds.midX - size.width / 2 + pad, gy = bounds.midY - size.height / 2 + pad
+        let (container, content) = LiquidGlass.container(frame: bounds, spacing: 22)   // > chip gap → chips bridge
         for cap in caps {
             let x = gx + (cap.col - minCol) * cellW + inset
             let y = gy + Double(cap.row - minRow) * cellH + inset
-            let chip = NSGlassEffectView(frame: NSRect(x: x, y: y, width: cellW - inset * 2, height: cellH - inset * 2))
-            chip.cornerRadius = 16
-            chip.style = .clear   // clear glass → more refractive lensing, less frosted body
-            chip.tintColor = NSColor.black.withAlphaComponent(0.12)   // clear needs a touch more tint for label legibility
-            let label = KeycapLabel(frame: chip.bounds)
-            label.cap = cap
-            chip.contentView = label
+            let label = KeycapLabel(); label.cap = cap
+            let chip = LiquidGlass.chip(frame: NSRect(x: x, y: y, width: cellW - inset * 2, height: cellH - inset * 2),
+                                        cornerRadius: 16, tint: NSColor.black.withAlphaComponent(0.12),
+                                        clear: true, content: label)
             content.addSubview(chip)
         }
-        container.contentView = content
         return container
     }
 
@@ -97,7 +82,6 @@ public final class AppLauncherOverlay {
 }
 
 /// Top-left-origin container so glass-chip frames match the keyboard layout math.
-private final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
 /// The label that sits INSIDE a glass chip: the key glyph (amber) over the app name (white).
 private final class KeycapLabel: NSView {
