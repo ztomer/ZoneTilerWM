@@ -134,6 +134,7 @@ final class AgentController: NSObject {
     let chromeTabs = ChromeTabsController()         // toggle Chrome's tab strip (bound iff [system_hotkeys] chrome_tabs set)
     var commandPalette: CommandPaletteController!   // gated by [command_palette] enabled
     var zoneHUD: ZoneHUDController!                 // gated by [zone_hud] enabled
+    var appLauncherHUD: AppLauncherHUDController!   // hold an app-launcher modifier → shortcut palette
     var dragSnap: DragSnapController!               // gated by [drag_snap] enabled
     var breakScreen: BreakScreenController!         // gated by [break_screen] enabled
     var scratchpad: ScratchpadController!           // gated by [scratchpad] apps
@@ -334,6 +335,13 @@ final class AgentController: NSObject {
             holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs },
             commitMode: { [unowned self] in self.config.zoneHUDCommitMode },
             commit: { [unowned self] zoneKey, tile in self.tileFocusedToZone(zoneKey, tile: tile) })
+        appLauncherHUD = AppLauncherHUDController(
+            screens: screens,
+            groups: { [unowned self] in [
+                .init(modifier: self.config.appCuts.modifier, apps: self.config.appCuts.apps),
+                .init(modifier: self.config.hyperAppCuts.modifier, apps: self.config.hyperAppCuts.apps),
+            ] },
+            holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs })
         dragSnap = DragSnapController(
             screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },
@@ -388,6 +396,7 @@ controller.setupConfigWatch()
 controller.setupIPCServer()        // MCP shim talks to the agent over this socket
 controller.setupURLHandler()       // zonetiler:// scheme (effective in the bundled .app)
 controller.setupZoneHUD()          // modifier-held zone cheat-sheet (gated by [zone_hud] enabled)
+controller.appLauncherHUD.start()  // hold an app-launcher modifier (appCuts / HYPER) → shortcut palette
 controller.setupDragSnap()         // drag-to-snap mouse monitor (gated by [drag_snap] enabled)
 controller.setupFocusFollowsMouse()  // focus-follows-mouse (gated by [focus_follows_mouse] enabled)
 controller.setupEventStream()        // arrangement event stream (gated by [events] enabled)
@@ -401,6 +410,7 @@ case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "onboarding": DispatchQueue.main.async { controller.onboarding.showIfNeeded(force: true) }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
+case "applauncher": DispatchQueue.main.async { controller.appLauncherHUD.forceShowForQA() }
 case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }
 case "break":     DispatchQueue.main.async { controller.breakScreenForQA() }
 case "expose":    DispatchQueue.main.async { controller.showExposeForQA() }
