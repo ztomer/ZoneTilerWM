@@ -172,6 +172,7 @@ final class AgentController: NSObject {
     let flash = FlashOverlay()
     let pomodoroBar = PomodoroBar()
     let focusBorder = FocusBorderController()
+    let telemetry = TelemetryRecorder()            // opt-in local usage log ([telemetry] enabled)
     var enableColorBar: Bool
     var pomodoroIndicatorHeight: Double
     var pomodoroIndicatorAlpha: Double
@@ -306,6 +307,7 @@ final class AgentController: NSObject {
             },
             reloadConfig: { [unowned self] in self.reloadFromDisk() },
             setBorders: { [unowned self] on in self.setBordersEnabled(on) },
+            telemetry: { [unowned self] name in self.telemetry.record(action: name) },
             saveLayout: { [unowned self] name in self.saveLayout(name) },
             applyLayout: { [unowned self] name in self.applyLayout(name) },
             syncExport: { [unowned self] in self.syncEngine().run(.export) },
@@ -378,6 +380,7 @@ final class AgentController: NSObject {
             intervalMs: { [unowned self] in self.config.eventsIntervalMs })
         log("zt-agent: window memory \(memory != nil ? "enabled (\(config.windowMemory.cacheDir))" : "disabled")")
         applyBorders(config)
+        telemetry.setEnabled(config.telemetryEnabled)
     }
 }
 

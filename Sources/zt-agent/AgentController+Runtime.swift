@@ -202,6 +202,7 @@ extension AgentController {
         pomodoroColorRemaining = PomodoroBar.color(named: newConfig.pomodoroColorRemaining)
         pomodoroColorUsed = PomodoroBar.color(named: newConfig.pomodoroColorUsed)
         applyBorders(newConfig)
+        telemetry.setEnabled(newConfig.telemetryEnabled)
         bindAllHotkeys()
         reconcileIPCServer()        // start/stop the MCP/CLI socket if [automation] enabled changed
         reconcileZoneHUD()          // start/stop the zone HUD if [zone_hud] enabled changed

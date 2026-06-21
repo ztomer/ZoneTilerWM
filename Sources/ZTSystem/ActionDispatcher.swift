@@ -41,6 +41,8 @@ public final class ActionDispatcher {
         public var reloadConfig: () -> Bool
         /// Toggle the focus border at runtime (no config edit).
         public var setBorders: (Bool) -> Void
+        /// Record a dispatched action name for opt-in usage telemetry (no-op when telemetry is off).
+        public var telemetry: (String) -> Void
         /// Layout snapshots — agent-orchestrated (storage + arrangement capture + window-targeted
         /// restore). Each returns the resulting ActionResult.
         public var saveLayout: (String) -> ActionResult
@@ -71,6 +73,7 @@ public final class ActionDispatcher {
                     toggleFloat: @escaping () -> ActionResult,
                     reloadConfig: @escaping () -> Bool,
                     setBorders: @escaping (Bool) -> Void = { _ in },
+                    telemetry: @escaping (String) -> Void = { _ in },
                     saveLayout: @escaping (String) -> ActionResult,
                     applyLayout: @escaping (String) -> ActionResult,
                     syncExport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
@@ -93,6 +96,7 @@ public final class ActionDispatcher {
             self.toggleFloat = toggleFloat
             self.reloadConfig = reloadConfig
             self.setBorders = setBorders
+            self.telemetry = telemetry
             self.saveLayout = saveLayout
             self.applyLayout = applyLayout
             self.syncExport = syncExport
@@ -109,6 +113,7 @@ public final class ActionDispatcher {
 
     @discardableResult
     public func perform(_ request: ActionRequest) -> ActionResult {
+        hooks.telemetry(ActionParser.canonical(request).name)   // opt-in usage log (no-op when off)
         switch request {
         case .tileFocusedToZone(let zone):
             switch hooks.coordinator().moveFocusedToZone(zone) {
