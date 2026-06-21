@@ -87,15 +87,21 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
         p.isMovableByWindowBackground = false
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let root = NSVisualEffectView()
-        root.material = .hudWindow
-        root.blendingMode = .behindWindow
-        root.state = .active
-        root.wantsLayer = true
-        root.layer?.cornerRadius = 12
-        root.layer?.masksToBounds = true
-        root.layer?.borderWidth = 1
-        root.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
+        // Liquid Glass backdrop (macOS 26), with the content as a sibling ON TOP — the Exposé pattern.
+        let glass: NSView
+        if #available(macOS 26.0, *) {
+            let g = NSGlassEffectView()
+            g.cornerRadius = 14
+            g.tintColor = NSColor.black.withAlphaComponent(0.12)
+            glass = g
+        } else {
+            let g = NSVisualEffectView()
+            g.material = .hudWindow; g.blendingMode = .behindWindow; g.state = .active
+            g.wantsLayer = true; g.layer?.cornerRadius = 14; g.layer?.masksToBounds = true
+            glass = g
+        }
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        let root = NSView()   // transparent content container, layered on top of the glass
         root.translatesAutoresizingMaskIntoConstraints = false
 
         field = NSTextField()
@@ -133,9 +139,14 @@ final class CommandPaletteController: NSObject, NSTextFieldDelegate {
         hintLabel.translatesAutoresizingMaskIntoConstraints = false
 
         root.addSubview(field); root.addSubview(divider); root.addSubview(scroll); root.addSubview(hintLabel)
-        p.contentView = root
+        p.contentView!.addSubview(glass)
+        p.contentView!.addSubview(root)
 
         NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: p.contentView!.topAnchor),
+            glass.bottomAnchor.constraint(equalTo: p.contentView!.bottomAnchor),
+            glass.leadingAnchor.constraint(equalTo: p.contentView!.leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: p.contentView!.trailingAnchor),
             root.topAnchor.constraint(equalTo: p.contentView!.topAnchor),
             root.bottomAnchor.constraint(equalTo: p.contentView!.bottomAnchor),
             root.leadingAnchor.constraint(equalTo: p.contentView!.leadingAnchor),
