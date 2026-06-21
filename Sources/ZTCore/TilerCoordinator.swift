@@ -36,6 +36,12 @@ public final class TilerCoordinator {
     // Repeated auto-tile of the same focused window cycles its centre ("j") zone through its tiles.
     private var autoTileCycle: (id: Int, index: Int)?
 
+    // feedback 7b: windows WE just tiled, so the manual-move settle detector doesn't re-learn
+    // (double-count) a placement the tile op already recorded. A per-window countdown of detector
+    // ticks — learn() arms it, the detector decays it each poll. Empty while the detector is idle.
+    private var selfMoveSuppress: [Int: Int] = [:]
+    private static let selfMoveSuppressTicks = 5
+
     // Optional adaptive memory: when present, manual zone moves are learned + persisted, and
     // auto-tile becomes memory-augmented. monitorManager maps screen UUID -> the logical id
     // the on-disk window_positions.json is keyed by.
@@ -110,6 +116,19 @@ public final class TilerCoordinator {
                               screenW: screen.frame.w, screenH: screen.frame.h)
         memory.flush(windowId: window.id)
         storage?.save("window_positions", memory.save())
+        // Arm self-move suppression: this window just moved because WE placed it, so the manual-move
+        // detector must not also re-learn it on the next settle (feedback 7b).
+        selfMoveSuppress[window.id] = Self.selfMoveSuppressTicks
+    }
+
+    /// True while a window WE moved is still settling — the manual-move detector skips it so an agent
+    /// tile isn't double-counted as a manual placement (feedback 7b).
+    public func isSelfMoveSettling(windowId: Int) -> Bool { (selfMoveSuppress[windowId] ?? 0) > 0 }
+
+    /// Advance the self-move suppression countdown one detector poll. Safe to call when the detector
+    /// is off (it just keeps the map drained).
+    public func decaySelfMoveSuppression() {
+        for (id, n) in selfMoveSuppress { if n <= 1 { selfMoveSuppress[id] = nil } else { selfMoveSuppress[id] = n - 1 } }
     }
 
     /// Re-learn a window's zone/tile from its CURRENT frame — a manual drag re-teaches memory

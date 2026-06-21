@@ -203,11 +203,15 @@ extension AgentController {
     func setupFocusTracking() {
         let now = Int(Date().timeIntervalSince1970)
         coordinator.seedFocusTimes(now: now)
+        manualMoveRelearn = ManualMoveRelearnController(
+            coordinator: coordinator, enumerate: { [weak self] in self?.enumerateLiveWindows() ?? [] })
+        manualMoveRelearn.enabled = config.relearnOnMoveEnabled
         focusTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.coordinator.noteFocusedWindow(now: Int(Date().timeIntervalSince1970))
             self.evaluateOnOpenRules()
             self.evaluateOnFocusRules()
+            self.manualMoveRelearn.tick()   // feedback 7b: re-learn a window's zone after a manual drag
         }
     }
 
@@ -218,6 +222,13 @@ extension AgentController {
             for w in windowSystem.windows(onScreen: s.uuid) { map[w.id] = w.appName }
         }
         return map
+    }
+
+    /// All currently-live windows with full geometry + screen (0 AX, CGWindowList via the
+    /// WindowSystem). Used by the manual-move re-learn detector, which needs each window's frame +
+    /// screenUUID, not just its app name.
+    func enumerateLiveWindows() -> [LiveWindow] {
+        screens.allScreens().flatMap { windowSystem.windows(onScreen: $0.uuid) }
     }
 
     /// Fire on-open rules for windows that appeared since the last tick. Baseline-seeded on the

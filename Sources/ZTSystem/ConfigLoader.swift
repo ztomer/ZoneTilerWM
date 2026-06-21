@@ -79,6 +79,7 @@ public enum ConfigLoader {
         public var zoneHUDCommitMode: ZoneHUDSession.Mode  // press zone key: preview+commit-on-release (default) vs tile immediately
         public var dragSnapEnabled: Bool                   // [drag_snap] enabled (opt-in, default off; EDR-sensitive)
         public var telemetryEnabled: Bool                  // [telemetry] enabled — opt-in local usage log to /tmp (default off)
+        public var relearnOnMoveEnabled: Bool              // [relearn_on_move] enabled — re-learn a window's zone after a manual drag (opt-in, default off; feedback 7b)
         public var syncFolder: String?                     // [sync] folder — a synced dir for export/import (nil = off)
         public var breakScreenEnabled: Bool                // [break_screen] enabled (opt-in, default off)
         public var breakScreenDurationSec: Int             // how long the break overlay stays up
@@ -224,6 +225,7 @@ public enum ConfigLoader {
         var zone_hud: RawZoneHUD?
         var drag_snap: RawDragSnap?
         var telemetry: RawTelemetry?
+        var relearn_on_move: RawRelearnOnMove?
         var sync: RawSync?
         var break_screen: RawBreakScreen?
         var scratchpad: RawScratchpad?
@@ -252,6 +254,7 @@ public enum ConfigLoader {
     private struct RawZoneHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int?; var commit_mode: String? }
     private struct RawDragSnap: Decodable { var enabled: Bool? }
     private struct RawTelemetry: Decodable { var enabled: Bool? }
+    private struct RawRelearnOnMove: Decodable { var enabled: Bool? }
     private struct RawSync: Decodable { var folder: String? }
     private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
     private struct RawScratchpad: Decodable { var apps: [String]?; var auto_dismiss: Bool? }
@@ -392,6 +395,7 @@ public enum ConfigLoader {
             zoneHUDCommitMode: raw.zone_hud?.commit_mode == "immediately" ? .tileImmediately : .tileOnRelease,
             dragSnapEnabled: raw.drag_snap?.enabled ?? false,              // opt-in; installs a passive mouse monitor
             telemetryEnabled: raw.telemetry?.enabled ?? false,             // opt-in local usage log (feedback 11)
+            relearnOnMoveEnabled: raw.relearn_on_move?.enabled ?? false,   // opt-in manual-drag zone re-learn (feedback 7b)
             syncFolder: raw.sync?.folder.flatMap { $0.isEmpty ? nil : $0 },  // nil/empty = sync disabled
             breakScreenEnabled: raw.break_screen?.enabled ?? false,         // opt-in
             breakScreenDurationSec: raw.break_screen?.duration_sec ?? 6,

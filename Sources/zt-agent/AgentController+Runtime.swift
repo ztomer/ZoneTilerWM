@@ -209,6 +209,7 @@ extension AgentController {
         reconcileDragSnap()         // start/stop drag-to-snap if [drag_snap] enabled changed
         reconcileFocusFollowsMouse()  // start/stop focus-follows-mouse if [focus_follows_mouse] changed
         reconcileEventStream()        // start/stop the arrangement event stream if [events] changed
+        manualMoveRelearn?.enabled = newConfig.relearnOnMoveEnabled  // feedback 7b: opt-in manual-drag re-learn
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
     }

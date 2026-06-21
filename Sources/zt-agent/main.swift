@@ -142,6 +142,7 @@ final class AgentController: NSObject {
     let sandbox = SandboxController()               // session sandbox (toggle action)
     var ffm: FocusFollowsMouseController!           // gated by [focus_follows_mouse] enabled
     var eventStream: EventStreamController!         // gated by [events] enabled
+    var manualMoveRelearn: ManualMoveRelearnController!  // gated by [relearn_on_move] enabled (feedback 7b)
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     var coordinator: TilerCoordinator
     var autoTilerConfig: AutoTiler.Config
