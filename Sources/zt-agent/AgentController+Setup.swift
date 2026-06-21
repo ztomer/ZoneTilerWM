@@ -120,8 +120,19 @@ extension AgentController {
     }
 
     /// Tile the focused window to a zone key (the shared path for the Carbon hotkey + the HUD's
-    /// release-commit). Flashes the target frame on success.
-    func tileFocusedToZone(_ zoneKey: String) {
+    /// release-commit). `tile == nil` → the coordinator auto-picks/cycles (legacy / immediate mode);
+    /// `tile != nil` → WYSIWYG placement at that exact cycle index (the on-release picker, so commit
+    /// equals the preview). Flashes the target frame on success.
+    func tileFocusedToZone(_ zoneKey: String, tile: Int? = nil) {
+        if let tile {
+            switch coordinator.moveFocusedToZone(zoneKey, tileIndex: tile) {
+            case .success(let o):
+                log("zt-agent: '\(zoneKey)' -> tile \(o.tileIndex) (explicit) applied=\(o.applied)")
+                if o.applied { flash.flash(o.target) }
+            case .failure(let e): log("zt-agent: '\(zoneKey)' -> \(e)")
+            }
+            return
+        }
         switch dispatcher.perform(.tileFocusedToZone(zone: zoneKey)) {
         case .tiled(_, _, let tileIndex, let target, let applied):
             log("zt-agent: '\(zoneKey)' -> tile \(tileIndex) applied=\(applied)")

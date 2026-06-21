@@ -58,6 +58,30 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertEqual(ws.movedTo, ZTRect(x: 0, y: 0, w: 500, h: 500))
     }
 
+    func testExplicitTileIndexPlacesAtThatPlacementAndWraps() {
+        // The WYSIWYG path for the zone-HUD picker: place at an exact cycle index, not findBestTile.
+        let ws = FakeWindowSystem()
+        ws.focused = LiveWindow(id: 1, appName: "Zen", frame: ZTRect(x: 100, y: 100, w: 400, h: 300), screenUUID: "M1")
+        let cfg = ZoneConfig(
+            grids: ["2x2": GridConfig(cols: 2, rows: 2)],
+            layouts: ["2x2": ["j": ["a1", "a1:b2", "b2"]]],   // 3 placements: top-left cell, full, bottom-right cell
+            margins: Margins(enabled: false, size: 0, screen_edge: false))
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: cfg, placementStrategy: "rotate")
+
+        guard case .success(let o0) = coord.moveFocusedToZone("j", tileIndex: 0) else { return XCTFail("idx 0") }
+        XCTAssertEqual(o0.target, ZTRect(x: 0, y: 0, w: 500, h: 500))       // a1
+        XCTAssertEqual(o0.tileIndex, 1)
+
+        guard case .success(let o2) = coord.moveFocusedToZone("j", tileIndex: 2) else { return XCTFail("idx 2") }
+        XCTAssertEqual(o2.target, ZTRect(x: 500, y: 500, w: 500, h: 500))   // b2
+        XCTAssertEqual(o2.tileIndex, 3)
+
+        guard case .success(let o3) = coord.moveFocusedToZone("j", tileIndex: 3) else { return XCTFail("wrap") }
+        XCTAssertEqual(o3.target, ZTRect(x: 0, y: 0, w: 500, h: 500))       // 3 % 3 == 0 → a1
+        XCTAssertEqual(ws.movedTo, ZTRect(x: 0, y: 0, w: 500, h: 500))
+    }
+
     // MARK: - moveWindow(id:toZone:) — the rules-engine window-targeted path
 
     func testMoveWindowByIdTilesSpecificWindow() {

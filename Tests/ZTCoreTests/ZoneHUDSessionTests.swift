@@ -1,4 +1,4 @@
-// ZoneHUDSessionTests — the interactive preview-then-commit state machine (v2.8).
+// ZoneHUDSessionTests — the interactive preview-then-commit state machine (v2.8), incl. cycling.
 
 import XCTest
 @testable import ZTCore
@@ -44,64 +44,92 @@ final class ZoneHUDSessionTests: XCTestCase {
 
     // MARK: - tile on release (the default)
 
-    func testZoneKeyHighlightsButDoesNotCommit() {
-        var s = ZoneHUDSession(mode: .tileOnRelease)
+    private func shown(mode: ZoneHUDSession.Mode = .tileOnRelease,
+                       tileCount: @escaping (String) -> Int = { _ in 1 }) -> ZoneHUDSession {
+        var s = ZoneHUDSession(mode: mode, tileCount: tileCount)
         _ = s.modifier(matchesTarget: true, otherKeysDown: false)
         _ = s.armElapsed()
-        XCTAssertEqual(s.zoneKey("j"), [.highlight("j")])
-        XCTAssertEqual(s.previewedKey, "j")
+        return s
     }
 
-    func testPressingAnotherZoneMovesTheHighlight() {
-        var s = ZoneHUDSession(mode: .tileOnRelease)
-        _ = s.modifier(matchesTarget: true, otherKeysDown: false)
-        _ = s.armElapsed()
-        _ = s.zoneKey("j")
-        XCTAssertEqual(s.zoneKey("l"), [.highlight("l")])
+    func testZoneKeyHighlightsButDoesNotCommit() {
+        var s = shown()
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 0)])
+        XCTAssertEqual(s.previewedKey, "j")
+        XCTAssertEqual(s.previewedTile, 0)
+    }
+
+    func testPressingAnotherZoneResetsToItsFirstPlacement() {
+        var s = shown(tileCount: { _ in 3 })
+        _ = s.zoneKey("j"); _ = s.zoneKey("j")          // j now at tile 1
+        XCTAssertEqual(s.zoneKey("l"), [.highlight(key: "l", tile: 0)])
         XCTAssertEqual(s.previewedKey, "l")
+        XCTAssertEqual(s.previewedTile, 0)
     }
 
     func testReleaseCommitsTheHighlightedZoneAndHides() {
-        var s = ZoneHUDSession(mode: .tileOnRelease)
-        _ = s.modifier(matchesTarget: true, otherKeysDown: false)
-        _ = s.armElapsed()
+        var s = shown()
         _ = s.zoneKey("j")
-        XCTAssertEqual(s.modifier(matchesTarget: false, otherKeysDown: false), [.disarm, .commit("j"), .hide])
+        XCTAssertEqual(s.modifier(matchesTarget: false, otherKeysDown: false),
+                       [.disarm, .commit(key: "j", tile: 0), .hide])
         XCTAssertFalse(s.isShown)
         XCTAssertNil(s.previewedKey)
     }
 
     func testReleaseWithNoHighlightJustHides() {
-        var s = ZoneHUDSession(mode: .tileOnRelease)
-        _ = s.modifier(matchesTarget: true, otherKeysDown: false)
-        _ = s.armElapsed()
+        var s = shown()
         XCTAssertEqual(s.modifier(matchesTarget: false, otherKeysDown: false), [.disarm, .hide])
     }
 
-    func testPressingANonModifierKeyMidPreviewCancels(/* feedback #10 once shown */) {
-        // If another key joins the chord while shown, treat it as a release (cancel, no commit).
-        var s = ZoneHUDSession(mode: .tileOnRelease)
-        _ = s.modifier(matchesTarget: true, otherKeysDown: false)
-        _ = s.armElapsed()
+    func testPressingANonModifierKeyMidPreviewCancels() {
+        // If another key joins the chord while shown, treat it as a release (commit current, no double).
+        var s = shown()
         _ = s.zoneKey("j")
-        XCTAssertEqual(s.modifier(matchesTarget: true, otherKeysDown: true), [.disarm, .commit("j"), .hide])
+        XCTAssertEqual(s.modifier(matchesTarget: true, otherKeysDown: true),
+                       [.disarm, .commit(key: "j", tile: 0), .hide])
     }
 
-    // MARK: - tile immediately (the toggle)
+    // MARK: - cycling (re-press the same key)
 
-    func testImmediateModeCommitsOnKeypressAndStaysUp() {
-        var s = ZoneHUDSession(mode: .tileImmediately)
-        _ = s.modifier(matchesTarget: true, otherKeysDown: false)
-        _ = s.armElapsed()
-        XCTAssertEqual(s.zoneKey("j"), [.commit("j")])
+    func testRepressCyclesThroughPlacements() {
+        var s = shown(tileCount: { _ in 3 })
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 0)])
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 1)])
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 2)])
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 0)])   // wraps by tileCount
+    }
+
+    func testCycleWrapsByThatKeysOwnTileCount() {
+        var s = shown(tileCount: { key in key == "j" ? 2 : 4 })
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 0)])
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 1)])
+        XCTAssertEqual(s.zoneKey("j"), [.highlight(key: "j", tile: 0)])   // j has only 2 placements
+    }
+
+    func testSingleTileKeyStaysAtZero() {
+        var s = shown(tileCount: { _ in 1 })
+        _ = s.zoneKey("h")
+        XCTAssertEqual(s.zoneKey("h"), [.highlight(key: "h", tile: 0)])   // nothing to cycle to
+    }
+
+    func testReleaseCommitsTheCurrentlyCycledTile() {
+        var s = shown(tileCount: { _ in 4 })
+        _ = s.zoneKey("j"); _ = s.zoneKey("j"); _ = s.zoneKey("j")        // cycled to tile 2
+        XCTAssertEqual(s.modifier(matchesTarget: false, otherKeysDown: false),
+                       [.disarm, .commit(key: "j", tile: 2), .hide])
+    }
+
+    // MARK: - tile immediately (the toggle) — preserves the coordinator's legacy auto-cycle
+
+    func testImmediateModeCommitsWithoutAnExplicitIndex() {
+        var s = shown(mode: .tileImmediately)
+        XCTAssertEqual(s.zoneKey("j"), [.commit(key: "j", tile: nil)])   // tile: nil → coordinator auto-cycles
         XCTAssertTrue(s.isShown)            // overlay stays so you can place more
-        XCTAssertNil(s.previewedKey)        // no highlight bookkeeping in immediate mode
+        XCTAssertNil(s.previewedKey)
     }
 
     func testImmediateModeReleaseJustHidesNoDoubleCommit() {
-        var s = ZoneHUDSession(mode: .tileImmediately)
-        _ = s.modifier(matchesTarget: true, otherKeysDown: false)
-        _ = s.armElapsed()
+        var s = shown(mode: .tileImmediately)
         _ = s.zoneKey("j")
         XCTAssertEqual(s.modifier(matchesTarget: false, otherKeysDown: false), [.disarm, .hide])
     }

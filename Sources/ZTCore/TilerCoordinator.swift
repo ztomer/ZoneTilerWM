@@ -194,6 +194,26 @@ public final class TilerCoordinator {
                                     tileIndex: tileIndex, target: target, applied: applied))
     }
 
+    /// Move the focused window to a SPECIFIC placement in `zoneKey`'s cycle (0-based, wrapping) —
+    /// the WYSIWYG path for the zone-HUD tile-on-release picker, where the user has already cycled the
+    /// preview to an exact tile. Unlike `moveFocusedToZone`, this bypasses the occupancy-driven
+    /// `findBestTile` auto-pick so what commits equals what was previewed.
+    public func moveFocusedToZone(_ zoneKey: String, tileIndex: Int) -> Result<MoveOutcome, MoveError> {
+        guard let focused = windowSystem.focusedWindow() else { return .failure(.noFocusedWindow) }
+        guard let uuid = focused.screenUUID, let screen = screenProvider.screen(uuid: uuid) else {
+            return .failure(.noScreenForWindow)
+        }
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig, offsets: offsets(forScreen: uuid)).zones
+        guard let tiles = zones[zoneKey], !tiles.isEmpty else { return .failure(.noZone(zoneKey)) }
+        let idx = ((tileIndex % tiles.count) + tiles.count) % tiles.count   // safe wrap for any Int
+        let target = tiles[idx]
+        let applied = windowSystem.moveFocusedWindow(to: target)
+        if applied { learn(window: focused, screen: screen, zoneKey: zoneKey, tileIndex: idx + 1) }
+        return .success(MoveOutcome(windowId: focused.id, zoneKey: zoneKey,
+                                    tileIndex: idx + 1, target: target, applied: applied))
+    }
+
     /// Tile a SPECIFIC window (by id) into `zoneKey` on its current screen — the rules-engine
     /// entry point, where the target window is the one that just opened, not necessarily the
     /// focused one. Mirrors moveFocusedToZone but resolves the window by id and moves it via

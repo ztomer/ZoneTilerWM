@@ -23,10 +23,11 @@ final class ZoneHUDController {
     private let modifier: () -> [String]      // resolved tiling modifier
     private let holdDelayMs: () -> Int
     private let commitMode: () -> ZoneHUDSession.Mode
-    private let commit: (String) -> Void      // perform the tile for a zone key (on release)
+    private let commit: (String, Int?) -> Void   // tile a zone key (tile=index on release; nil=coordinator auto-cycle)
 
     private let overlay = ZoneHUDOverlay()
     private var session = ZoneHUDSession()
+    private var tileCounts: [String: Int] = [:]  // placements per zone key, set on present → the session's cycle wrap
     private var gestureActive = false         // a modifier-hold gesture is in progress (drives session refresh)
     private var monitor: Any?
     private var observers: [NSObjectProtocol] = []
@@ -38,7 +39,7 @@ final class ZoneHUDController {
          offset: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double,
          modifier: @escaping () -> [String], holdDelayMs: @escaping () -> Int,
          commitMode: @escaping () -> ZoneHUDSession.Mode = { .tileOnRelease },
-         commit: @escaping (String) -> Void = { _ in }) {
+         commit: @escaping (String, Int?) -> Void = { _, _ in }) {
         self.screens = screens; self.monitorManager = monitorManager
         self.zoneConfig = zoneConfig; self.offset = offset; self.modifier = modifier
         self.holdDelayMs = holdDelayMs; self.commitMode = commitMode; self.commit = commit
@@ -87,7 +88,7 @@ final class ZoneHUDController {
         // Refresh the session with current config at the start of each fresh gesture (live-reload safe).
         if matches, !gestureActive {
             gestureActive = true
-            session = ZoneHUDSession(mode: commitMode(), holdDelayMs: clampedDelay())
+            session = freshSession()
         } else if !matches {
             gestureActive = false
         }
@@ -95,6 +96,12 @@ final class ZoneHUDController {
     }
 
     private func clampedDelay() -> Int { max(80, min(2000, holdDelayMs())) }   // never instant, never effectively-off
+
+    /// A session seeded with current config + the live per-key tile counts (so re-press cycles wrap).
+    private func freshSession() -> ZoneHUDSession {
+        ZoneHUDSession(mode: commitMode(), holdDelayMs: clampedDelay(),
+                       tileCount: { [weak self] in self?.tileCounts[$0] ?? 1 })
+    }
 
     /// QA/debug: force the overlay on now (no session, no release-commit — for screenshots).
     func forceShow() { presentOverlay(withPoll: false) }
@@ -122,10 +129,10 @@ final class ZoneHUDController {
             case .hide:
                 pollTimer?.invalidate(); pollTimer = nil
                 overlay.hide()
-            case .highlight(let key):
-                overlay.highlight(key)
-            case .commit(let key):
-                commit(key)
+            case .highlight(let key, _):
+                overlay.highlight(key)   // TODO(step 3 production overlay): fill tiles[tile] so the preview resizes on re-press
+            case .commit(let key, let tile):
+                commit(key, tile)
             }
         }
     }
@@ -136,6 +143,7 @@ final class ZoneHUDController {
         let key = String(monitorManager.id(forUUID: screen.uuid))
         let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig(),
                                                 offsets: { [offset] axis, index in offset(key, axis, index) }).zones
+        tileCounts = zones.mapValues { $0.count }   // for the session's re-press cycle wrap-around
         let cells = ZoneHUD.layout(zones: zones)
         log("zone-hud: showing \(cells.count) chips on \(screen.name) frame \(screen.frame)")
         overlay.show(cells, screenCGFrame: screen.frame)
@@ -156,7 +164,7 @@ final class ZoneHUDController {
         armTimer?.invalidate(); armTimer = nil
         pollTimer?.invalidate(); pollTimer = nil
         gestureActive = false
-        session = ZoneHUDSession(mode: commitMode(), holdDelayMs: clampedDelay())
+        session = freshSession()
         overlay.hide()
     }
 }
