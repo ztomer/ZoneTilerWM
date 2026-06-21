@@ -172,14 +172,19 @@ channels** (App-Store / development / public-DMG), which map onto the existing
   **feature checklist** (borders / zone HUD / app launcher / auto-tile, each with a one-line "what it
   does") → **movement-modifier chooser, default Ctrl+Opt** (was Ctrl+Cmd) → **telemetry opt-in**. Single
   screen satisfies feedback 0, 2, the modifier-default fix, and telemetry consent. `AccessibilityOnboarding.swift`.
-- [P1] **Overlay → interactive tile-on-release.** Turn the passive zone HUD into a modal picker: hold
-  modifier → overlay (after ~200ms, **default on**) → press a zone key **highlights/previews** (no move
-  yet) → highlight persists until release or another key → **release commits** (feedback 3, 4, Hebrew
-  1-3). `tile_immediately` stays as a toggle. **Suppress the overlay if any non-modifier key is held**
-  (feedback 10) — this is what makes the short delay safe. Pure state machine: `ZoneHUDSession` (ZTCore,
-  TDD); wiring in `ZoneHUDController` + highlight in `ZoneHUDOverlay`.
-  - Pushed back on feedback 5's **100ms** → **200ms** default (100ms fires during normal Cmd-Tab /
-    Ctrl+Cmd chords); ships together with the feedback-10 "other key held" guard.
+- [mostly done] **Overlay → interactive tile-on-release** (2026-06-20). Pure `ZoneHUDSession` (ZTCore,
+  13 tests) drives the picker; `ZoneHUDController` executes its effects; the previewed zone fills amber
+  in `ZoneHUDOverlay` (deterministic render + 3 ZTSystem tests; live-validated via `ZT_HUD_HIGHLIGHT`).
+  The existing Carbon zone-hotkey now calls `previewIfShowing(_:)` so a keypress highlights instead of
+  tiling while the picker is up; **release commits** via the shared `tileFocusedToZone`. `[zone_hud]
+  commit_mode` = `on_release` (default) | `immediately`; hold delay default 400→**200ms**. Remaining:
+  - **feedback 10 guard** — suppress arming when a non-modifier key is held; the session already takes
+    `otherKeysDown` but the controller passes `false` (needs a key-state source). This is what makes the
+    short delay safe; do before flipping default-on. (Pushed back on feedback 5's 100ms → 200ms.)
+  - **flip `[zone_hud] enabled` default → true** once the guard lands (kept opt-in until then so it
+    doesn't change the live WM mid-development).
+  - **edge/corner-zone highlight readability** — the centre "j" fill is large + overlaps neighbours
+    (honest, but verify corner zones read cleanly).
 - [P2] **App-launcher hint grid** (feedback 8). Reuse the *same* hold-to-reveal mechanism to show the
   app-shortcut key grid after a pause. Shared grammar with the zone HUD.
 

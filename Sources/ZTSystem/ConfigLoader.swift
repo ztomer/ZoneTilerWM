@@ -76,6 +76,7 @@ public enum ConfigLoader {
         public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
         public var zoneHUDEnabled: Bool                    // [zone_hud] enabled (opt-in, default off)
         public var zoneHUDHoldDelayMs: Int                 // hold the modifier this long before the HUD shows
+        public var zoneHUDCommitMode: ZoneHUDSession.Mode  // press zone key: preview+commit-on-release (default) vs tile immediately
         public var dragSnapEnabled: Bool                   // [drag_snap] enabled (opt-in, default off; EDR-sensitive)
         public var syncFolder: String?                     // [sync] folder — a synced dir for export/import (nil = off)
         public var breakScreenEnabled: Bool                // [break_screen] enabled (opt-in, default off)
@@ -246,7 +247,7 @@ public enum ConfigLoader {
 
     private struct RawAutomation: Decodable { var enabled: Bool? }
     private struct RawCommandPalette: Decodable { var enabled: Bool? }
-    private struct RawZoneHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int? }
+    private struct RawZoneHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int?; var commit_mode: String? }
     private struct RawDragSnap: Decodable { var enabled: Bool? }
     private struct RawSync: Decodable { var folder: String? }
     private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
@@ -384,7 +385,8 @@ public enum ConfigLoader {
             automationEnabled: raw.automation?.enabled ?? true,  // on by default; the local socket is low-risk
             commandPaletteEnabled: raw.command_palette?.enabled ?? false,  // opt-in
             zoneHUDEnabled: raw.zone_hud?.enabled ?? false,                // opt-in
-            zoneHUDHoldDelayMs: raw.zone_hud?.hold_delay_ms ?? 400,
+            zoneHUDHoldDelayMs: raw.zone_hud?.hold_delay_ms ?? 200,   // ~200ms: quick chords skip it, a deliberate hold gets it
+            zoneHUDCommitMode: raw.zone_hud?.commit_mode == "immediately" ? .tileImmediately : .tileOnRelease,
             dragSnapEnabled: raw.drag_snap?.enabled ?? false,              // opt-in; installs a passive mouse monitor
             syncFolder: raw.sync?.folder.flatMap { $0.isEmpty ? nil : $0 },  // nil/empty = sync disabled
             breakScreenEnabled: raw.break_screen?.enabled ?? false,         // opt-in

@@ -109,17 +109,26 @@ extension AgentController {
             guard let code = KeyMap.keyCode(for: zoneKey) else { continue }
             let ok = binder.bind(keyCode: code, modifiers: mask) { [weak self] in
                 guard let self else { return }
-                switch self.dispatcher.perform(.tileFocusedToZone(zone: zoneKey)) {
-                case .tiled(_, _, let tileIndex, let target, let applied):
-                    log("zt-agent: '\(zoneKey)' -> tile \(tileIndex) applied=\(applied)")
-                    self.flash.flash(target)
-                case .failed(let reason): log("zt-agent: '\(zoneKey)' -> \(reason)")
-                default: break
-                }
+                // If the zone HUD picker is up in tile-on-release mode, the keypress previews (highlights)
+                // the zone and the move is committed on modifier-release; otherwise tile immediately.
+                if self.zoneHUD.previewIfShowing(zoneKey) { return }
+                self.tileFocusedToZone(zoneKey)
             }
             if ok { bound += 1 } else { log("zt-agent: hotkey for '\(zoneKey)' FAILED to register (taken by another app?)") }
         }
         log("zt-agent: bound \(bound)/\(zoneKeys.count) zone hotkeys with modifier \(modifier)")
+    }
+
+    /// Tile the focused window to a zone key (the shared path for the Carbon hotkey + the HUD's
+    /// release-commit). Flashes the target frame on success.
+    func tileFocusedToZone(_ zoneKey: String) {
+        switch dispatcher.perform(.tileFocusedToZone(zone: zoneKey)) {
+        case .tiled(_, _, let tileIndex, let target, let applied):
+            log("zt-agent: '\(zoneKey)' -> tile \(tileIndex) applied=\(applied)")
+            flash.flash(target)
+        case .failed(let reason): log("zt-agent: '\(zoneKey)' -> \(reason)")
+        default: break
+        }
     }
 
     func bindFocusHotkeys(modifier: [String], zoneKeys: [String]) {

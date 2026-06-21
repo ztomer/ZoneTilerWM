@@ -1,9 +1,15 @@
-// ZoneHUDController.swift — shows the zone cheat-sheet while the tiling modifier is held past a
-// short delay (so a quick, confident chord never triggers it; a hesitant hold gets the map).
-// Gated by [zone_hud] enabled. Picks the active screen with ZERO AX (screen under the mouse, not
-// an AX focusedWindow() round trip). A modifier-state poll while shown is the safety net for a
-// missed flagsChanged "up" event (Space switch / app grabbing the event stream), and a
-// screen-change / space-change observer dismisses a stale overlay. All on the main run loop.
+// ZoneHUDController.swift — drives the interactive zone HUD: hold the tiling modifier past a short
+// delay and the overlay appears (so a quick, confident chord never triggers it; a hesitant hold gets
+// the map). In tile-on-release mode the overlay is a live picker — pressing a zone key highlights it
+// (a preview), and releasing the modifier commits the move; tile-immediately keeps the legacy
+// fire-on-keypress. Gated by [zone_hud] enabled. Picks the active screen with ZERO AX (screen under
+// the mouse, not an AX focusedWindow() round trip). A modifier-state poll while shown is the safety
+// net for a missed flagsChanged "up"; a screen/space-change observer dismisses a stale overlay.
+//
+// The state machine itself is the pure ZTCore `ZoneHUDSession`; this class executes its effects
+// (timers, the overlay window, the commit dispatch). The zone keys are NOT monitored here — they're
+// the existing global Carbon hotkeys, which call `previewIfShowing(_:)` so a keypress highlights
+// instead of tiling while the picker is up. All on the main run loop.
 
 import AppKit
 import ZTCore
@@ -16,20 +22,26 @@ final class ZoneHUDController {
     private let offset: (_ monitor: String, _ axis: String, _ index: Int) -> Double
     private let modifier: () -> [String]      // resolved tiling modifier
     private let holdDelayMs: () -> Int
+    private let commitMode: () -> ZoneHUDSession.Mode
+    private let commit: (String) -> Void      // perform the tile for a zone key (on release)
 
     private let overlay = ZoneHUDOverlay()
+    private var session = ZoneHUDSession()
+    private var gestureActive = false         // a modifier-hold gesture is in progress (drives session refresh)
     private var monitor: Any?
     private var observers: [NSObjectProtocol] = []
     private var armTimer: Timer?
     private var pollTimer: Timer?
-    private var shown = false
 
     init(screens: NSScreenProvider, monitorManager: MonitorManager,
          zoneConfig: @escaping () -> ZoneConfig,
          offset: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double,
-         modifier: @escaping () -> [String], holdDelayMs: @escaping () -> Int) {
+         modifier: @escaping () -> [String], holdDelayMs: @escaping () -> Int,
+         commitMode: @escaping () -> ZoneHUDSession.Mode = { .tileOnRelease },
+         commit: @escaping (String) -> Void = { _ in }) {
         self.screens = screens; self.monitorManager = monitorManager
-        self.zoneConfig = zoneConfig; self.offset = offset; self.modifier = modifier; self.holdDelayMs = holdDelayMs
+        self.zoneConfig = zoneConfig; self.offset = offset; self.modifier = modifier
+        self.holdDelayMs = holdDelayMs; self.commitMode = commitMode; self.commit = commit
     }
 
     var isRunning: Bool { monitor != nil }
@@ -42,9 +54,9 @@ final class ZoneHUDController {
         // Dismiss a stale/orphaned overlay on display rearrange or Space switch.
         let nc = NotificationCenter.default
         observers.append(nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
-                                        object: nil, queue: .main) { [weak self] _ in self?.dismiss() })
+                                        object: nil, queue: .main) { [weak self] _ in self?.reset() })
         observers.append(NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in self?.dismiss() })
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in self?.reset() })
     }
 
     func stop() {
@@ -52,32 +64,73 @@ final class ZoneHUDController {
         monitor = nil
         observers.forEach { NotificationCenter.default.removeObserver($0); NSWorkspace.shared.notificationCenter.removeObserver($0) }
         observers = []
-        dismiss()
+        reset()
     }
+
+    /// The Carbon zone-hotkey handler routes here first. If the picker is up in tile-on-release mode,
+    /// the keypress PREVIEWS (highlights) the zone and we return true so the caller skips its immediate
+    /// tile; otherwise false → the caller tiles right away (legacy / immediate mode / HUD not shown).
+    func previewIfShowing(_ zoneKey: String) -> Bool {
+        guard session.isShown, commitMode() == .tileOnRelease else { return false }
+        execute(session.zoneKey(zoneKey))
+        return true
+    }
+
+    var isShowing: Bool { session.isShown }
 
     // MARK: - modifier tracking
 
     private func handle(_ flags: NSEvent.ModifierFlags) {
         let current = flags.intersection(.tilingRelevant)
         let target = NSEvent.ModifierFlags(aliases: modifier())
-        if !target.isEmpty, current == target {
-            guard armTimer == nil, !shown else { return }
-            let ms = max(120, min(2000, holdDelayMs()))   // clamp: never instant, never effectively-off
-            armTimer = Timer.scheduledTimer(withTimeInterval: Double(ms) / 1000.0, repeats: false) {
-                [weak self] _ in self?.present()
+        let matches = !target.isEmpty && current == target
+        // Refresh the session with current config at the start of each fresh gesture (live-reload safe).
+        if matches, !gestureActive {
+            gestureActive = true
+            session = ZoneHUDSession(mode: commitMode(), holdDelayMs: clampedDelay())
+        } else if !matches {
+            gestureActive = false
+        }
+        execute(session.modifier(matchesTarget: matches, otherKeysDown: false))
+    }
+
+    private func clampedDelay() -> Int { max(80, min(2000, holdDelayMs())) }   // never instant, never effectively-off
+
+    /// QA/debug: force the overlay on now (no session, no release-commit — for screenshots).
+    func forceShow() { presentOverlay(withPoll: false) }
+
+    /// QA/debug: force the overlay on and preview a zone (screenshot the highlighted state).
+    func forceShow(highlight zoneKey: String) {
+        presentOverlay(withPoll: false)
+        overlay.highlight(zoneKey)
+    }
+
+    // MARK: - effect execution
+
+    private func execute(_ effects: [ZoneHUDSession.Effect]) {
+        for effect in effects {
+            switch effect {
+            case .arm(let ms):
+                armTimer?.invalidate()
+                armTimer = Timer.scheduledTimer(withTimeInterval: Double(ms) / 1000.0, repeats: false) {
+                    [weak self] _ in self?.execute(self?.session.armElapsed() ?? [])
+                }
+            case .disarm:
+                armTimer?.invalidate(); armTimer = nil
+            case .show:
+                presentOverlay(withPoll: true)
+            case .hide:
+                pollTimer?.invalidate(); pollTimer = nil
+                overlay.hide()
+            case .highlight(let key):
+                overlay.highlight(key)
+            case .commit(let key):
+                commit(key)
             }
-        } else {
-            dismiss()
         }
     }
 
-    /// QA/debug: force the HUD on now (no modifier-release poll — the normal trigger is the hold).
-    func forceShow() { showHUD(withPoll: false) }
-
-    private func present() { armTimer = nil; showHUD(withPoll: true) }
-
-    private func showHUD(withPoll: Bool) {
-        if shown { return }
+    private func presentOverlay(withPoll: Bool) {
         guard let screen = screens.screenUnderMouse() else { log("zone-hud: no screen under mouse"); return }  // 0 AX
         let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
         let key = String(monitorManager.id(forUUID: screen.uuid))
@@ -86,20 +139,24 @@ final class ZoneHUDController {
         let cells = ZoneHUD.layout(zones: zones)
         log("zone-hud: showing \(cells.count) chips on \(screen.name) frame \(screen.frame)")
         overlay.show(cells, screenCGFrame: screen.frame)
-        shown = true
         guard withPoll else { return }
-        // Safety net: if the "modifier released" flagsChanged is ever missed, this still hides it.
+        // Safety net: if the "modifier released" flagsChanged is ever missed, this still tears down.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
             guard let self else { return }
             let cur = NSEvent.modifierFlags.intersection(.tilingRelevant)
-            if cur != NSEvent.ModifierFlags(aliases: self.modifier()) { self.dismiss() }
+            if cur != NSEvent.ModifierFlags(aliases: self.modifier()) {
+                self.gestureActive = false
+                self.execute(self.session.modifier(matchesTarget: false, otherKeysDown: false))
+            }
         }
     }
 
-    private func dismiss() {
+    /// Tear everything down (used by observers + stop): cancel timers, hide, drop the gesture.
+    private func reset() {
         armTimer?.invalidate(); armTimer = nil
         pollTimer?.invalidate(); pollTimer = nil
-        if shown { overlay.hide(); shown = false }
+        gestureActive = false
+        session = ZoneHUDSession(mode: commitMode(), holdDelayMs: clampedDelay())
+        overlay.hide()
     }
-
 }

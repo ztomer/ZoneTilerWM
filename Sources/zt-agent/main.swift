@@ -331,7 +331,9 @@ final class AgentController: NSObject {
             zoneConfig: { [unowned self] in self.config.zoneConfig },
             offset: { [weak resize] m, a, i in resize?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
             modifier: { [unowned self] in self.config.tilerModifier },
-            holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs })
+            holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs },
+            commitMode: { [unowned self] in self.config.zoneHUDCommitMode },
+            commit: { [unowned self] zoneKey in self.tileFocusedToZone(zoneKey) })
         dragSnap = DragSnapController(
             screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },

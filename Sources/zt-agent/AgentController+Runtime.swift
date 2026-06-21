@@ -412,7 +412,14 @@ extension AgentController {
     func showCommandPalette() { commandPalette.show() }
 
     /// QA / debug entry point to force the zone HUD on (the normal trigger is the modifier hold).
-    func showZoneHUDForQA() { zoneHUD.forceShow() }
+    /// ZT_HUD_HIGHLIGHT=<key> also previews that zone (screenshot the tile-on-release highlight).
+    func showZoneHUDForQA() {
+        if let z = ProcessInfo.processInfo.environment["ZT_HUD_HIGHLIGHT"], !z.isEmpty {
+            zoneHUD.forceShow(highlight: z)
+        } else {
+            zoneHUD.forceShow()
+        }
+    }
     func dragSnapForQA() { dragSnap.forceSnap() }
     func breakScreenForQA() { breakScreen.forceShow() }
     func showExposeForQA() { expose.enter() }   // live exposé overlay (glass material) for screenshot QA
@@ -436,7 +443,9 @@ extension AgentController {
         case "hud":
             let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
             let zones = ZoneCalculator.computeZones(screen: info, config: config.zoneConfig).zones
-            data = ZoneHUDOverlay.renderPNG(cells: ZoneHUD.layout(zones: zones), screenCGFrame: screen.frame, backdropImage: bg)
+            let hl = ProcessInfo.processInfo.environment["ZT_HUD_HIGHLIGHT"]   // preview a zone (tile-on-release)
+            data = ZoneHUDOverlay.renderPNG(cells: ZoneHUD.layout(zones: zones), screenCGFrame: screen.frame,
+                                            highlight: hl?.isEmpty == false ? hl : nil, backdropImage: bg)
         case "break":
             let m = BreakScreen.message(restSec: 300, workCount: 3)
             data = BreakScreenOverlay.renderPNG(title: m.title, subtitle: m.subtitle,

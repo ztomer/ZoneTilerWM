@@ -35,6 +35,14 @@ public final class ZoneHUDOverlay {
         }
     }
 
+    /// Preview a zone (tile-on-release): fill the named zone so it reads as "release to land here".
+    /// nil clears the highlight. No-op if the overlay isn't up.
+    public func highlight(_ key: String?) {
+        DispatchQueue.main.async { [weak self] in
+            (self?.window?.contentView as? ZoneHUDView)?.setHighlight(key)
+        }
+    }
+
     public func hide() {
         DispatchQueue.main.async { [weak self] in
             guard let w = self?.window else { return }
@@ -46,12 +54,15 @@ public final class ZoneHUDOverlay {
     private func hideNow() { window?.orderOut(nil); window = nil }
 
     /// Deterministic windowless render of the HUD (chips at `cells`) over a neutral backdrop → PNG.
+    /// `highlight` previews a zone (the tile-on-release fill), matching the live overlay.
     public static func renderPNG(cells: [ZoneHUD.Cell], screenCGFrame: ZTRect,
+                                 highlight: String? = nil,
                                  backdrop: NSColor = NSColor(white: 0.42, alpha: 1),
                                  backdropImage: NSImage? = nil) -> Data? {
         let size = NSSize(width: screenCGFrame.w, height: screenCGFrame.h)
         let view = ZoneHUDView(frame: NSRect(origin: .zero, size: size))
         view.setCells(cells, screenOrigin: (screenCGFrame.x, screenCGFrame.y))
+        view.setHighlight(highlight)
         return OverlayRender.png(of: view, size: size, backdrop: backdrop, backdropImage: backdropImage)
     }
 }
@@ -59,7 +70,10 @@ public final class ZoneHUDOverlay {
 private final class ZoneHUDView: NSView {
     private struct Zone { let key: String; let rect: ZTRect }   // screen-local zone rectangle
     private var zones: [Zone] = []
+    private var highlightedKey: String?     // tile-on-release preview: the zone the window will land in
     override var isFlipped: Bool { true }   // top-left origin to match CG coords
+
+    func setHighlight(_ key: String?) { highlightedKey = key; needsDisplay = true }
 
     /// Each zone's real rectangle in screen-local coords — drawn at its true position (no
     /// de-overlap drift), with its key chip centred inside.
@@ -80,11 +94,18 @@ private final class ZoneHUDView: NSView {
 
         // 1) the zone grid — outline each zone's real rectangle.
         //    Stroke-only + 2pt inset. Thin (1.0pt) and lower opacity (0.4) for a clean look.
+        //    The previewed zone (tile-on-release highlight) is filled + a brighter, thicker stroke so
+        //    it's unmistakable in peripheral vision which zone "release" will land the window in.
         for z in zones {
             let r = NSRect(x: z.rect.x, y: z.rect.y, width: z.rect.w, height: z.rect.h).insetBy(dx: 2, dy: 2)
             guard r.width > 4, r.height > 4 else { continue }
             let path = NSBezierPath(roundedRect: r, xRadius: 6, yRadius: 6)
-            amber.withAlphaComponent(0.4).setStroke(); path.lineWidth = 1.0; path.stroke()
+            if z.key == highlightedKey {
+                amber.withAlphaComponent(0.22).setFill(); path.fill()
+                amber.withAlphaComponent(0.95).setStroke(); path.lineWidth = 2.0; path.stroke()
+            } else {
+                amber.withAlphaComponent(0.4).setStroke(); path.lineWidth = 1.0; path.stroke()
+            }
         }
 
         // 2) the key chips — centred inside each zone.
