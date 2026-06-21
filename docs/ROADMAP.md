@@ -205,9 +205,10 @@ channels** (App-Store / development / public-DMG), which map onto the existing
   Current filter (`FocusBorderController` frontmost topmost `layer == 0`) is too thin. Plan: live-probe
   Arc + an autocomplete (`probe-first` / `user-pov-debug`) → build a window-trait deny-list (role /
   size / lifetime / floating level) → lock with a deterministic test.
-- [P2] **Zone intelligence** (feedback 7). (a) Focus-zone should pick the **nearest** window when none
-  overlaps (extend `FocusManager` overlap detection; pure logic, unit-testable). (b) Manual moves
-  re-learn the zone — AX-budget-aware via the existing CGWindowList poll, **not** new AX observers.
+- [P2] **Zone intelligence** (feedback 7). (a) [done 2026-06-21, a932138] Focus-zone falls back to the
+  **nearest** window when none overlaps (`FocusManager.collectZoneWindows` opt-in `nearestFallback`;
+  pure, 3 tests). (b) [open] Manual moves re-learn the zone — AX-budget-aware via the existing
+  CGWindowList poll, **not** new AX observers.
 
 **Wave 3 — infra & heavier UI:**
 - [done] **Three-channel CI + DMG** (feedback 12; 2026-06-20). `package_app.sh` gained `ZT_DMG=1`
