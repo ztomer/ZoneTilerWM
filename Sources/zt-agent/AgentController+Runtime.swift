@@ -414,8 +414,9 @@ extension AgentController {
     /// QA / debug entry point to force the zone HUD on (the normal trigger is the modifier hold).
     /// ZT_HUD_HIGHLIGHT=<key> also previews that zone (screenshot the tile-on-release highlight).
     func showZoneHUDForQA() {
-        if let z = ProcessInfo.processInfo.environment["ZT_HUD_HIGHLIGHT"], !z.isEmpty {
-            zoneHUD.forceShow(highlight: z)
+        let env = ProcessInfo.processInfo.environment
+        if let z = env["ZT_HUD_HIGHLIGHT"], !z.isEmpty {
+            zoneHUD.forceShow(highlight: z, tile: Int(env["ZT_HUD_TILE"] ?? "") ?? 0)
         } else {
             zoneHUD.forceShow()
         }
@@ -442,10 +443,18 @@ extension AgentController {
         switch which {
         case "hud":
             let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
-            let zones = ZoneCalculator.computeZones(screen: info, config: config.zoneConfig).zones
-            let hl = ProcessInfo.processInfo.environment["ZT_HUD_HIGHLIGHT"]   // preview a zone (tile-on-release)
-            data = ZoneHUDOverlay.renderPNG(cells: ZoneHUD.layout(zones: zones), screenCGFrame: screen.frame,
-                                            highlight: hl?.isEmpty == false ? hl : nil, backdropImage: bg)
+            let cfg = config.zoneConfig
+            let resolved = ZoneCalculator.computeZones(screen: info, config: cfg)
+            let zones = resolved.zones
+            let grid = cfg.grids[resolved.layoutKey]
+            let (gv, gh) = GridLines.positions(frame: screen.frame, cols: grid?.cols ?? 0, rows: grid?.rows ?? 0) { _, _ in 0 }
+            // ZT_HUD_HIGHLIGHT=<key> previews a zone; ZT_HUD_TILE=<index> picks the cycle placement.
+            let env = ProcessInfo.processInfo.environment
+            let hl: (key: String, tile: Int)? = env["ZT_HUD_HIGHLIGHT"].flatMap { $0.isEmpty ? nil : $0 }
+                .map { (key: $0, tile: Int(env["ZT_HUD_TILE"] ?? "") ?? 0) }
+            data = ZoneHUDOverlay.renderPNG(tilesByKey: zones, caps: ZoneHUD.caps(zones: zones),
+                                            gridV: gv, gridH: gh, screenCGFrame: screen.frame,
+                                            highlight: hl, backdropImage: bg)
         case "break":
             let m = BreakScreen.message(restSec: 300, workCount: 3)
             data = BreakScreenOverlay.renderPNG(title: m.title, subtitle: m.subtitle,

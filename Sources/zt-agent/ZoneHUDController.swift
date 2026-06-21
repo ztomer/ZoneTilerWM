@@ -106,10 +106,10 @@ final class ZoneHUDController {
     /// QA/debug: force the overlay on now (no session, no release-commit — for screenshots).
     func forceShow() { presentOverlay(withPoll: false) }
 
-    /// QA/debug: force the overlay on and preview a zone (screenshot the highlighted state).
-    func forceShow(highlight zoneKey: String) {
+    /// QA/debug: force the overlay on and preview a zone at a cycle tile (screenshot the highlighted state).
+    func forceShow(highlight zoneKey: String, tile: Int = 0) {
         presentOverlay(withPoll: false)
-        overlay.highlight(zoneKey)
+        overlay.highlight(zoneKey, tile: tile)
     }
 
     // MARK: - effect execution
@@ -129,8 +129,8 @@ final class ZoneHUDController {
             case .hide:
                 pollTimer?.invalidate(); pollTimer = nil
                 overlay.hide()
-            case .highlight(let key, _):
-                overlay.highlight(key)   // TODO(step 3 production overlay): fill tiles[tile] so the preview resizes on re-press
+            case .highlight(let key, let tile):
+                overlay.highlight(key, tile: tile)   // fill tiles[tile] → the preview resizes as you re-press
             case .commit(let key, let tile):
                 commit(key, tile)
             }
@@ -140,13 +140,18 @@ final class ZoneHUDController {
     private func presentOverlay(withPoll: Bool) {
         guard let screen = screens.screenUnderMouse() else { log("zone-hud: no screen under mouse"); return }  // 0 AX
         let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
-        let key = String(monitorManager.id(forUUID: screen.uuid))
-        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig(),
-                                                offsets: { [offset] axis, index in offset(key, axis, index) }).zones
+        let monKey = String(monitorManager.id(forUUID: screen.uuid))
+        let cfg = zoneConfig()
+        let resolved = ZoneCalculator.computeZones(screen: info, config: cfg,
+                                                   offsets: { [offset] axis, index in offset(monKey, axis, index) })
+        let zones = resolved.zones
         tileCounts = zones.mapValues { $0.count }   // for the session's re-press cycle wrap-around
-        let cells = ZoneHUD.layout(zones: zones)
-        log("zone-hud: showing \(cells.count) chips on \(screen.name) frame \(screen.frame)")
-        overlay.show(cells, screenCGFrame: screen.frame)
+        let grid = cfg.grids[resolved.layoutKey]
+        let (gridV, gridH) = GridLines.positions(frame: screen.frame, cols: grid?.cols ?? 0, rows: grid?.rows ?? 0,
+                                                 offset: { [offset] axis, index in offset(monKey, axis, index) })
+        let caps = ZoneHUD.caps(zones: zones)
+        log("zone-hud: showing \(caps.count) caps on \(screen.name) frame \(screen.frame)")
+        overlay.show(tilesByKey: zones, caps: caps, gridV: gridV, gridH: gridH, screenCGFrame: screen.frame)
         guard withPoll else { return }
         // Safety net: if the "modifier released" flagsChanged is ever missed, this still tears down.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
