@@ -143,6 +143,28 @@ final class TilerCoordinatorTests: XCTestCase {
         XCTAssertNotNil(store.blobs["window_positions"], "should persist on learn")
     }
 
+    // feedback 7b: a window the user dragged by hand re-teaches memory from its current frame.
+    func testRelearnPlacementFromManualDragLearnsZone() {
+        // Discover where zone "y" (top-left quadrant) lands via a throwaway move.
+        let probe = FakeWindowSystem()
+        probe.focused = LiveWindow(id: 1, appName: "Probe", frame: ZTRect(x: 0, y: 0, w: 400, h: 300), screenUUID: "M1")
+        let probeCoord = TilerCoordinator(windowSystem: probe, screenProvider: FakeScreenProvider([screen()]),
+                                          zoneConfig: zoneConfig(), placementStrategy: "rotate")
+        guard case .success(let o) = probeCoord.moveFocusedToZone("y") else { return XCTFail("probe move") }
+
+        // Now simulate the user having dragged a *different* app's window to that exact spot.
+        let ws = FakeWindowSystem()
+        let mem = WindowMemory()
+        let mm = MonitorManager()
+        let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),
+                                     zoneConfig: zoneConfig(), placementStrategy: "rotate",
+                                     memory: mem, monitorManager: mm)
+        let dragged = LiveWindow(id: 9, appName: "Notes", frame: o.target, screenUUID: "M1")
+        XCTAssertEqual(coord.relearnPlacement(window: dragged, screenUUID: "M1")?.zoneKey, "y")
+        let key = String(mm.id(forUUID: "M1"))   // logical id "1"
+        XCTAssertEqual(mem.preferredZone(app: "Notes", monitor: key), "y", "manual drag should re-teach the zone")
+    }
+
     func testNoFocusedWindow() {
         let ws = FakeWindowSystem()  // focused = nil
         let coord = TilerCoordinator(windowSystem: ws, screenProvider: FakeScreenProvider([screen()]),

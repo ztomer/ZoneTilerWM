@@ -112,6 +112,24 @@ public final class TilerCoordinator {
         storage?.save("window_positions", memory.save())
     }
 
+    /// Re-learn a window's zone/tile from its CURRENT frame — a manual drag re-teaches memory
+    /// (feedback 7b). AX-budget-free: the caller passes the window it already read from the
+    /// CGWindowList poll, so this adds no Accessibility round-trips. No-op (returns nil) when memory
+    /// isn't configured, the screen is unknown, or the window doesn't occupy any tile by >= the
+    /// overlap threshold (a floating / off-grid window is left un-learned rather than snapped to a
+    /// spurious zone). Returns the learned (zone, tile) on a commit.
+    @discardableResult
+    public func relearnPlacement(window: LiveWindow, screenUUID: String) -> (zoneKey: String, tileIndex: Int)? {
+        guard memory != nil, let screen = screenProvider.screen(uuid: screenUUID) else { return nil }
+        let info = ZoneCalculator.ScreenInfo(name: screen.name, frame: screen.frame)
+        let zones = ZoneCalculator.computeZones(screen: info, config: zoneConfig,
+                                                offsets: offsets(forScreen: screenUUID)).zones
+        guard let p = FocusManager.placement(of: window.frame, zones: zones,
+                                             overlapThreshold: overlapThreshold) else { return nil }
+        learn(window: window, screen: screen, zoneKey: p.zoneKey, tileIndex: p.tileIndex)
+        return p
+    }
+
     /// Cycle focus among the windows in `zoneKey` on the focused window's screen. Returns the
     /// window id now focused, or nil. Overlap-based collection (no explicit tiler state yet).
     @discardableResult

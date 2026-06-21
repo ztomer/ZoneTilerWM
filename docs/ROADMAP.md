@@ -238,8 +238,15 @@ overlay goes native macOS 26 Liquid Glass via ONE shared template (`LiquidGlass.
   size / lifetime / floating level) → lock with a deterministic test.
 - [P2] **Zone intelligence** (feedback 7). (a) [done 2026-06-21, a932138] Focus-zone falls back to the
   **nearest** window when none overlaps (`FocusManager.collectZoneWindows` opt-in `nearestFallback`;
-  pure, 3 tests). (b) [open] Manual moves re-learn the zone — AX-budget-aware via the existing
-  CGWindowList poll, **not** new AX observers.
+  pure, 3 tests). (b) [core done 2026-06-21] Manual moves re-learn the zone. Pure core landed +
+  tested: `FocusManager.placement(of:zones:)` (frame → best-fit zone/tile by IoU, so a quadrant drag
+  re-learns the quadrant not a looser half-zone) + `TilerCoordinator.relearnPlacement(window:screenUUID:)`
+  (reuses the existing `learn`/`flush`; **AX-budget-free** — operates on the window the caller already
+  read from the CGWindowList poll). **Remaining:** the runtime trigger — a settle-detector on the
+  existing CGWindowList poll that fires `relearnPlacement` when a window's frame changes then holds
+  stable (skipping our own tile ops), **not** new AX observers. That step writes to the user's *live*
+  learned memory, so it needs live drag-QA (drag a window → confirm `window_positions.json` re-learns)
+  before "done" per the user-POV-validation rule — pending a live session.
 
 **Wave 3 — infra & heavier UI:**
 - [done] **Three-channel CI + DMG** (feedback 12; 2026-06-20). `package_app.sh` gained `ZT_DMG=1`

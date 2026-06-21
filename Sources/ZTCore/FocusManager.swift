@@ -58,6 +58,40 @@ public enum FocusManager {
         return tiles.map { pointRectDistance(cx, cy, $0) }.min() ?? .greatestFiniteMagnitude
     }
 
+    /// Intersection-over-union of two rects (0 when disjoint). Rewards a *mutual* fit: high only
+    /// when the two rects nearly coincide, unlike `overlapPercentage` which is 1.0 whenever the
+    /// first is merely contained in the second.
+    static func intersectionOverUnion(_ a: ZTRect, _ b: ZTRect) -> Double {
+        let xo = max(0, min(a.x + a.w, b.x + b.w) - max(a.x, b.x))
+        let yo = max(0, min(a.y + a.h, b.y + b.h) - max(a.y, b.y))
+        let inter = xo * yo
+        let union = a.w * a.h + b.w * b.h - inter
+        return union > 0 ? inter / union : 0
+    }
+
+    /// The (zone, tile) a frame currently occupies — the basis for re-learning a manually-dragged
+    /// window's zone (feedback 7b). Among the tiles the frame substantially sits in (window covered
+    /// by >= threshold), it returns the one the window *fits best* (highest IoU), so a window
+    /// dragged to the top-left quadrant re-learns that quadrant zone, NOT a looser half-screen zone
+    /// that also contains it. Zones scan in sorted key order so ties (identical tiles in two zones)
+    /// resolve deterministically; tileIndex is 1-based to match `collectZoneWindows`. Returns nil
+    /// when the frame doesn't meaningfully occupy any tile (a floating / off-grid window stays
+    /// un-learned rather than snapping to a spurious zone).
+    public static func placement(of frame: ZTRect,
+                                 zones: [String: [ZTRect]],
+                                 overlapThreshold: Double) -> (zoneKey: String, tileIndex: Int)? {
+        var best: (zoneKey: String, tileIndex: Int)?
+        var bestIoU = 0.0
+        for zoneKey in zones.keys.sorted() {
+            guard let tiles = zones[zoneKey] else { continue }
+            for (i, tile) in tiles.enumerated() where overlapPercentage(frame, tile) >= overlapThreshold {
+                let iou = intersectionOverUnion(frame, tile)
+                if iou > bestIoU { bestIoU = iou; best = (zoneKey, i + 1) }
+            }
+        }
+        return best
+    }
+
     /// Windows belonging to a zone, ordered intuitively (tile asc, explicit-first, z-order asc).
     /// Port of collect_zone_windows + sort_zone_windows_for_intuitive_order.
     public static func collectZoneWindows(monitorId: String,

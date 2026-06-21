@@ -105,4 +105,54 @@ final class FocusManagerTests: XCTestCase {
         let cy = FocusManager.Cycler()
         XCTAssertNil(cy.cycle(focusedId: 1, zoneKey: "h", monitorId: "M1", freshOrder: []))
     }
+
+    // MARK: - placement(of:) reverse lookup (feedback 7b: re-learn a manually-dragged window's zone)
+
+    private let twoZones: [String: [ZTRect]] = [
+        "left":  [ZTRect(x: 0,   y: 0, w: 500, h: 1000)],                                   // one tile
+        "right": [ZTRect(x: 500, y: 0, w: 250, h: 1000), ZTRect(x: 750, y: 0, w: 250, h: 1000)], // two tiles
+    ]
+
+    func testPlacementFindsZoneAndTileForOccupyingFrame() {
+        // A window sitting on the right zone's second tile.
+        let p = FocusManager.placement(of: ZTRect(x: 750, y: 0, w: 250, h: 1000),
+                                       zones: twoZones, overlapThreshold: 0.5)
+        XCTAssertEqual(p?.zoneKey, "right")
+        XCTAssertEqual(p?.tileIndex, 2)   // 1-based, matches collectZoneWindows
+    }
+
+    func testPlacementReturnsNilForOffGridFrame() {
+        // A floating window entirely below the grid (the tiles span y 0..1000) overlaps nothing.
+        let p = FocusManager.placement(of: ZTRect(x: 0, y: 2000, w: 200, h: 200),
+                                       zones: twoZones, overlapThreshold: 0.5)
+        XCTAssertNil(p)
+    }
+
+    func testPlacementPrefersTightestFittingZoneWhenZonesNest() {
+        // "half" contains the whole left edge; "quad" is just the top-left corner. A window filling
+        // the corner sits in BOTH, but fits "quad" exactly — IoU must pick the tighter zone.
+        let nested: [String: [ZTRect]] = [
+            "half": [ZTRect(x: 0, y: 0, w: 500, h: 1000)],   // sorts first, but a loose fit
+            "quad": [ZTRect(x: 0, y: 0, w: 500, h: 500)],    // the tight fit
+        ]
+        let p = FocusManager.placement(of: ZTRect(x: 0, y: 0, w: 500, h: 500),
+                                       zones: nested, overlapThreshold: 0.5)
+        XCTAssertEqual(p?.zoneKey, "quad")
+        XCTAssertEqual(p?.tileIndex, 1)
+    }
+
+    func testPlacementIsDeterministicAcrossZonesByKeyOrder() {
+        // A frame covering the left tile is unambiguous; "left" sorts before "right".
+        let p = FocusManager.placement(of: ZTRect(x: 0, y: 0, w: 500, h: 1000),
+                                       zones: twoZones, overlapThreshold: 0.5)
+        XCTAssertEqual(p?.zoneKey, "left")
+        XCTAssertEqual(p?.tileIndex, 1)
+    }
+
+    func testPlacementRespectsThreshold() {
+        // 50% into the left tile -> below a 0.6 threshold -> no placement.
+        let p = FocusManager.placement(of: ZTRect(x: 250, y: 0, w: 500, h: 1000),
+                                       zones: twoZones, overlapThreshold: 0.6)
+        XCTAssertNil(p)
+    }
 }
