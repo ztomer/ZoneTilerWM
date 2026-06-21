@@ -455,6 +455,10 @@ extension AgentController {
             data = ZoneHUDOverlay.renderPNG(tilesByKey: zones, caps: ZoneHUD.caps(zones: zones),
                                             gridV: gv, gridH: gh, screenCGFrame: screen.frame,
                                             highlight: hl, backdropImage: bg)
+        case "applauncher":
+            let apps = config.appCuts.apps.merging(config.hyperAppCuts.apps) { a, _ in a }
+            data = AppLauncherOverlay.renderPNG(caps: AppLauncherHUD.caps(apps: apps),
+                                                screenCGFrame: screen.frame, backdropImage: bg)
         case "break":
             let m = BreakScreen.message(restSec: 300, workCount: 3)
             data = BreakScreenOverlay.renderPNG(title: m.title, subtitle: m.subtitle,
