@@ -202,10 +202,16 @@ channels** (App-Store / development / public-DMG), which map onto the existing
     special `0` (auto-tile-all) overlaps `K`. Fix: split the shared cell (two half-width caps) and drop
     `0`/`center` auto-tile keys from the HUD. (Also a signal the layout is lopsided — column `c` is sparse.)
   - Then collapse the prototype env scaffolding into one clean implementation + a render test.
-- [P1] **Cycle-the-preview on re-press (on-release mode)** (design decision, 2026-06-20). Re-pressing the
-  held zone key should advance the preview through that key's placement **cycle** and **resize the fill**
-  to each tile — turning blind repeat-cycling (immediate mode) into WYSIWYG preview-and-confirm; it's what
-  justifies on-release mode. Design: `ZoneHUDSession` grows from tracking *a key* to *(key, cycleIndex)*
+- [logic done; fill pending] **Cycle-the-preview on re-press (on-release mode)** (2026-06-21, commit 115c7eb).
+  DONE: `ZoneHUDSession` now tracks `(key, cycleIndex)` (re-press advances mod tileCount; new key resets);
+  effects carry the tile (`.highlight(key:tile:)` / `.commit(key:tile:)`, nil tile = immediate-mode auto-cycle);
+  `TilerCoordinator.moveFocusedToZone(_:tileIndex:)` commits at the exact previewed tile (WYSIWYG, bypasses
+  findBestTile); controller seeds the session with live per-key tile counts. Tests: session cycling/wrap +
+  coordinator explicit-index (408 green). REMAINING (rolls into step 3 below): the overlay still fills the
+  *primary* tile on highlight — it must hold each key's tiles and fill `tiles[index]` so the preview visibly
+  resizes as you re-press. Original design notes:
+  Re-pressing the held zone key should advance the preview through that key's placement **cycle** and
+  **resize the fill** to each tile. Design: `ZoneHUDSession` grows from tracking *a key* to *(key, cycleIndex)*
   (re-press same key → `(index+1) % tileCount`; different key → index 0); needs each key's tile **count**
   injected (session is key-only today). **Catch:** commit must land on the *previewed* tile, but today's
   `moveFocusedToZone` auto-picks via `PlacementStrategy.findBestTile` (occupancy-driven) and could disagree
