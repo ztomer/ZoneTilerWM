@@ -11,6 +11,7 @@ import ZTCore
 
 public final class ZoneHUDOverlay {
     private var window: NSWindow?
+    private weak var bgView: ZoneHUDView?   // draws the grid + preview fill behind the glass caps
     public init() {}
 
     /// Present the picker. `tilesByKey` = each key's placement cycle (for the preview fill); `caps` =
@@ -29,10 +30,17 @@ public final class ZoneHUDOverlay {
             w.level = .statusBar
             w.hasShadow = false
             w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-            let view = ZoneHUDView(frame: NSRect(origin: .zero, size: nsFrame.size))
-            view.setData(tilesByKey: tilesByKey, caps: caps, gridV: gridV, gridH: gridH,
-                         screenOrigin: (screenCGFrame.x, screenCGFrame.y))
-            w.contentView = view
+            let full = NSRect(origin: .zero, size: nsFrame.size)
+            let container = NSView(frame: full)
+            let bg = ZoneHUDView(frame: full)
+            bg.drawsCaps = false   // the glass chips draw the caps; this draws the grid + preview fill
+            bg.setData(tilesByKey: tilesByKey, caps: caps, gridV: gridV, gridH: gridH,
+                       screenOrigin: (screenCGFrame.x, screenCGFrame.y))
+            container.addSubview(bg)
+            container.addSubview(ZoneHUDOverlay.glassCaps(caps: caps,
+                                 screenOrigin: (screenCGFrame.x, screenCGFrame.y), bounds: full))
+            w.contentView = container
+            self.bgView = bg
             w.alphaValue = 0
             w.orderFrontRegardless()   // the menubar agent isn't the active app — orderFront(nil) would no-op
             NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.12; w.animator().alphaValue = 1 }
@@ -44,7 +52,7 @@ public final class ZoneHUDOverlay {
     /// as "release to land here". `key == nil` clears the highlight. No-op if the overlay isn't up.
     public func highlight(_ key: String?, tile: Int = 0) {
         DispatchQueue.main.async { [weak self] in
-            (self?.window?.contentView as? ZoneHUDView)?.setHighlight(key: key, tile: tile)
+            self?.bgView?.setHighlight(key: key, tile: tile)
         }
     }
 
@@ -57,6 +65,22 @@ public final class ZoneHUDOverlay {
         }
     }
     private func hideNow() { window?.orderOut(nil); window = nil }
+
+    /// One Liquid-Glass chip per zone keycap, at its smallest-tile centre — the shared template, so the
+    /// zone HUD reads native like the app-launcher. Scattered (zones are far apart) so spacing is small.
+    private static func glassCaps(caps: [ZoneHUD.CapLabel], screenOrigin: (x: Double, y: Double), bounds: NSRect) -> NSView {
+        let chipW = 54.0, chipH = 44.0
+        let (container, content) = LiquidGlass.container(frame: bounds, spacing: 6)
+        for cap in caps {
+            let lx = cap.x - screenOrigin.x, ly = cap.y - screenOrigin.y
+            let label = ZoneKeyLabel(); label.key = cap.key
+            let chip = LiquidGlass.chip(frame: NSRect(x: lx - chipW / 2, y: ly - chipH / 2, width: chipW, height: chipH),
+                                        cornerRadius: 13, tint: NSColor.black.withAlphaComponent(0.14),
+                                        clear: true, content: label)
+            content.addSubview(chip)
+        }
+        return container
+    }
 
     /// Deterministic windowless render of the picker → PNG (QA / render harness / tests). `highlight`
     /// previews `(key, tile)`, matching the live overlay.
@@ -81,6 +105,7 @@ private final class ZoneHUDView: NSView {
     private var gridH: [Double] = []                   // interior horizontal-line y's, screen-local
     private var highlightedKey: String?
     private var highlightedTile = 0
+    var drawsCaps = true                                // false when glass chips draw the caps (live overlay)
     override var isFlipped: Bool { true }              // top-left origin to match CG coords
 
     func setData(tilesByKey: [String: [ZTRect]], caps: [ZoneHUD.CapLabel], gridV: [Double], gridH: [Double],
@@ -121,7 +146,9 @@ private final class ZoneHUDView: NSView {
             }
         }
 
-        // 3) the keycaps — at smallest-tile centres (collision-split); the active key is filled amber.
+        // 3) the keycaps — at smallest-tile centres (collision-split). Live, these are Liquid-Glass
+        //    chips (drawsCaps=false); the headless render draws opaque chips here for the harness.
+        guard drawsCaps else { return }
         let chipW = 46.0, chipH = 38.0
         let font = NSFont.monospacedSystemFont(ofSize: 20, weight: .bold)
         for cap in caps {
@@ -135,5 +162,20 @@ private final class ZoneHUDView: NSView {
             let sz = label.size(withAttributes: attrs)
             label.draw(at: NSPoint(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2), withAttributes: attrs)
         }
+    }
+}
+
+/// The amber key glyph that sits inside a zone-HUD glass chip.
+private final class ZoneKeyLabel: NSView {
+    var key: String = "" { didSet { needsDisplay = true } }
+    override var isFlipped: Bool { true }
+    override func draw(_ dirtyRect: NSRect) {
+        let amber = NSColor(red: 0.95, green: 0.72, blue: 0.24, alpha: 1.0)
+        let s = key.uppercased() as NSString
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: amber,
+            .shadow: { let sh = NSShadow(); sh.shadowColor = .black; sh.shadowBlurRadius = 2; return sh }()]
+        let sz = s.size(withAttributes: attrs)
+        s.draw(at: NSPoint(x: bounds.midX - sz.width / 2, y: bounds.midY - sz.height / 2), withAttributes: attrs)
     }
 }
