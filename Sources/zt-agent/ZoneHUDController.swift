@@ -30,6 +30,8 @@ final class ZoneHUDController {
     private var tileCounts: [String: Int] = [:]  // placements per zone key, set on present → the session's cycle wrap
     private var gestureActive = false         // a modifier-hold gesture is in progress (drives session refresh)
     private var monitor: Any?
+    private var keyMonitor: Any?              // tracks held non-modifier keys for the feedback-#10 guard
+    private var heldKeys: Set<UInt16> = []
     private var observers: [NSObjectProtocol] = []
     private var armTimer: Timer?
     private var pollTimer: Timer?
@@ -52,6 +54,9 @@ final class ZoneHUDController {
         monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handle(event.modifierFlags)
         }
+        keyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+            self?.handleKey(event)
+        }
         // Dismiss a stale/orphaned overlay on display rearrange or Space switch.
         let nc = NotificationCenter.default
         observers.append(nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
@@ -63,6 +68,9 @@ final class ZoneHUDController {
     func stop() {
         if let m = monitor { NSEvent.removeMonitor(m) }
         monitor = nil
+        if let k = keyMonitor { NSEvent.removeMonitor(k) }
+        keyMonitor = nil
+        heldKeys.removeAll()
         observers.forEach { NotificationCenter.default.removeObserver($0); NSWorkspace.shared.notificationCenter.removeObserver($0) }
         observers = []
         reset()
@@ -90,9 +98,29 @@ final class ZoneHUDController {
             gestureActive = true
             session = freshSession()
         } else if !matches {
+            if gestureActive { heldKeys.removeAll() }   // gesture ended → reset held-key tracking (leak safety)
             gestureActive = false
         }
-        execute(session.modifier(matchesTarget: matches, otherKeysDown: false))
+        execute(session.modifier(matchesTarget: matches, otherKeysDown: !heldKeys.isEmpty))
+    }
+
+    /// Track held non-modifier keys so the HUD only arms when the tiling modifier is held ALONE
+    /// (feedback #10) — and cancel a pending arm if a key joins the chord during the show delay (so a
+    /// quick, confident modifier+key chord tiles immediately instead of flashing the picker).
+    private func handleKey(_ event: NSEvent) {
+        switch event.type {
+        case .keyDown:
+            heldKeys.insert(event.keyCode)
+            if armTimer != nil {
+                armTimer?.invalidate(); armTimer = nil
+                gestureActive = false
+                session = freshSession()
+            }
+        case .keyUp:
+            heldKeys.remove(event.keyCode)
+        default:
+            break
+        }
     }
 
     private func clampedDelay() -> Int { max(80, min(2000, holdDelayMs())) }   // never instant, never effectively-off

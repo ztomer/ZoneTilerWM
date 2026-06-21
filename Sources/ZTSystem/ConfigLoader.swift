@@ -74,7 +74,7 @@ public enum ConfigLoader {
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
         public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
-        public var zoneHUDEnabled: Bool                    // [zone_hud] enabled (opt-in, default off)
+        public var zoneHUDEnabled: Bool                    // [zone_hud] enabled (on by default; the interactive picker)
         public var zoneHUDHoldDelayMs: Int                 // hold the modifier this long before the HUD shows
         public var zoneHUDCommitMode: ZoneHUDSession.Mode  // press zone key: preview+commit-on-release (default) vs tile immediately
         public var dragSnapEnabled: Bool                   // [drag_snap] enabled (opt-in, default off; EDR-sensitive)
@@ -384,7 +384,7 @@ public enum ConfigLoader {
                 prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
             automationEnabled: raw.automation?.enabled ?? true,  // on by default; the local socket is low-risk
             commandPaletteEnabled: raw.command_palette?.enabled ?? false,  // opt-in
-            zoneHUDEnabled: raw.zone_hud?.enabled ?? false,                // opt-in
+            zoneHUDEnabled: raw.zone_hud?.enabled ?? true,                 // on by default (v2.8): the interactive picker
             zoneHUDHoldDelayMs: raw.zone_hud?.hold_delay_ms ?? 200,   // ~200ms: quick chords skip it, a deliberate hold gets it
             zoneHUDCommitMode: raw.zone_hud?.commit_mode == "immediately" ? .tileImmediately : .tileOnRelease,
             dragSnapEnabled: raw.drag_snap?.enabled ?? false,              // opt-in; installs a passive mouse monitor
