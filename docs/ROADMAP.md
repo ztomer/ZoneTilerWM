@@ -213,14 +213,22 @@ overlay goes native macOS 26 Liquid Glass via ONE shared template (`LiquidGlass.
     run flips the focus border over the socket instead of editing the live `config.toml` (done 3× by
     hand tonight). The border occludes the target window's edge and blocks computer-use clicks; the WM
     can't be allowlisted (LSUIElement, unresolvable by name or bundle id).
-  - [ ] **gemini-bridge skill → AX/osascript automation** instead of screenshot-clicking; document the
-    border disable/restore step using the new socket action.
-- **Sweep (apply the template, Gemini per overlay):**
-  - [ ] **Command palette** (⌘K) — glass panel backdrop.
-  - [ ] **Break screen** (Pomodoro) — full-screen glass.
-  - [ ] **First-run wizard / onboarding / tutorial** — glass panels.
-  - [ ] **Window hints** — glass labels.
-  - [ ] **Settings** window background + **Spaces menubar** — lighter touches, assess.
+  - [done] **gemini-bridge skill → AX/osascript** — added the `borders` socket-toggle disable/restore
+    step + a steer to the headless osascript/cliclick flow over computer-use screenshots for grading.
+- **Sweep — triaged (apply the template where it fits; preserve intentional designs):**
+  - [done] **Command palette** (⌘K) — `NSGlassEffectView` backdrop (Exposé sibling pattern), live-verified.
+  - [SKIP — intentional design] **Break screen** (Pomodoro) — a deliberate retro CRT aesthetic; glass
+    would gut it. **Window-hint badges** — black-on-pastel **zone-color coding is functional** (colour =
+    zone); glass dilutes the tint and hurts legibility. Both kept as-is (the design-intent rule).
+  - [deferred — SwiftUI, needs a decision] **Onboarding / tutorial / Settings** windows are SwiftUI
+    (`NSHostingController`). True `NSGlassEffectView` there needs either the SwiftUI 26 glass modifier or
+    a contentView restructure; the onboarding is a **critical first-run path that previously crashed**, so
+    not worth a blind autonomous restructure for a subtle backdrop. Do with the user / the wizard build.
+  - [separate build, not a glass-conversion] **First-run wizard** — the feedback 0/2 multi-step wizard
+    (feature checklist + Ctrl+Opt modifier default + telemetry opt-in) is its own feature; glass it when built.
+- **Net:** the interactive AppKit overlays that matter are Liquid Glass (app-launcher — Gemini SHIP IT;
+  zone HUD; command palette) + Exposé (pre-existing). The rest are intentional-design skips or a
+  user-decision (SwiftUI panels / the wizard build).
 
 **Wave 2 — correctness & intelligence:**
 - [P1] **Border filtering** (feedback 1 — the only real *bug*). Arc shows a border "in the middle"
