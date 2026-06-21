@@ -128,7 +128,8 @@ public final class TilerCoordinator {
         }
         let zoneWindows = FocusManager.collectZoneWindows(
             monitorId: uuid, zoneKey: zoneKey, windowsOnScreen: screenWindows,
-            stateForWindow: { _ in nil }, zoneTiles: tiles, overlapThreshold: overlapThreshold)
+            stateForWindow: { _ in nil }, zoneTiles: tiles, overlapThreshold: overlapThreshold,
+            nearestFallback: true)   // focus-zone on an empty zone jumps to the nearest window (feedback 7a)
         let freshOrder = zoneWindows.map { $0.windowId }
         guard let next = focusCycler.cycle(focusedId: focused.id, zoneKey: zoneKey,
                                            monitorId: uuid, freshOrder: freshOrder) else { return nil }

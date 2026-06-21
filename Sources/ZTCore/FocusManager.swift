@@ -45,6 +45,19 @@ public enum FocusManager {
         return (xo * yo) / (r1.w * r1.h)
     }
 
+    /// Distance from a point to the nearest edge of a rect (0 when the point is inside).
+    static func pointRectDistance(_ px: Double, _ py: Double, _ r: ZTRect) -> Double {
+        let dx = max(0, max(r.x - px, px - (r.x + r.w)))
+        let dy = max(0, max(r.y - py, py - (r.y + r.h)))
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
+    /// Smallest distance from a frame's centre to any of the zone's tiles.
+    static func distanceToZone(centreOf frame: ZTRect, tiles: [ZTRect]) -> Double {
+        let cx = frame.x + frame.w / 2, cy = frame.y + frame.h / 2
+        return tiles.map { pointRectDistance(cx, cy, $0) }.min() ?? .greatestFiniteMagnitude
+    }
+
     /// Windows belonging to a zone, ordered intuitively (tile asc, explicit-first, z-order asc).
     /// Port of collect_zone_windows + sort_zone_windows_for_intuitive_order.
     public static func collectZoneWindows(monitorId: String,
@@ -52,7 +65,8 @@ public enum FocusManager {
                                           windowsOnScreen: [ScreenWindow],
                                           stateForWindow: (Int) -> WindowState?,
                                           zoneTiles: [ZTRect],
-                                          overlapThreshold: Double) -> [ZoneWindow] {
+                                          overlapThreshold: Double,
+                                          nearestFallback: Bool = false) -> [ZoneWindow] {
         if zoneTiles.isEmpty { return [] }
         var collected: [ZoneWindow] = []
         var added = Set<Int>()
@@ -73,6 +87,17 @@ public enum FocusManager {
                 added.insert(w.windowId)
                 break
             }
+        }
+
+        // Phase 3 (opt-in): nothing is assigned to or overlaps this zone → fall back to the single
+        // NEAREST window, so a focus-zone press still jumps somewhere sensible instead of doing nothing
+        // (feedback 7a). Distance = window centre → nearest zone tile (0 when the centre is inside).
+        if nearestFallback, collected.isEmpty,
+           let nearest = windowsOnScreen.min(by: {
+               distanceToZone(centreOf: $0.frame, tiles: zoneTiles) < distanceToZone(centreOf: $1.frame, tiles: zoneTiles)
+           }) {
+            collected.append(ZoneWindow(windowId: nearest.windowId, appName: nearest.appName,
+                                        tileIndex: 1, explicit: false, zOrder: nearest.zOrder))
         }
 
         collected.sort { a, b in

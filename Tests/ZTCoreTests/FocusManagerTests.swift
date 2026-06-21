@@ -41,6 +41,44 @@ final class FocusManagerTests: XCTestCase {
         XCTAssertTrue(zw.isEmpty)
     }
 
+    // MARK: - nearest-window fallback (feedback 7a: focus-zone on an empty zone jumps to the closest)
+
+    private let cornerZone = [ZTRect(x: 0, y: 0, w: 200, h: 200)]   // top-left; the windows below miss it
+
+    func testNearestFallbackPicksClosestWhenNoneOverlap() {
+        let windows = [
+            FocusManager.ScreenWindow(windowId: 1, appName: "Far",  frame: ZTRect(x: 800, y: 800, w: 150, h: 150), zOrder: 1),
+            FocusManager.ScreenWindow(windowId: 2, appName: "Near", frame: ZTRect(x: 300, y: 0,   w: 150, h: 150), zOrder: 2),
+        ]
+        let zw = FocusManager.collectZoneWindows(
+            monitorId: "M1", zoneKey: "y", windowsOnScreen: windows,
+            stateForWindow: { _ in nil }, zoneTiles: cornerZone, overlapThreshold: 0.5, nearestFallback: true)
+        XCTAssertEqual(zw.map { $0.windowId }, [2])    // the nearer window
+        XCTAssertEqual(zw.first?.explicit, false)
+    }
+
+    func testNearestFallbackOffStaysEmpty() {
+        let windows = [
+            FocusManager.ScreenWindow(windowId: 1, appName: "Far", frame: ZTRect(x: 800, y: 800, w: 150, h: 150), zOrder: 1),
+        ]
+        let zw = FocusManager.collectZoneWindows(   // nearestFallback defaults off → no change
+            monitorId: "M1", zoneKey: "y", windowsOnScreen: windows,
+            stateForWindow: { _ in nil }, zoneTiles: cornerZone, overlapThreshold: 0.5)
+        XCTAssertTrue(zw.isEmpty)
+    }
+
+    func testNearestFallbackNeverOverridesRealOccupants() {
+        let leftHalf = [ZTRect(x: 0, y: 0, w: 500, h: 1000)]
+        let windows = [
+            FocusManager.ScreenWindow(windowId: 1, appName: "In",  frame: ZTRect(x: 0, y: 0, w: 500, h: 1000), zOrder: 1),
+            FocusManager.ScreenWindow(windowId: 2, appName: "Out", frame: ZTRect(x: 600, y: 0, w: 300, h: 300), zOrder: 2),
+        ]
+        let zw = FocusManager.collectZoneWindows(
+            monitorId: "M1", zoneKey: "h", windowsOnScreen: windows,
+            stateForWindow: { _ in nil }, zoneTiles: leftHalf, overlapThreshold: 0.5, nearestFallback: true)
+        XCTAssertEqual(zw.map { $0.windowId }, [1])    // real occupant; fallback not triggered
+    }
+
     func testCyclerStepsAndWraps() {
         let cy = FocusManager.Cycler()
         let order = [10, 20, 30]
