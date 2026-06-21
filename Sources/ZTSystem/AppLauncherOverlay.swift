@@ -55,15 +55,15 @@ public final class AppLauncherOverlay {
         let gx = ox + pad, gy = oy + pad
 
         let container = NSGlassEffectContainerView(frame: bounds)
-        container.spacing = 9          // chips closer than this merge fluidly (the liquid blend)
+        container.spacing = 22         // > the ~12pt chip gap, so neighbours BRIDGE fluidly (the liquid blend)
         let content = FlippedView(frame: bounds)   // top-left origin so chip coords match the layout
         for cap in caps {
             let x = gx + (cap.col - minCol) * cellW + inset
             let y = gy + Double(cap.row - minRow) * cellH + inset
             let chip = NSGlassEffectView(frame: NSRect(x: x, y: y, width: cellW - inset * 2, height: cellH - inset * 2))
-            chip.cornerRadius = 14
-            chip.style = .regular
-            chip.tintColor = NSColor.black.withAlphaComponent(0.10)   // a hair of depth; let it lens
+            chip.cornerRadius = 16
+            chip.style = .clear   // clear glass → more refractive lensing, less frosted body
+            chip.tintColor = NSColor.black.withAlphaComponent(0.12)   // clear needs a touch more tint for label legibility
             let label = KeycapLabel(frame: chip.bounds)
             label.cap = cap
             chip.contentView = label
@@ -115,10 +115,10 @@ private final class KeycapLabel: NSView {
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
         let app = (cap.label) as NSString
         let appAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+            .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             .foregroundColor: NSColor.white, .paragraphStyle: trunc,
             .shadow: { let s = NSShadow(); s.shadowColor = .black; s.shadowBlurRadius = 2; return s }()]
-        app.draw(in: NSRect(x: 4, y: ks.height + 14, width: bounds.width - 8, height: 18), withAttributes: appAttrs)
+        app.draw(in: NSRect(x: 2, y: ks.height + 14, width: bounds.width - 4, height: 18), withAttributes: appAttrs)
     }
 }
 
@@ -127,7 +127,7 @@ private final class AppLauncherView: NSView {
     var drawsPanelBackground = true
     override var isFlipped: Bool { true }
 
-    static let cellW = 112.0, cellH = 80.0, pad = 28.0, inset = 6.0
+    static let cellW = 122.0, cellH = 80.0, pad = 28.0, inset = 6.0   // wider → fits long app names
     static let panelCorner: CGFloat = 24
 
     static func panelSize(for caps: [AppLauncherHUD.Cap]) -> NSSize {
