@@ -63,26 +63,29 @@ private final class AppLauncherView: NSView {
         guard !caps.isEmpty else { return }
 
         let amber = NSColor(red: 0.92, green: 0.68, blue: 0.20, alpha: 1.0)
-        let cellW = 104.0, cellH = 70.0, pad = 26.0, inset = 6.0
-        let cols = AppLauncherHUD.columnSpan + 1
-        let gridW = cols * cellW, gridH = 4 * cellH
+        let cellW = 112.0, cellH = 80.0, pad = 28.0, inset = 6.0
+
+        // Trim to the populated rows/columns so there's no dead keyboard space, keeping the stagger.
+        let minRow = caps.map(\.row).min() ?? 0, maxRow = caps.map(\.row).max() ?? 0
+        let minCol = caps.map(\.col).min() ?? 0, maxCol = caps.map(\.col).max() ?? 0
+        let gridW = (maxCol - minCol + 1) * cellW, gridH = Double(maxRow - minRow + 1) * cellH
         let panelW = gridW + pad * 2, panelH = gridH + pad * 2
         let ox = bounds.midX - panelW / 2, oy = bounds.midY - panelH / 2
 
         // Panel.
-        let panel = NSBezierPath(roundedRect: NSRect(x: ox, y: oy, width: panelW, height: panelH), xRadius: 22, yRadius: 22)
+        let panel = NSBezierPath(roundedRect: NSRect(x: ox, y: oy, width: panelW, height: panelH), xRadius: 24, yRadius: 24)
         NSColor.black.withAlphaComponent(0.58).setFill(); panel.fill()
         amber.withAlphaComponent(0.22).setStroke(); panel.lineWidth = 1; panel.stroke()
 
         let gx = ox + pad, gy = oy + pad
-        let keyFont = NSFont.monospacedSystemFont(ofSize: 20, weight: .bold)
-        let appFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+        let keyFont = NSFont.monospacedSystemFont(ofSize: 23, weight: .bold)
+        let appFont = NSFont.systemFont(ofSize: 12.5, weight: .medium)
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
 
         for cap in caps {
-            let x = gx + cap.col * cellW, y = gy + Double(cap.row) * cellH
+            let x = gx + (cap.col - minCol) * cellW, y = gy + Double(cap.row - minRow) * cellH
             let r = NSRect(x: x + inset, y: y + inset, width: cellW - inset * 2, height: cellH - inset * 2)
-            let bg = NSBezierPath(roundedRect: r, xRadius: 10, yRadius: 10)
+            let bg = NSBezierPath(roundedRect: r, xRadius: 11, yRadius: 11)
             NSColor.black.withAlphaComponent(0.8).setFill(); bg.fill()
             amber.withAlphaComponent(0.7).setStroke(); bg.lineWidth = 1; bg.stroke()
 
@@ -90,12 +93,12 @@ private final class AppLauncherView: NSView {
             let key = cap.key.uppercased() as NSString
             let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: amber]
             let ks = key.size(withAttributes: keyAttrs)
-            key.draw(at: NSPoint(x: r.midX - ks.width / 2, y: r.minY + 7), withAttributes: keyAttrs)
+            key.draw(at: NSPoint(x: r.midX - ks.width / 2, y: r.minY + 9), withAttributes: keyAttrs)
 
             let app = cap.label as NSString
             let appAttrs: [NSAttributedString.Key: Any] = [
-                .font: appFont, .foregroundColor: NSColor(white: 0.92, alpha: 1), .paragraphStyle: trunc]
-            app.draw(in: NSRect(x: r.minX + 3, y: r.minY + ks.height + 12, width: r.width - 6, height: 18),
+                .font: appFont, .foregroundColor: NSColor(white: 0.93, alpha: 1), .paragraphStyle: trunc]
+            app.draw(in: NSRect(x: r.minX + 4, y: r.minY + ks.height + 16, width: r.width - 8, height: 18),
                      withAttributes: appAttrs)
         }
     }
