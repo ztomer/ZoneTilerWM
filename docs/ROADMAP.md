@@ -183,8 +183,37 @@ channels** (App-Store / development / public-DMG), which map onto the existing
     short delay safe; do before flipping default-on. (Pushed back on feedback 5's 100ms → 200ms.)
   - **flip `[zone_hud] enabled` default → true** once the guard lands (kept opt-in until then so it
     doesn't change the live WM mid-development).
-  - **edge/corner-zone highlight readability** — the centre "j" fill is large + overlaps neighbours
-    (honest, but verify corner zones read cleanly).
+- [P1] **Overlay clarity redesign** (design consult, Rams + Kare + Magnet/Moom/Loop reference, 2026-06-20).
+  Problem the user flagged: keycaps "land between zones." Root cause — caps were drawn at each zone's
+  *primary* placement centroid, but zones genuinely **overlap** (`j`=`center`, `h`=`left-half`, …), so a
+  centroid sits on top of other regions. No placement rule fixes that; the reference snappers all avoid
+  it by never showing all zones at once (Magnet/Loop = one filled preview; Moom = separated-cell palette).
+  Prototyped four resting styles behind a throwaway `ZT_HUD_STYLE`/`ZT_HUD_CAPS` switch (`boxes`/`grid`/
+  `caps`/`legend` + smallest-caps). **Chosen direction — the user's own idea, render-validated:**
+  - **Caps at each key's SMALLEST tile, centred** (`ZoneHUD.layout(pick: .smallest)`). Each key's cycle
+    already contains its atomic grid cell; using it (not the first/big placement) lands every cap cleanly
+    inside one cell, still spatially honest (cap ≈ where it goes). Beats the Moom-style `legend` palette,
+    which is unambiguous but spatially decoupled.
+  - **Draw the TRUE `cols×rows` base grid**, reusing the settings editor's grammar (`GridCells` /
+    `GridLines`, already plumbed in `LayoutEditorView`) — one visual language across editor + overlay —
+    instead of reverse-engineering edges from tile rects.
+  - **Cap (smallest) and fill (primary) are already decoupled** in `ZoneHUDOverlay` (`capCells` vs `cells`).
+  - **Collisions from the real `4x3` config:** `i`/`o` both reduce to cell `d1`, `,`/`.` to `d3`; the
+    special `0` (auto-tile-all) overlaps `K`. Fix: split the shared cell (two half-width caps) and drop
+    `0`/`center` auto-tile keys from the HUD. (Also a signal the layout is lopsided — column `c` is sparse.)
+  - Then collapse the prototype env scaffolding into one clean implementation + a render test.
+- [P1] **Cycle-the-preview on re-press (on-release mode)** (design decision, 2026-06-20). Re-pressing the
+  held zone key should advance the preview through that key's placement **cycle** and **resize the fill**
+  to each tile — turning blind repeat-cycling (immediate mode) into WYSIWYG preview-and-confirm; it's what
+  justifies on-release mode. Design: `ZoneHUDSession` grows from tracking *a key* to *(key, cycleIndex)*
+  (re-press same key → `(index+1) % tileCount`; different key → index 0); needs each key's tile **count**
+  injected (session is key-only today). **Catch:** commit must land on the *previewed* tile, but today's
+  `moveFocusedToZone` auto-picks via `PlacementStrategy.findBestTile` (occupancy-driven) and could disagree
+  — so add an **explicit-index placement** (`tileFocusedToZone(zone:, tile:)`; `findBestTile` already takes
+  `stateTileIndex`, outcome already carries `tileIndex`). Trade accepted: on-release preview is
+  WYSIWYG/explicit (gives up smart first-press occupancy pick — correct for a deliberate picker). The cap
+  stays at the smallest tile while only the fill resizes (the cap/fill split already supports this).
+  - **edge/corner-zone highlight readability** — verify corner-zone fills read cleanly once the above lands.
 - [P2] **App-launcher hint grid** (feedback 8). Reuse the *same* hold-to-reveal mechanism to show the
   app-shortcut key grid after a pause. Shared grammar with the zone HUD.
 
