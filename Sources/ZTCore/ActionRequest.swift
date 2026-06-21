@@ -75,6 +75,7 @@ public enum ActionRequest: Codable, Equatable {
 
     // Lifecycle.
     case reloadConfig
+    case setBorders(enabled: Bool)   // runtime focus-border on/off (no config edit) — e.g. for screenshots
     case syncExport   // copy live config + state into the user's synced folder ([sync] folder)
     case syncImport   // copy config + state back from the synced folder (backs up what it replaces)
 }

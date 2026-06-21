@@ -305,6 +305,7 @@ final class AgentController: NSObject {
                 return .floatToggled(windowId: id, floating: floating)
             },
             reloadConfig: { [unowned self] in self.reloadFromDisk() },
+            setBorders: { [unowned self] on in self.setBordersEnabled(on) },
             saveLayout: { [unowned self] name in self.saveLayout(name) },
             applyLayout: { [unowned self] name in self.applyLayout(name) },
             syncExport: { [unowned self] in self.syncEngine().run(.export) },

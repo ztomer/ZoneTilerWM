@@ -60,6 +60,7 @@ public enum ActionResult: Codable, Equatable {
     case pomodoroUpdated(active: Bool, phase: String, timeLeftSec: Int)
     case modeToggled(mode: ModalMode)
     case configReloaded(ok: Bool)
+    case bordersSet(enabled: Bool)
     case layoutSaved(name: String, windowCount: Int)
     case layoutApplied(name: String, moved: Int)
     case synced(direction: String, files: [String])   // file-based settings sync export/import

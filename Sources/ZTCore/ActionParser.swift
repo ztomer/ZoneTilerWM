@@ -86,6 +86,11 @@ public enum ActionParser {
             return .success(.syncImport)
         case "reload":
             return .success(.reloadConfig)
+        case "borders":
+            let v = (params["enabled"] ?? "").lowercased()
+            if ["on", "true", "1", "yes"].contains(v) { return .success(.setBorders(enabled: true)) }
+            if ["off", "false", "0", "no"].contains(v) { return .success(.setBorders(enabled: false)) }
+            return .failure(.invalidParameter("enabled"))
         default:
             return .failure(.unsupportedAction)
         }
@@ -147,6 +152,7 @@ public enum ActionParser {
         case .syncExport:                        return ("sync-export", [:])
         case .syncImport:                        return ("sync-import", [:])
         case .reloadConfig:                      return ("reload", [:])
+        case .setBorders(let on):                return ("borders", ["enabled": on ? "on" : "off"])
         }
     }
 
@@ -241,5 +247,7 @@ public extension ActionParser {
         ActionSpec(name: "sync-export", description: "Copy config + learned state into the synced folder ([sync] folder)."),
         ActionSpec(name: "sync-import", description: "Restore config + state from the synced folder (backs up what it replaces)."),
         ActionSpec(name: "reload", description: "Reload config.toml from disk."),
+        ActionSpec(name: "borders", description: "Toggle the focus border at runtime (no config edit).",
+                   params: [ActionParam(name: "enabled", required: true, description: "on or off", allowed: ["on", "off"])]),
     ]
 }

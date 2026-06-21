@@ -38,6 +38,16 @@ final class ActionParserTests: XCTestCase {
         XCTAssertEqual(ActionParser.parse(name: "zen", params: [:]), .success(.toggleZen))
     }
 
+    func testParseBorders() {
+        XCTAssertEqual(ActionParser.parse(name: "borders", params: ["enabled": "off"]), .success(.setBorders(enabled: false)))
+        XCTAssertEqual(ActionParser.parse(name: "borders", params: ["enabled": "on"]),  .success(.setBorders(enabled: true)))
+        XCTAssertEqual(ActionParser.parse(argv: ["borders", "--enabled", "off"]), .success(.setBorders(enabled: false)))
+        let c = ActionParser.canonical(.setBorders(enabled: false))
+        XCTAssertEqual(c.name, "borders"); XCTAssertEqual(c.params, ["enabled": "off"])
+        // round-trip + bad value
+        XCTAssertEqual(ActionParser.parse(name: "borders", params: ["enabled": "maybe"]), .failure(.invalidParameter("enabled")))
+    }
+
     func testParseAudioNamed() {
         XCTAssertEqual(ActionParser.parse(name: "audio", params: ["device": "BlackHole"]),
                        .success(.switchAudio(device: .named("BlackHole"))))

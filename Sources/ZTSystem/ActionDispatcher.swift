@@ -39,6 +39,8 @@ public final class ActionDispatcher {
         public var toggleFloat: () -> ActionResult
         /// Returns whether the reload was applied (false = parse/validation failed, config kept).
         public var reloadConfig: () -> Bool
+        /// Toggle the focus border at runtime (no config edit).
+        public var setBorders: (Bool) -> Void
         /// Layout snapshots — agent-orchestrated (storage + arrangement capture + window-targeted
         /// restore). Each returns the resulting ActionResult.
         public var saveLayout: (String) -> ActionResult
@@ -68,6 +70,7 @@ public final class ActionDispatcher {
                     peekZone: @escaping () -> Void = {},
                     toggleFloat: @escaping () -> ActionResult,
                     reloadConfig: @escaping () -> Bool,
+                    setBorders: @escaping (Bool) -> Void = { _ in },
                     saveLayout: @escaping (String) -> ActionResult,
                     applyLayout: @escaping (String) -> ActionResult,
                     syncExport: @escaping () -> ActionResult = { .failed(reason: .unsupportedAction) },
@@ -89,6 +92,7 @@ public final class ActionDispatcher {
             self.peekZone = peekZone
             self.toggleFloat = toggleFloat
             self.reloadConfig = reloadConfig
+            self.setBorders = setBorders
             self.saveLayout = saveLayout
             self.applyLayout = applyLayout
             self.syncExport = syncExport
@@ -205,6 +209,10 @@ public final class ActionDispatcher {
 
         case .reloadConfig:
             return .configReloaded(ok: hooks.reloadConfig())
+
+        case .setBorders(let on):
+            hooks.setBorders(on)
+            return .bordersSet(enabled: on)
 
         case .saveLayout(let name):
             return hooks.saveLayout(name)

@@ -23,6 +23,18 @@ extension AgentController {
             prediction: b.prediction)
     }
 
+    /// Runtime focus-border toggle (the `borders` action / `zonetiler-cli borders --enabled on|off`) —
+    /// no config edit. Re-applies the current config's style/backend with the given `enabled`; the next
+    /// config reload resets it to the configured value.
+    func setBordersEnabled(_ on: Bool) {
+        let b = config.borders
+        let backendName = ProcessInfo.processInfo.environment["ZT_BORDERS_BACKEND"] ?? b.backend
+        focusBorder.apply(enabled: on, backend: BorderBackend(rawValue: backendName) ?? .overlay,
+                          style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0),
+                          prediction: b.prediction)
+        log("zt-agent: focus border \(on ? "on" : "off") (runtime)")
+    }
+
     static func makeCoordinator(config: ConfigLoader.LoadedConfig, windowSystem: WindowSystem,
                                         screens: ScreenProvider, memory: WindowMemory?,
                                         monitorManager: MonitorManager, storage: Storage?,

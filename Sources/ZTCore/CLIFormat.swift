@@ -36,6 +36,8 @@ public enum CLIFormat {
             return "toggled \(mode.rawValue) mode"
         case .configReloaded(let ok):
             return ok ? "config reloaded" : "config reload failed (kept running config)"
+        case .bordersSet(let on):
+            return "focus border \(on ? "on" : "off")"
         case .layoutSaved(let name, let count):
             return "saved layout '\(name)' (\(count) window\(count == 1 ? "" : "s"))"
         case .layoutApplied(let name, let moved):
