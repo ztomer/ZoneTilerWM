@@ -196,8 +196,31 @@ channels** (App-Store / development / public-DMG), which map onto the existing
     + `ZT_HUD_TILE`): j tile0 wide-centre vs tile1 narrow-column, corner `o` clean, `i/o` + `,/.` split.
   - **Live-QA owed:** the #10 guard's real key-monitor behaviour (hold a key + modifier → picker stays
     hidden) isn't automatable headlessly — verify on the live agent; the session logic itself is unit-tested.
-- [P2] **App-launcher hint grid** (feedback 8). Reuse the *same* hold-to-reveal mechanism to show the
-  app-shortcut key grid after a pause. Shared grammar with the zone HUD.
+- [done] **App-launcher hint grid** (feedback 8, 2026-06-21). Hold `mash_app` (appCuts) or `HYPER`
+  (hyperAppCuts) → a Liquid-Glass keyboard palette of that group's shortcuts; release dismisses.
+  `AppLauncherHUD` (pure layout) + `AppLauncherHUDController` (hold-to-reveal, both modifiers) +
+  `AppLauncherOverlay` (Liquid Glass). Gemini-cleared (SHIP IT 10/10/9.5/10/9.5).
+
+**Wave 1.6 — "Liquid Glass everywhere" overlay sweep + infra (NEW 2026-06-21).** Directive: every
+overlay goes native macOS 26 Liquid Glass via ONE shared template (`LiquidGlass.container`/`chip`,
+`.clear` style, NSVisualEffectView fallback). Live-screenshot QA (glass can't headless-render) +
+**consult Gemini for the aesthetics**, iterate to SHIP IT. Order: **infra first, then the sweep.**
+- _Template + done:_ `LiquidGlass` helper ✓; **app-launcher** ✓ (Gemini SHIP IT); **zone HUD** ✓; Exposé
+  already used `NSGlassEffectView`.
+- **Infra (do first):**
+  - [ ] **`borders on|off` socket action** — `ActionRequest.setBorders(enabled:)` + parser + dispatcher
+    hook + `FocusBorderController` runtime enable/disable + `zonetiler-cli borders on|off`. So a Gemini
+    run flips the focus border over the socket instead of editing the live `config.toml` (done 3× by
+    hand tonight). The border occludes the target window's edge and blocks computer-use clicks; the WM
+    can't be allowlisted (LSUIElement, unresolvable by name or bundle id).
+  - [ ] **gemini-bridge skill → AX/osascript automation** instead of screenshot-clicking; document the
+    border disable/restore step using the new socket action.
+- **Sweep (apply the template, Gemini per overlay):**
+  - [ ] **Command palette** (⌘K) — glass panel backdrop.
+  - [ ] **Break screen** (Pomodoro) — full-screen glass.
+  - [ ] **First-run wizard / onboarding / tutorial** — glass panels.
+  - [ ] **Window hints** — glass labels.
+  - [ ] **Settings** window background + **Spaces menubar** — lighter touches, assess.
 
 **Wave 2 — correctness & intelligence:**
 - [P1] **Border filtering** (feedback 1 — the only real *bug*). Arc shows a border "in the middle"
