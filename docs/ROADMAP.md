@@ -172,54 +172,30 @@ channels** (App-Store / development / public-DMG), which map onto the existing
   **feature checklist** (borders / zone HUD / app launcher / auto-tile, each with a one-line "what it
   does") → **movement-modifier chooser, default Ctrl+Opt** (was Ctrl+Cmd) → **telemetry opt-in**. Single
   screen satisfies feedback 0, 2, the modifier-default fix, and telemetry consent. `AccessibilityOnboarding.swift`.
-- [mostly done] **Overlay → interactive tile-on-release** (2026-06-20). Pure `ZoneHUDSession` (ZTCore,
-  13 tests) drives the picker; `ZoneHUDController` executes its effects; the previewed zone fills amber
-  in `ZoneHUDOverlay` (deterministic render + 3 ZTSystem tests; live-validated via `ZT_HUD_HIGHLIGHT`).
-  The existing Carbon zone-hotkey now calls `previewIfShowing(_:)` so a keypress highlights instead of
-  tiling while the picker is up; **release commits** via the shared `tileFocusedToZone`. `[zone_hud]
-  commit_mode` = `on_release` (default) | `immediately`; hold delay default 400→**200ms**. Remaining:
-  - **feedback 10 guard** — suppress arming when a non-modifier key is held; the session already takes
-    `otherKeysDown` but the controller passes `false` (needs a key-state source). This is what makes the
-    short delay safe; do before flipping default-on. (Pushed back on feedback 5's 100ms → 200ms.)
-  - **flip `[zone_hud] enabled` default → true** once the guard lands (kept opt-in until then so it
-    doesn't change the live WM mid-development).
-- [P1] **Overlay clarity redesign** (design consult, Rams + Kare + Magnet/Moom/Loop reference, 2026-06-20).
-  Problem the user flagged: keycaps "land between zones." Root cause — caps were drawn at each zone's
-  *primary* placement centroid, but zones genuinely **overlap** (`j`=`center`, `h`=`left-half`, …), so a
-  centroid sits on top of other regions. No placement rule fixes that; the reference snappers all avoid
-  it by never showing all zones at once (Magnet/Loop = one filled preview; Moom = separated-cell palette).
-  Prototyped four resting styles behind a throwaway `ZT_HUD_STYLE`/`ZT_HUD_CAPS` switch (`boxes`/`grid`/
-  `caps`/`legend` + smallest-caps). **Chosen direction — the user's own idea, render-validated:**
-  - **Caps at each key's SMALLEST tile, centred** (`ZoneHUD.layout(pick: .smallest)`). Each key's cycle
-    already contains its atomic grid cell; using it (not the first/big placement) lands every cap cleanly
-    inside one cell, still spatially honest (cap ≈ where it goes). Beats the Moom-style `legend` palette,
-    which is unambiguous but spatially decoupled.
-  - **Draw the TRUE `cols×rows` base grid**, reusing the settings editor's grammar (`GridCells` /
-    `GridLines`, already plumbed in `LayoutEditorView`) — one visual language across editor + overlay —
-    instead of reverse-engineering edges from tile rects.
-  - **Cap (smallest) and fill (primary) are already decoupled** in `ZoneHUDOverlay` (`capCells` vs `cells`).
-  - **Collisions from the real `4x3` config:** `i`/`o` both reduce to cell `d1`, `,`/`.` to `d3`; the
-    special `0` (auto-tile-all) overlaps `K`. Fix: split the shared cell (two half-width caps) and drop
-    `0`/`center` auto-tile keys from the HUD. (Also a signal the layout is lopsided — column `c` is sparse.)
-  - Then collapse the prototype env scaffolding into one clean implementation + a render test.
-- [logic done; fill pending] **Cycle-the-preview on re-press (on-release mode)** (2026-06-21, commit 115c7eb).
-  DONE: `ZoneHUDSession` now tracks `(key, cycleIndex)` (re-press advances mod tileCount; new key resets);
-  effects carry the tile (`.highlight(key:tile:)` / `.commit(key:tile:)`, nil tile = immediate-mode auto-cycle);
-  `TilerCoordinator.moveFocusedToZone(_:tileIndex:)` commits at the exact previewed tile (WYSIWYG, bypasses
-  findBestTile); controller seeds the session with live per-key tile counts. Tests: session cycling/wrap +
-  coordinator explicit-index (408 green). REMAINING (rolls into step 3 below): the overlay still fills the
-  *primary* tile on highlight — it must hold each key's tiles and fill `tiles[index]` so the preview visibly
-  resizes as you re-press. Original design notes:
-  Re-pressing the held zone key should advance the preview through that key's placement **cycle** and
-  **resize the fill** to each tile. Design: `ZoneHUDSession` grows from tracking *a key* to *(key, cycleIndex)*
-  (re-press same key → `(index+1) % tileCount`; different key → index 0); needs each key's tile **count**
-  injected (session is key-only today). **Catch:** commit must land on the *previewed* tile, but today's
-  `moveFocusedToZone` auto-picks via `PlacementStrategy.findBestTile` (occupancy-driven) and could disagree
-  — so add an **explicit-index placement** (`tileFocusedToZone(zone:, tile:)`; `findBestTile` already takes
-  `stateTileIndex`, outcome already carries `tileIndex`). Trade accepted: on-release preview is
-  WYSIWYG/explicit (gives up smart first-press occupancy pick — correct for a deliberate picker). The cap
-  stays at the smallest tile while only the fill resizes (the cap/fill split already supports this).
-  - **edge/corner-zone highlight readability** — verify corner-zone fills read cleanly once the above lands.
+- [done] **Interactive zone picker — tile-on-release, clarity redesign, cycle-preview, #10 guard**
+  (2026-06-21; commits 115c7eb · 6b382d0 · 2d89813). The passive cheat-sheet is now a real preview-then-
+  commit picker, on by default. What shipped:
+  - **Tile-on-release flow** — pure `ZoneHUDSession` state machine drives it; the Carbon zone-hotkey calls
+    `previewIfShowing(_:)` to highlight instead of tiling while the picker is up; **release commits**.
+    `[zone_hud] commit_mode` = `on_release` (default) | `immediately`; hold delay default **200ms**.
+  - **Cycle-the-preview** — `ZoneHUDSession` tracks `(key, cycleIndex)`; re-pressing the held key advances
+    through that zone's placements and the **fill visibly resizes**; release commits exactly the previewed
+    tile via `TilerCoordinator.moveFocusedToZone(_:tileIndex:)` (WYSIWYG, bypasses the `findBestTile` auto-
+    pick). Immediate mode keeps `tile: nil` so the legacy auto-cycle is preserved.
+  - **Clarity redesign (Rams + Kare + Magnet/Moom/Loop consult)** — resolved "caps land between zones": caps
+    sit at each key's **smallest tile** (`ZoneHUD.caps`, its atomic cell, not the overlapping primary
+    centroid); the **true `cols×rows` base grid** is drawn via `GridLines` (the settings-editor grammar);
+    keys that collapse to one cell (`i`/`o`→`d1`, `,`/`.`→`d3`) are **split side-by-side**; the auto-tile
+    keys (`default`, `0`) are dropped. The `ZT_HUD_STYLE`/`ZT_HUD_CAPS`/`legend`/`boxes`/`Pick` prototype
+    scaffolding was collapsed into one clean implementation.
+  - **Feedback-#10 guard** — a keyDown/keyUp monitor feeds the session `otherKeysDown`, so the picker only
+    arms when the modifier is held ALONE; a key during the show-delay cancels the arm (quick chord → tile at
+    once). With the guard in, **`[zone_hud] enabled` now defaults to true.**
+  - Tests: session cycling/wrap, coordinator explicit-index, `ZoneHUD.caps` (smallest/split/drop-0), overlay
+    render (highlight + cycle resize) — 412 green. Live-validated via the render harness (`ZT_HUD_HIGHLIGHT`
+    + `ZT_HUD_TILE`): j tile0 wide-centre vs tile1 narrow-column, corner `o` clean, `i/o` + `,/.` split.
+  - **Live-QA owed:** the #10 guard's real key-monitor behaviour (hold a key + modifier → picker stays
+    hidden) isn't automatable headlessly — verify on the live agent; the session logic itself is unit-tested.
 - [P2] **App-launcher hint grid** (feedback 8). Reuse the *same* hold-to-reveal mechanism to show the
   app-shortcut key grid after a pause. Shared grammar with the zone HUD.
 
