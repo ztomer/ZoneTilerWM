@@ -1,9 +1,12 @@
 // AppLauncherOverlay.swift — the app-launcher cheat-sheet: hold the app-launcher modifier and a
 // compact KEYBOARD palette appears showing each assigned shortcut on its real key (the key glyph + the
-// app it launches). Floats over the LIVE desktop (no dim). The live window backs the panel with real
-// macOS 26 Liquid Glass (NSGlassEffectView; NSVisualEffectView fallback); the headless render harness
-// can't composite glass, so renderPNG draws an opaque dark panel instead. Purely visual — the launch
-// is the existing modifier+key hotkey.
+// app it launches). Floats over the LIVE desktop (no dim).
+//
+// The live overlay renders each keycap as a real macOS 26 Liquid Glass element (NSGlassEffectView)
+// inside an NSGlassEffectContainerView — so the chips LENS the desktop behind them and merge fluidly
+// when close (the "liquid", not a flat frosted slab). The key glyph + app name sit inside each chip's
+// contentView. The headless render harness can't composite glass, so renderPNG falls back to drawing
+// opaque dark keycaps. Purely visual — the launch is the existing modifier+key hotkey.
 
 import AppKit
 import ZTCore
@@ -25,37 +28,49 @@ public final class AppLauncherOverlay {
             w.hasShadow = false
             w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
-            let container = NSView(frame: NSRect(origin: .zero, size: nsFrame.size))
-            // The panel is centred, so its rect is the same in flipped or unflipped coords.
-            let size = AppLauncherView.panelSize(for: caps)
-            let panel = NSRect(x: (nsFrame.width - size.width) / 2, y: (nsFrame.height - size.height) / 2,
-                               width: size.width, height: size.height)
-            if !caps.isEmpty {
-                let glass: NSView
-                if #available(macOS 26.0, *) {
-                    let g = NSGlassEffectView(frame: panel)
-                    g.cornerRadius = AppLauncherView.panelCorner
-                    g.tintColor = NSColor.black.withAlphaComponent(0.18)
-                    glass = g
-                } else {
-                    let g = NSVisualEffectView(frame: panel)
-                    g.material = .hudWindow; g.blendingMode = .behindWindow; g.state = .active
-                    g.wantsLayer = true; g.layer?.cornerRadius = AppLauncherView.panelCorner; g.layer?.masksToBounds = true
-                    glass = g
-                }
-                container.addSubview(glass)
+            let size = NSRect(origin: .zero, size: nsFrame.size)
+            if #available(macOS 26.0, *), !caps.isEmpty {
+                w.contentView = AppLauncherOverlay.glassChips(caps: caps, bounds: size)
+            } else {
+                let view = AppLauncherView(frame: size)
+                view.drawsPanelBackground = true
+                view.caps = caps
+                w.contentView = view
             }
-            let view = AppLauncherView(frame: NSRect(origin: .zero, size: nsFrame.size))
-            view.drawsPanelBackground = false   // the glass provides the panel; the view draws only the keycaps
-            view.caps = caps
-            container.addSubview(view)
-
-            w.contentView = container
             w.alphaValue = 0
             w.orderFrontRegardless()
             NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.12; w.animator().alphaValue = 1 }
             self.window = w
         }
+    }
+
+    /// A Liquid-Glass keyboard: one NSGlassEffectView chip per shortcut, merged in a container.
+    @available(macOS 26.0, *)
+    private static func glassChips(caps: [AppLauncherHUD.Cap], bounds: NSRect) -> NSView {
+        let cellW = AppLauncherView.cellW, cellH = AppLauncherView.cellH
+        let pad = AppLauncherView.pad, inset = AppLauncherView.inset
+        let minRow = caps.map(\.row).min() ?? 0, minCol = caps.map(\.col).min() ?? 0
+        let size = AppLauncherView.panelSize(for: caps)
+        let ox = bounds.midX - size.width / 2, oy = bounds.midY - size.height / 2
+        let gx = ox + pad, gy = oy + pad
+
+        let container = NSGlassEffectContainerView(frame: bounds)
+        container.spacing = 9          // chips closer than this merge fluidly (the liquid blend)
+        let content = FlippedView(frame: bounds)   // top-left origin so chip coords match the layout
+        for cap in caps {
+            let x = gx + (cap.col - minCol) * cellW + inset
+            let y = gy + Double(cap.row - minRow) * cellH + inset
+            let chip = NSGlassEffectView(frame: NSRect(x: x, y: y, width: cellW - inset * 2, height: cellH - inset * 2))
+            chip.cornerRadius = 14
+            chip.style = .regular
+            chip.tintColor = NSColor.black.withAlphaComponent(0.10)   // a hair of depth; let it lens
+            let label = KeycapLabel(frame: chip.bounds)
+            label.cap = cap
+            chip.contentView = label
+            content.addSubview(chip)
+        }
+        container.contentView = content
+        return container
     }
 
     public func hide() {
@@ -68,16 +83,42 @@ public final class AppLauncherOverlay {
     }
     private func hideNow() { window?.orderOut(nil); window = nil }
 
-    /// Deterministic windowless render → PNG (QA / render harness / tests). Draws an opaque dark panel
-    /// (the live overlay uses Liquid Glass, which can't be composited offscreen).
+    /// Deterministic windowless render → PNG (QA / render harness / tests). Draws opaque dark keycaps
+    /// (the live overlay uses Liquid Glass, which can't composite offscreen).
     public static func renderPNG(caps: [AppLauncherHUD.Cap], screenCGFrame: ZTRect,
                                  backdrop: NSColor = NSColor(white: 0.42, alpha: 1),
                                  backdropImage: NSImage? = nil) -> Data? {
         let size = NSSize(width: screenCGFrame.w, height: screenCGFrame.h)
         let view = AppLauncherView(frame: NSRect(origin: .zero, size: size))
-        view.drawsPanelBackground = true   // no glass offscreen → draw the dark panel
+        view.drawsPanelBackground = true
         view.caps = caps
         return OverlayRender.png(of: view, size: size, backdrop: backdrop, backdropImage: backdropImage)
+    }
+}
+
+/// Top-left-origin container so glass-chip frames match the keyboard layout math.
+private final class FlippedView: NSView { override var isFlipped: Bool { true } }
+
+/// The label that sits INSIDE a glass chip: the key glyph (amber) over the app name (white).
+private final class KeycapLabel: NSView {
+    var cap: AppLauncherHUD.Cap? { didSet { needsDisplay = true } }
+    override var isFlipped: Bool { true }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let cap else { return }
+        let amber = NSColor(red: 0.95, green: 0.72, blue: 0.24, alpha: 1.0)
+        let key = cap.key.uppercased() as NSString
+        let keyAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 23, weight: .bold), .foregroundColor: amber]
+        let ks = key.size(withAttributes: keyAttrs)
+        key.draw(at: NSPoint(x: bounds.midX - ks.width / 2, y: 8), withAttributes: keyAttrs)
+
+        let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
+        let app = (cap.label) as NSString
+        let appAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: NSColor.white, .paragraphStyle: trunc,
+            .shadow: { let s = NSShadow(); s.shadowColor = .black; s.shadowBlurRadius = 2; return s }()]
+        app.draw(in: NSRect(x: 4, y: ks.height + 14, width: bounds.width - 8, height: 18), withAttributes: appAttrs)
     }
 }
 
@@ -89,7 +130,6 @@ private final class AppLauncherView: NSView {
     static let cellW = 112.0, cellH = 80.0, pad = 28.0, inset = 6.0
     static let panelCorner: CGFloat = 24
 
-    /// Panel size for `caps` (independent of where it's centred), so the live window can size the glass.
     static func panelSize(for caps: [AppLauncherHUD.Cap]) -> NSSize {
         guard !caps.isEmpty else { return .zero }
         let minRow = caps.map(\.row).min()!, maxRow = caps.map(\.row).max()!
@@ -99,10 +139,9 @@ private final class AppLauncherView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        guard !caps.isEmpty else { return }   // no desktop dim — the panel floats over the LIVE desktop
+        guard !caps.isEmpty else { return }
         let amber = NSColor(red: 0.92, green: 0.68, blue: 0.20, alpha: 1.0)
         let cellW = Self.cellW, cellH = Self.cellH, pad = Self.pad, inset = Self.inset
-
         let minRow = caps.map(\.row).min()!, minCol = caps.map(\.col).min()!
         let size = Self.panelSize(for: caps)
         let ox = bounds.midX - size.width / 2, oy = bounds.midY - size.height / 2
@@ -118,19 +157,16 @@ private final class AppLauncherView: NSView {
         let keyFont = NSFont.monospacedSystemFont(ofSize: 23, weight: .bold)
         let appFont = NSFont.systemFont(ofSize: 12, weight: .medium)
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
-
         for cap in caps {
             let x = gx + (cap.col - minCol) * cellW, y = gy + Double(cap.row - minRow) * cellH
             let r = NSRect(x: x + inset, y: y + inset, width: cellW - inset * 2, height: cellH - inset * 2)
             let bg = NSBezierPath(roundedRect: r, xRadius: 11, yRadius: 11)
             NSColor.black.withAlphaComponent(0.55).setFill(); bg.fill()
             amber.withAlphaComponent(0.7).setStroke(); bg.lineWidth = 1; bg.stroke()
-
             let key = cap.key.uppercased() as NSString
             let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: amber]
             let ks = key.size(withAttributes: keyAttrs)
             key.draw(at: NSPoint(x: r.midX - ks.width / 2, y: r.minY + 9), withAttributes: keyAttrs)
-
             let app = cap.label as NSString
             let appAttrs: [NSAttributedString.Key: Any] = [
                 .font: appFont, .foregroundColor: NSColor(white: 0.95, alpha: 1), .paragraphStyle: trunc]
