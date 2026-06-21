@@ -58,9 +58,7 @@ private final class AppLauncherView: NSView {
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.20).setFill()
-        bounds.fill()
-        guard !caps.isEmpty else { return }
+        guard !caps.isEmpty else { return }   // no desktop dim — the panel floats over the LIVE desktop
 
         let amber = NSColor(red: 0.92, green: 0.68, blue: 0.20, alpha: 1.0)
         let cellW = 112.0, cellH = 80.0, pad = 28.0, inset = 6.0

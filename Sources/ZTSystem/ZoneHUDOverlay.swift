@@ -96,10 +96,7 @@ private final class ZoneHUDView: NSView {
     func setHighlight(key: String?, tile: Int) { highlightedKey = key; highlightedTile = tile; needsDisplay = true }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Light dimming so the overlay stays legible without obscuring the desktop windows.
-        NSColor.black.withAlphaComponent(0.20).setFill()
-        bounds.fill()
-
+        // No desktop dim — the picker floats over the LIVE desktop (the grid + caps + fill carry it).
         let amber = NSColor(red: 0.92, green: 0.68, blue: 0.20, alpha: 1.0)
 
         // 1) the TRUE base grid — faint interior lines (honest, non-overlapping separation).

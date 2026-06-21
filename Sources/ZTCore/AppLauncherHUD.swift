@@ -21,8 +21,8 @@ public enum AppLauncherHUD {
     static let rows: [(keys: [String], offset: Double)] = [
         (["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="], 0.0),
         (["q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]"], 0.5),
-        (["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'"], 0.75),
-        (["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"], 1.25),
+        (["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'"], 0.75),   // +0.25u vs Q row
+        (["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"], 1.0),         // +0.5u vs Q row (was 1.25 — lopsided)
     ]
 
     private static let position: [String: (row: Int, col: Double)] = {

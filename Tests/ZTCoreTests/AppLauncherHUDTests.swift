@@ -9,7 +9,7 @@ final class AppLauncherHUDTests: XCTestCase {
         let caps = AppLauncherHUD.caps(apps: ["q": "Xcode", "c": "Chrome"])
         XCTAssertEqual(caps, [
             .init(key: "q", label: "Xcode", row: 1, col: 0.5),    // q: row 1, index 0 + 0.5 stagger
-            .init(key: "c", label: "Chrome", row: 3, col: 3.25),  // c: row 3 (z,x,c → index 2) + 1.25 stagger
+            .init(key: "c", label: "Chrome", row: 3, col: 3.0),   // c: row 3 (z,x,c → index 2) + 1.0 stagger
         ])
     }
 
