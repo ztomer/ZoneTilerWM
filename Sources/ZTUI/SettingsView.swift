@@ -119,6 +119,7 @@ public final class SettingsModel: ObservableObject {
     public func setZoneHUDEnabled(_ on: Bool) { setOrAppend(section: "zone_hud", key: "enabled", rawValue: on ? "true" : "false") }
     public func setZoneHUDHoldDelay(_ ms: Int) { setOrAppend(section: "zone_hud", key: "hold_delay_ms", rawValue: "\(ms)") }
     public func setDragSnapEnabled(_ on: Bool) { setOrAppend(section: "drag_snap", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setTelemetryEnabled(_ on: Bool) { setOrAppend(section: "telemetry", key: "enabled", rawValue: on ? "true" : "false") }
     public func setBreakScreenEnabled(_ on: Bool) { setOrAppend(section: "break_screen", key: "enabled", rawValue: on ? "true" : "false") }
     public func setBreakScreenDuration(_ s: Int) { setOrAppend(section: "break_screen", key: "duration_sec", rawValue: "\(s)") }
     public func setScratchpadApps(_ apps: [String]) { setOrAppend(section: "scratchpad", key: "apps", rawValue: tomlArray(apps)) }

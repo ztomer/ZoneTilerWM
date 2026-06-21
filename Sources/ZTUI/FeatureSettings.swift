@@ -258,12 +258,17 @@ struct PomodoroTab: View {
 
 struct AdvancedTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["window memory", "learn", "restore window positions", "excluded apps", "auto-tiler weights", "solver weights", "weights", "reset to defaults", "experimental", "private apis", "real spaces", "debug"]
+    static let searchKeywords: [String] = ["window memory", "learn", "restore window positions", "excluded apps", "auto-tiler weights", "solver weights", "weights", "reset to defaults", "experimental", "private apis", "real spaces", "debug", "telemetry", "usage", "privacy", "analytics"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
             WindowMemorySection(model: model)
             AdvancedSettings(model: model)
+            ToggleSection("Usage telemetry", isOn: Binding(
+                get: { model.config.telemetryEnabled }, set: { model.setTelemetryEnabled($0) }),
+                footer: "Off by default. When on, ZoneTilerWM appends one anonymous line per command — the action name + a timestamp, NO window titles or app names — to /tmp/zonetilerwm-telemetry.jsonl. Local only; nothing is sent anywhere (there's no collection backend).") {
+                EmptyView()
+            }
         }
         .formStyle(.grouped)
     }
