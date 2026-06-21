@@ -158,6 +158,56 @@ Condensed by theme — everything here is **done and in the build**.
 - **Predictive shadow-buffer / headless display prefetch** ("Gemini Phase D") — recommended SKIP
   (speculative, no gateable surface).
 
+### F. v2.8 — field-feedback UX pass (NEW 2026-06-20)
+
+Synthesized from a hands-on first-time-user testing pass (a real user, not a developer). The
+through-line: the features exist but are **invisible and unexplained** — this is a discoverability
+pass, not a capability pass. Decisions locked with the user: overlay defaults to **tile-on-release**;
+telemetry is **opt-in / anonymous / off by default**; the "three versions" are **distribution
+channels** (App-Store / development / public-DMG), which map onto the existing
+`package_mas.sh` / `package_dev.sh` / `package_public.sh` builders.
+
+**Wave 1 — the discoverability spine (highest leverage):**
+- [P1] **First-run flow.** Extend the Accessibility-only onboarding into a multi-step: Accessibility →
+  **feature checklist** (borders / zone HUD / app launcher / auto-tile, each with a one-line "what it
+  does") → **movement-modifier chooser, default Ctrl+Opt** (was Ctrl+Cmd) → **telemetry opt-in**. Single
+  screen satisfies feedback 0, 2, the modifier-default fix, and telemetry consent. `AccessibilityOnboarding.swift`.
+- [P1] **Overlay → interactive tile-on-release.** Turn the passive zone HUD into a modal picker: hold
+  modifier → overlay (after ~200ms, **default on**) → press a zone key **highlights/previews** (no move
+  yet) → highlight persists until release or another key → **release commits** (feedback 3, 4, Hebrew
+  1-3). `tile_immediately` stays as a toggle. **Suppress the overlay if any non-modifier key is held**
+  (feedback 10) — this is what makes the short delay safe. Pure state machine: `ZoneHUDSession` (ZTCore,
+  TDD); wiring in `ZoneHUDController` + highlight in `ZoneHUDOverlay`.
+  - Pushed back on feedback 5's **100ms** → **200ms** default (100ms fires during normal Cmd-Tab /
+    Ctrl+Cmd chords); ships together with the feedback-10 "other key held" guard.
+- [P2] **App-launcher hint grid** (feedback 8). Reuse the *same* hold-to-reveal mechanism to show the
+  app-shortcut key grid after a pause. Shared grammar with the zone HUD.
+
+**Wave 2 — correctness & intelligence:**
+- [P1] **Border filtering** (feedback 1 — the only real *bug*). Arc shows a border "in the middle"
+  (latching the wrong layer-0 surface); autocomplete / typing-hint boxes get borders they shouldn't.
+  Current filter (`FocusBorderController` frontmost topmost `layer == 0`) is too thin. Plan: live-probe
+  Arc + an autocomplete (`probe-first` / `user-pov-debug`) → build a window-trait deny-list (role /
+  size / lifetime / floating level) → lock with a deterministic test.
+- [P2] **Zone intelligence** (feedback 7). (a) Focus-zone should pick the **nearest** window when none
+  overlaps (extend `FocusManager` overlap detection; pure logic, unit-testable). (b) Manual moves
+  re-learn the zone — AX-budget-aware via the existing CGWindowList poll, **not** new AX observers.
+
+**Wave 3 — infra & heavier UI:**
+- [done] **Three-channel CI + DMG** (feedback 12; 2026-06-20). `package_app.sh` gained `ZT_DMG=1`
+  (hdiutil drag-to-Applications `.dmg` + INSTALL.txt with the one-time Gatekeeper-unblock step);
+  `package_share.sh` = ad-hoc public DMG for hand-off (the dev-cert build was unopenable on other
+  Macs). `release.yml` now builds all three channel DMGs on a tag / manual dispatch — `-mas`
+  (App-Store-clean), `-dev` (debug), `-public` (direct download) — uploads them as artifacts and
+  attaches to the Release; Developer-ID-sign + notarize each when secrets exist, else ad-hoc.
+  Notarization itself still **account-blocked** (§B); the DMG build matrix is the unblocked part.
+- [P2] **Telemetry** (feedback 11). Wave 1 ships only the local event capture + the consent gate; the
+  network sink waits for a privacy policy + endpoint. Opt-in, anonymous, no titles/app-names without
+  explicit extra consent — non-negotiable for an app with full Accessibility access.
+- [P3] **Zone/tile editor clarity** (feedback 6). The zone-vs-tile mental model isn't conveyed
+  anywhere; needs a visual editor that *shows* "a zone is a named region; tiles are its slots." Own
+  design pass — not a bolt-on.
+
 ## 3. Standing decisions (context for the backlog)
 
 - **Spaces = REAL, not virtual** (2026-06-19). The cosmetic virtual-spaces model was removed; the

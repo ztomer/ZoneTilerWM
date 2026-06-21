@@ -129,31 +129,52 @@ if [ "$UNIVERSAL" = "1" ]; then
   done
 fi
 
-# --- zip (public/mas) or just report (dev) ----------------------------------------------------------
-if [ "$ZIP" = "1" ]; then
-  echo "==> Staging + zipping"
+# --- stage, then emit zip and/or dmg ----------------------------------------------------------------
+# ZT_DMG=1 also builds a drag-to-Applications .dmg (the friendly hand-off format; works for any
+# variant). Unsigned/ad-hoc builds are still Gatekeeper-quarantined on another Mac — the INSTALL note
+# spells out the one-time right-click->Open / xattr step, since we have no Apple notarization (§B).
+DMG="${ZT_DMG:-0}"
+DMGF="$OUT/ZoneTilerWM-$VERSION-$VARIANT.dmg"
+if [ "$ZIP" = "1" ] || [ "$DMG" = "1" ]; then
+  echo "==> Staging"
   rm -rf "$STAGE"; mkdir -p "$STAGE" "$OUT"
   ditto "$APP" "$STAGE/ZoneTilerWM.app"
   {
     echo "ZoneTilerWM $VERSION ($VARIANT build)"
     echo "Menu-bar tiling window manager for macOS 13+. No Dock icon."
     echo
-    echo "Install: unzip, drag ZoneTilerWM.app to /Applications, then (not notarized):"
-    echo "    xattr -dr com.apple.quarantine /Applications/ZoneTilerWM.app"
-    echo "Launch it, grant Accessibility (System Settings -> Privacy & Security -> Accessibility)."
+    echo "Install: drag ZoneTilerWM.app onto the Applications folder."
+    echo
+    echo "First launch (this build is NOT notarized, so Gatekeeper blocks a plain double-click):"
+    echo "  - Right-click ZoneTilerWM.app -> Open -> Open  (only needed the first time), OR"
+    echo "  - run once:  xattr -dr com.apple.quarantine /Applications/ZoneTilerWM.app"
+    echo
+    echo "Then launch it and follow the welcome window to grant Accessibility"
+    echo "(System Settings -> Privacy & Security -> Accessibility). Window tiling enables itself the"
+    echo "moment the toggle flips — no relaunch needed."
     if [ "$VARIANT" = "public" ]; then
       echo
       echo "Experimental real macOS Spaces (private APIs) are compiled in but OFF by default —"
       echo "enable with [ui] experimental_real_spaces = true in ~/.config/ZoneTilerWM/config.toml."
     fi
   } > "$STAGE/INSTALL.txt"
+fi
+if [ "$ZIP" = "1" ]; then
+  echo "==> Zipping"
   rm -f "$ZIPF"
   ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$ZIPF"
+fi
+if [ "$DMG" = "1" ]; then
+  echo "==> Building DMG (hdiutil)"
+  ln -sfn /Applications "$STAGE/Applications"   # drag-to-install target (added after the zip)
+  rm -f "$DMGF"
+  hdiutil create -volname "ZoneTilerWM $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DMGF" >/dev/null
 fi
 
 echo "==> Done ($VARIANT)"
 echo "    app: $APP"
 [ "$ZIP" = "1" ] && echo "    zip: $ZIPF"
+[ "$DMG" = "1" ] && echo "    dmg: $DMGF"
 if [ "$VARIANT" = "mas" ]; then
   echo
   echo "NOTE: this is a verified MAS-CLEAN build, but a real App Store SUBMISSION still needs an Apple"

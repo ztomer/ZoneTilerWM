@@ -468,9 +468,34 @@ extension AgentController {
         else { log("zt-agent: render \(which) failed") }
     }
 
-    /// First run: if Accessibility isn't granted yet, guide the user through it (window moves
-    /// need it). No-op when already trusted.
-    func showOnboardingIfNeeded() {
-        onboarding.showIfNeeded { log("zt-agent: Accessibility granted — window moves enabled") }
+    /// First launch: present the getting-started tutorial once (in EVERY build — dev included), and,
+    /// whenever Accessibility isn't granted yet, the permission guide. Deferred onto the main run loop
+    /// because doing it synchronously during bootstrap (before `NSApp.run()`) left a fresh launch of
+    /// this `.accessory` menubar app with no visible window — the bug a first-time user hit: "nothing
+    /// at all" (the dev never sees it; the dev machine is already trusted). `force` (QA / the
+    /// `ZT_FORCE_ONBOARDING` env) shows both regardless of trust + the first-run sentinel.
+    func showFirstRunIfNeeded(force: Bool = false) {
+        let force = force || ProcessInfo.processInfo.environment["ZT_FORCE_ONBOARDING"] != nil
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            // Tutorial first so the (more urgent) permission guide lands on top.
+            if force || !self.firstRunDone {
+                if self.tutorial == nil { self.tutorial = TutorialWindowController() }
+                self.tutorial?.show()
+                self.markFirstRunDone()
+            }
+            self.onboarding.showIfNeeded(force: force) {
+                log("zt-agent: Accessibility granted — window moves enabled")
+            }
+        }
     }
+
+    /// One-time first-run marker, a file beside the live config so it survives rebuilds and is
+    /// consistent whether launched as the `.app` or from the command line (UserDefaults' domain is
+    /// not, for a bundle-less CLI launch).
+    private var firstRunSentinelURL: URL {
+        configURL.deletingLastPathComponent().appendingPathComponent(".first_run_done")
+    }
+    private var firstRunDone: Bool { FileManager.default.fileExists(atPath: firstRunSentinelURL.path) }
+    private func markFirstRunDone() { try? Data().write(to: firstRunSentinelURL) }
 }

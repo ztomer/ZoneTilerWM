@@ -60,9 +60,11 @@ public final class AccessibilityOnboardingController {
     private var window: NSWindow?
     public init() {}
 
-    /// Show only if not already trusted. `onGranted` fires once the permission lands.
-    public func showIfNeeded(onGranted: @escaping () -> Void = {}) {
-        guard !AXWindowSystem.isTrusted() else { return }
+    /// Show only if not already trusted (or `force` for QA — the dev machine is always trusted, so
+    /// this otherwise-invisible path can only be exercised by forcing it). `onGranted` fires once the
+    /// permission lands.
+    public func showIfNeeded(force: Bool = false, onGranted: @escaping () -> Void = {}) {
+        guard force || !AXWindowSystem.isTrusted() else { return }
         if let window { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
         let hosting = NSHostingController(rootView: AccessibilityOnboardingView(onGranted: { [weak self] in
             onGranted()

@@ -389,13 +389,14 @@ controller.setupZoneHUD()          // modifier-held zone cheat-sheet (gated by [
 controller.setupDragSnap()         // drag-to-snap mouse monitor (gated by [drag_snap] enabled)
 controller.setupFocusFollowsMouse()  // focus-follows-mouse (gated by [focus_follows_mouse] enabled)
 controller.setupEventStream()        // arrangement event stream (gated by [events] enabled)
-controller.showOnboardingIfNeeded()
+controller.showFirstRunIfNeeded()
 // Debug aid: open a window on launch for screenshot/QA (the status-item menu isn't AX-drivable).
 switch ProcessInfo.processInfo.environment["ZT_OPEN_WINDOW"] {
 case "analytics": DispatchQueue.main.async { controller.openAnalytics() }
 case "settings":  DispatchQueue.main.async { controller.openSettings() }
 case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
+case "onboarding": DispatchQueue.main.async { controller.onboarding.showIfNeeded(force: true) }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "dragsnap":  DispatchQueue.main.async { controller.dragSnapForQA() }

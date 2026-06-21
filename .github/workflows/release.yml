@@ -1,7 +1,10 @@
 name: Release
 
-# On a v* tag: build the Release .app, zip it, and attach it to a GitHub Release. Self-hosted
-# macOS runner.
+# On a v* tag (or manual dispatch): build the THREE distribution-channel DMGs via the package_*.sh
+# scripts and attach them to a GitHub Release / upload them as artifacts. Self-hosted macOS runner.
+#   -mas     Apple-Store-compatible: private APIs OFF, nm-verified MAS-clean
+#   -dev     development: Debug, arm64, private APIs ON
+#   -public  public DMG (non-App-Store / direct download): universal, private APIs compiled but OFF by default
 #
 # Signing is automatic based on secrets: with none set the build is ad-hoc (users right-click →
 # Open). Set these repo secrets to produce a Developer ID-signed + notarized build instead:
@@ -62,54 +65,60 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
 
-      - name: Build Release .app
+      - name: Build the three channel DMGs
+        env:
+          DEVELOPER_ID_IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
         run: |
           export PATH="/opt/homebrew/bin:$PATH"
-          xcodegen generate
-          if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
-            # Developer ID + hardened runtime (required for notarization).
-            xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
-              -configuration Release -derivedDataPath build/dd \
-              MARKETING_VERSION="${{ steps.ver.outputs.version }}" \
-              CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="${{ secrets.DEVELOPER_ID_IDENTITY }}" \
-              CODE_SIGNING_REQUIRED=YES ENABLE_HARDENED_RUNTIME=YES OTHER_CODE_SIGN_FLAGS="--timestamp" \
-              build
-          else
-            xcodebuild -project ZoneTilerWM.xcodeproj -scheme ZoneTilerWM \
-              -configuration Release -derivedDataPath build/dd \
-              MARKETING_VERSION="${{ steps.ver.outputs.version }}" build
-          fi
+          # Developer ID-sign when secrets exist; otherwise FORCE ad-hoc ("-"). The explicit "-" matters
+          # on this SELF-HOSTED runner: the package scripts default to the local "ZoneTilerWM Dev"
+          # identity, which lives in this Mac's keychain but is invalid on anyone else's — exactly the
+          # cert that made a hand-off build unopenable. Ad-hoc is the correct unsigned default.
+          if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then SIGN_ID="$DEVELOPER_ID_IDENTITY"; else SIGN_ID="-"; fi
+          # Tests already ran in the Test step → ZT_SKIP_TESTS=1 so the three builds don't repeat them.
+          export ZT_VERSION="${{ steps.ver.outputs.version }}" ZT_DMG=1 ZT_SKIP_TESTS=1 ZT_SIGN_ID="$SIGN_ID"
+          ./package_mas.sh       # Apple-Store-compatible: private APIs OFF, MAS-clean (nm-verified)
+          ./package_public.sh    # public DMG: universal, private APIs compiled but OFF by default
+          ./package_dev.sh       # development: Debug, arm64, private APIs ON
+          mkdir -p dist
+          cp /tmp/ZoneTilerWM/mas/dist/*.dmg \
+             /tmp/ZoneTilerWM/public/dist/*.dmg \
+             /tmp/ZoneTilerWM/dev/dist/*.dmg dist/
+          ls -lh dist
 
-      - name: Notarize + staple
+      - name: Notarize + staple the DMGs
         if: steps.sign.outputs.signed == 'true'
         env:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
           AC_API_KEY_P8: ${{ secrets.AC_API_KEY_P8 }}             # base64 of the App Store Connect .p8
         run: |
-          APP="build/dd/Build/Products/Release/ZoneTilerWM.app"
           echo "$AC_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/ac_key.p8"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
-            --key "$RUNNER_TEMP/ac_key.p8" --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" --wait
-          xcrun stapler staple "$APP"
+          for dmg in dist/*.dmg; do
+            echo "==> notarize $dmg"
+            xcrun notarytool submit "$dmg" \
+              --key "$RUNNER_TEMP/ac_key.p8" --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" --wait
+            xcrun stapler staple "$dmg"
+          done
 
-      - name: Package ZoneTilerWM.zip
-        run: |
-          APP="build/dd/Build/Products/Release/ZoneTilerWM.app"
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "ZoneTilerWM-${{ steps.ver.outputs.version }}.zip"
+      - name: Upload DMG artifacts          # available on every run, incl. manual dispatch (no tag)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZoneTilerWM-dmgs-${{ steps.ver.outputs.version }}
+          path: dist/*.dmg
+          if-no-files-found: error
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release         # tag pushes only
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ steps.sign.outputs.signed }}" = "true" ]; then
-            NOTES="Developer ID signed + notarized. Download, unzip, and move ZoneTilerWM.app to /Applications; on first launch grant Accessibility in System Settings → Privacy & Security → Accessibility."
+            NOTES="Developer ID signed + notarized. Three DMGs: -public (direct download / non-App-Store), -mas (App-Store-clean build), -dev (debug). Move ZoneTilerWM.app to /Applications; on first launch grant Accessibility in System Settings → Privacy & Security → Accessibility."
           else
-            NOTES="Ad-hoc signed build. On first launch: right-click the app → Open (unsigned-app Gatekeeper prompt), then grant Accessibility in System Settings → Privacy & Security → Accessibility."
+            NOTES="Ad-hoc (unsigned) builds. Three DMGs: -public (direct download / non-App-Store), -mas (App-Store-clean), -dev (debug). First launch needs a one-time Gatekeeper unblock: right-click the app → Open, or 'xattr -dr com.apple.quarantine /Applications/ZoneTilerWM.app'. Then grant Accessibility in System Settings → Privacy & Security → Accessibility."
           fi
-          gh release create "${{ github.ref_name }}" \
-            "ZoneTilerWM-${{ steps.ver.outputs.version }}.zip" \
+          gh release create "${{ github.ref_name }}" dist/*.dmg \
             --title "ZoneTilerWM ${{ steps.ver.outputs.version }}" \
             --generate-notes \
             --notes "$NOTES"
