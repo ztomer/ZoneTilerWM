@@ -40,7 +40,7 @@ final class OverlayBorderRenderer: BorderRenderer {
         let br = NSRect(x: pad - style.inset, y: pad - style.inset,
                         width: frame.w + 2 * style.inset, height: frame.h + 2 * style.inset)
         view.update(borderRect: br, color: borderNSColor(style.color),
-                    width: CGFloat(style.width), radius: CGFloat(style.cornerRadius))
+                    width: CGFloat(style.width), radius: CGFloat(style.cornerRadius), lineStyle: style.lineStyle)
         if window == nil { w.contentView = view; window = w }
         w.orderFront(nil)
     }
@@ -66,19 +66,68 @@ final class BorderShapeView: NSView {
     private var color: NSColor = .systemBlue
     private var width: CGFloat = 4
     private var radius: CGFloat = 9
+    private var lineStyle: BorderLineStyle = .solid
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
         guard width > 0, borderRect.width > 1, borderRect.height > 1 else { return }
         let stroke = borderRect.insetBy(dx: width / 2, dy: width / 2)   // center the stroke on the edge
-        let path = NSBezierPath(roundedRect: stroke, xRadius: radius, yRadius: radius)
+        switch lineStyle {
+        case .solid:
+            strokeRounded(stroke, dash: nil)
+        case .dashed:
+            strokeRounded(stroke, dash: [width * 2.6, width * 1.8])
+        case .dotted:
+            strokeRounded(stroke, dash: [0.1, width * 1.9], round: true)   // round caps + ~0 dash = dots
+        case .hazard:
+            // Two interleaved dashes — accent then black — give caution/hazard banding around the ring.
+            strokeRounded(stroke, dash: [width * 2.0, width * 2.0])
+            strokeRounded(stroke, dash: [width * 2.0, width * 2.0], phase: width * 2.0, color: .black)
+        case .wavy:
+            let p = Self.wavyPath(in: stroke, amplitude: width * 0.7, wavelength: max(width * 5, 14))
+            p.lineWidth = width; p.lineJoinStyle = .round; color.setStroke(); p.stroke()
+        }
+    }
+
+    private func strokeRounded(_ rect: NSRect, dash: [CGFloat]?, phase: CGFloat = 0, round: Bool = false, color: NSColor? = nil) {
+        let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
         path.lineWidth = width
-        color.setStroke()
+        if round { path.lineCapStyle = .round }
+        if let dash { path.setLineDash(dash, count: dash.count, phase: phase) }
+        (color ?? self.color).setStroke()
         path.stroke()
     }
 
-    func update(borderRect: NSRect, color: NSColor, width: CGFloat, radius: CGFloat) {
-        self.borderRect = borderRect; self.color = color; self.width = width; self.radius = radius
+    /// A closed wavy outline: trace the rect's 4 edges, offsetting each sample perpendicular (outward)
+    /// by a sine of the distance travelled, so the border ripples. Corners are sharp (kept simple).
+    static func wavyPath(in r: NSRect, amplitude a: CGFloat, wavelength wl: CGFloat) -> NSBezierPath {
+        let path = NSBezierPath()
+        // (corner, unit direction along edge, outward normal) for top→right→bottom→left, clockwise in
+        // this flipped (y-down) view. Outward normal points away from the rect interior.
+        let edges: [(start: CGPoint, dir: CGVector, normal: CGVector, len: CGFloat)] = [
+            (CGPoint(x: r.minX, y: r.minY), CGVector(dx: 1, dy: 0),  CGVector(dx: 0, dy: -1), r.width),  // top
+            (CGPoint(x: r.maxX, y: r.minY), CGVector(dx: 0, dy: 1),  CGVector(dx: 1, dy: 0),  r.height), // right
+            (CGPoint(x: r.maxX, y: r.maxY), CGVector(dx: -1, dy: 0), CGVector(dx: 0, dy: 1),  r.width),  // bottom
+            (CGPoint(x: r.minX, y: r.maxY), CGVector(dx: 0, dy: -1), CGVector(dx: -1, dy: 0), r.height), // left
+        ]
+        var first = true
+        for e in edges {
+            let steps = max(2, Int((e.len / wl) * 8))
+            for i in 0...steps {
+                let t = CGFloat(i) / CGFloat(steps)
+                let along = t * e.len
+                let off = a * sin((along / wl) * 2 * .pi)
+                let pt = CGPoint(x: e.start.x + e.dir.dx * along + e.normal.dx * off,
+                                 y: e.start.y + e.dir.dy * along + e.normal.dy * off)
+                if first { path.move(to: pt); first = false } else { path.line(to: pt) }
+            }
+        }
+        path.close()
+        return path
+    }
+
+    func update(borderRect: NSRect, color: NSColor, width: CGFloat, radius: CGFloat, lineStyle: BorderLineStyle) {
+        self.borderRect = borderRect; self.color = color; self.width = width; self.radius = radius; self.lineStyle = lineStyle
         needsDisplay = true
     }
 }
@@ -93,6 +142,7 @@ public final class FocusBorderController {
     private var predictor = FrameMotionPredictor()
     private var style = BorderStyle()
     private var backend: BorderBackend = .overlay
+    private var renderedBackend: BorderBackend?   // the backend the current renderer actually is
     private var enabled = false
     private var prediction = true
 
@@ -123,9 +173,11 @@ public final class FocusBorderController {
         self.style = style
         self.prediction = prediction
         predictor.lead = prediction ? leadSeconds : 0   // smoothing always on; lead is the toggle
-        let backendChanged = backend != self.backend || renderer == nil
         self.backend = backend
-        if backendChanged { swapRenderer() }
+        // A non-solid pattern needs the overlay renderer's custom draw, so route styled borders there
+        // regardless of the configured backend (SkyLight stays for the plain solid border).
+        let eff: BorderBackend = style.lineStyle == .solid ? backend : .overlay
+        if eff != renderedBackend || renderer == nil { renderedBackend = eff; swapRenderer(eff) }
         if enabled != self.enabled {
             self.enabled = enabled
             enabled ? start() : stop()
@@ -135,9 +187,9 @@ public final class FocusBorderController {
         }
     }
 
-    private func swapRenderer() {
+    private func swapRenderer(_ b: BorderBackend) {
         renderer?.render(frame: nil, style: style)
-        switch backend {
+        switch b {
         case .overlay:
             renderer = OverlayBorderRenderer()
         case .skylight:
@@ -154,7 +206,7 @@ public final class FocusBorderController {
 
     private func start() {
         stop()
-        if renderer == nil { swapRenderer() }
+        if renderer == nil { swapRenderer(renderedBackend ?? backend) }
         predictor.reset(); lastTick = 0
         retargetObserver()
         // Re-target the observer when the user switches apps.

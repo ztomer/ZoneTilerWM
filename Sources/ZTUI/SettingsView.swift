@@ -94,6 +94,7 @@ public final class SettingsModel: ObservableObject {
     public func setBordersEnabled(_ on: Bool) { setOrAppend(section: "borders", key: "enabled", rawValue: on ? "true" : "false") }
     public func setBordersBackend(_ b: String) { setOrAppend(section: "borders", key: "backend", rawValue: "\"\(b)\"") }
     public func setBordersColor(_ name: String) { setOrAppend(section: "borders", key: "color", rawValue: "\"\(name)\"") }
+    public func setBorderStyle(_ s: String) { setOrAppend(section: "borders", key: "style", rawValue: "\"\(s)\"") }
     public func setBordersWidth(_ v: Int) { setOrAppend(section: "borders", key: "width", rawValue: "\(v)") }
     public func setBordersCornerRadius(_ v: Int) { setOrAppend(section: "borders", key: "corner_radius", rawValue: "\(v)") }
     public func setBordersPrediction(_ on: Bool) { setOrAppend(section: "borders", key: "prediction", rawValue: on ? "true" : "false") }

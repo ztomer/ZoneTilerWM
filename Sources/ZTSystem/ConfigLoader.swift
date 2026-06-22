@@ -31,6 +31,7 @@ public enum ConfigLoader {
         public var width: Double
         public var cornerRadius: Double
         public var prediction: Bool      // motion prediction to compensate follow-lag
+        public var style: String         // "solid" | "dashed" | "dotted" | "wavy" | "hazard"
     }
 
     public struct LoadedConfig: Equatable {
@@ -207,6 +208,7 @@ public enum ConfigLoader {
         var width: Int?            // integer px (TOMLKit is strict Int-vs-Double)
         var corner_radius: Int?
         var prediction: Bool?
+        var style: String?
     }
 
     private struct RawConfig: Decodable {
@@ -391,7 +393,8 @@ public enum ConfigLoader {
                 color: raw.borders?.color ?? "accent",   // the app's functional accent (#FF6B00)
                 width: Double(raw.borders?.width ?? 4),
                 cornerRadius: Double(raw.borders?.corner_radius ?? 9),
-                prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
+                prediction: raw.borders?.prediction ?? false,   // default off: raw 1:1 tracking
+                style: raw.borders?.style ?? "solid"),
             automationEnabled: raw.automation?.enabled ?? true,  // on by default; the local socket is low-risk
             commandPaletteEnabled: raw.command_palette?.enabled ?? false,  // opt-in
             zoneHUDEnabled: raw.zone_hud?.enabled ?? true,                 // on by default (v2.8): the interactive picker

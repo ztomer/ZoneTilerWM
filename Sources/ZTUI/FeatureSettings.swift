@@ -72,6 +72,7 @@ struct BordersSettings: View {
                   + "Motion prediction leads the outline to compensate for follow-lag.") {
             if model.config.borders.enabled {
                 ColorSwatchRow(label: "Color", selected: model.config.borders.color) { model.setBordersColor($0) }
+                BorderStyleRow(selected: model.config.borders.style) { model.setBorderStyle($0) }
                 SliderRow(label: "Width", value: Binding(
                     get: { Int(model.config.borders.width.rounded()) },
                     set: { model.setBordersWidth($0) }), range: 1...12, suffix: "px")

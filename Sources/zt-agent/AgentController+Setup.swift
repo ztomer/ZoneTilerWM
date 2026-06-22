@@ -19,7 +19,7 @@ extension AgentController {
         focusBorder.apply(
             enabled: b.enabled || forced,
             backend: BorderBackend(rawValue: backendName) ?? .overlay,
-            style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0),
+            style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0, lineStyle: BorderLineStyle(rawValue: b.style) ?? .solid),
             prediction: b.prediction)
     }
 
@@ -30,7 +30,7 @@ extension AgentController {
         let b = config.borders
         let backendName = ProcessInfo.processInfo.environment["ZT_BORDERS_BACKEND"] ?? b.backend
         focusBorder.apply(enabled: on, backend: BorderBackend(rawValue: backendName) ?? .overlay,
-                          style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0),
+                          style: BorderStyle(color: b.color, width: b.width, cornerRadius: b.cornerRadius, inset: 0, lineStyle: BorderLineStyle(rawValue: b.style) ?? .solid),
                           prediction: b.prediction)
         log("zt-agent: focus border \(on ? "on" : "off") (runtime)")
     }

@@ -352,6 +352,7 @@ shortcut_callback = "SoundSourceSwitcherEx"
 [borders]
 enabled = false              # off by default — opt-in
 color = "accent"             # accent (the app's #FF6B00) / green/red/blue/yellow/orange/purple/white/black/gray
+style = "solid"              # solid / dashed / dotted / wavy / hazard
 width = 4                    # stroke width, px
 corner_radius = 9            # px
 backend = "overlay"          # "overlay" (default, public API) | "skylight" (experimental, private — last resort)

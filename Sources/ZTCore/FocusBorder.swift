@@ -12,14 +12,23 @@
 
 /// Visual style of the border. `color` is a config color *name* (resolved to a concrete color
 /// at the system boundary), matching the Pomodoro color set.
+/// The stroke pattern for the focus border. Drawn by the overlay renderer (the controller routes a
+/// non-solid style to the overlay backend, which has full custom-draw control).
+public enum BorderLineStyle: String, Equatable, CaseIterable {
+    case solid, dashed, dotted, wavy, hazard
+}
+
 public struct BorderStyle: Equatable {
     public var color: String          // config color name (e.g. "blue")
     public var width: Double          // stroke width, points
     public var cornerRadius: Double   // corner radius, points
     public var inset: Double          // how far inside the window frame to draw (points)
+    public var lineStyle: BorderLineStyle   // solid / dashed / dotted / wavy / hazard
 
-    public init(color: String = "blue", width: Double = 4, cornerRadius: Double = 9, inset: Double = 0) {
+    public init(color: String = "blue", width: Double = 4, cornerRadius: Double = 9, inset: Double = 0,
+                lineStyle: BorderLineStyle = .solid) {
         self.color = color; self.width = width; self.cornerRadius = cornerRadius; self.inset = inset
+        self.lineStyle = lineStyle
     }
 }
 
