@@ -12,6 +12,8 @@ struct LayoutEditorView: View {
     @ObservedObject var model: SettingsModel
     /// The default-zone-per-app section moves to the Tiles → Advanced tab; hide it here so it isn't shown twice.
     var showDefaultZones = true
+    /// Zone HUD + drag-to-snap render here (they belong with zones, not in Advanced).
+    var showInteractive = false
     @State private var grid: String = ""
     @State private var zone: String = ""
     @State private var tiles: [String] = []        // editable copy of the zone's cycle list
@@ -51,6 +53,7 @@ struct LayoutEditorView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
+                if showInteractive { zoneHUDCard; dragSnapCard }   // HUD + drag-snap belong WITH zones
                 if showDefaultZones { SectionCard(title: "Default zone per app") { DefaultZonesSection(model: model) } }
                 if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
             }
@@ -58,6 +61,31 @@ struct LayoutEditorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear { if grid.isEmpty { grid = model.monitors.first?.effective ?? gridNames.first ?? ""; syncZone() } }
+    }
+
+    // The zone picker (HUD) + drag-to-snap — interactive zone features (not "advanced"). The preview
+    // shows even when the toggle is off, so you can see what you'd get.
+    private var zoneHUDCard: some View {
+        SectionCard(title: "Zone picker (HUD)") {
+            Toggle("Show the zone picker while you hold the modifier", isOn: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled))
+                .toggleStyle(.switch)
+            ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "to show each zone's key, then tap one.")
+            HStack { Spacer(); ZoneHUDPreview(); Spacer() }.padding(.top, 2)
+            if model.config.zoneHUDEnabled {
+                Stepper("Hold delay: \(model.config.zoneHUDHoldDelayMs) ms", value: Binding(
+                    get: { model.config.zoneHUDHoldDelayMs }, set: { model.setZoneHUDHoldDelay($0) }),
+                    in: 120...2000, step: 20).frame(maxWidth: 280)
+            }
+        }
+    }
+
+    private var dragSnapCard: some View {
+        SectionCard(title: "Drag-to-snap") {
+            Toggle("Drag a window with the modifier held to snap it", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled))
+                .toggleStyle(.switch)
+            ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
+            HStack { Spacer(); DragSnapPreview(); Spacer() }.padding(.top, 2)
+        }
     }
 
     private var monitorsSection: some View {

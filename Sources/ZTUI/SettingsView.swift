@@ -412,6 +412,7 @@ public struct SettingsView: View {
         .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: GeneralTab.searchKeywords),
         .init(id: "tiles",      title: "Tiles",          icon: "square.grid.3x3",               keywords: TilesTab.searchKeywords),
         .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: PreviewsTab.searchKeywords),
+        .init(id: "spaces",     title: "Spaces",         icon: "rectangle.split.3x1",           keywords: SpacesTab.searchKeywords),
         .init(id: "dockpreviews", title: "Dock Previews", icon: "macwindow.on.rectangle",        keywords: DockPreviewsTab.searchKeywords),
         .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
         .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: IOTab.searchKeywords),
@@ -475,6 +476,7 @@ struct SettingsGroupDetail: View {
         switch id {
         case "tiles":      TilesTab(model: model)
         case "previews":   PreviewsTab(model: model)
+        case "spaces":     SpacesTab(model: model)
         case "dockpreviews": DockPreviewsTab(model: model)
         case "keys":       KeybindEditorView(model: model)
         case "io":         IOTab(model: model)

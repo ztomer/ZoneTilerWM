@@ -32,9 +32,11 @@ public final class SettingsWindowController {
         w.standardWindowButton(.miniaturizeButton)?.isHidden = true
         w.standardWindowButton(.zoomButton)?.isHidden = true
         let maxH = (NSScreen.main?.visibleFrame.height ?? 1000) - 40
-        w.setContentSize(NSSize(width: 960, height: min(960, maxH)))   // fits the tallest tab
-        w.contentMinSize = NSSize(width: 960, height: 360)
-        w.contentMaxSize = NSSize(width: 1400, height: maxH)
+        // Tall default — this is a complex program, so give the dense panes vertical room (up to
+        // 1400) to cut scrolling. Width stays modest.
+        w.setContentSize(NSSize(width: 1000, height: min(1400, maxH)))
+        w.contentMinSize = NSSize(width: 980, height: 360)
+        w.contentMaxSize = NSSize(width: 1280, height: maxH)
         w.isReleasedWhenClosed = false
         w.center()
         window = w

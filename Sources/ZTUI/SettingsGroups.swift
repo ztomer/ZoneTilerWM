@@ -25,6 +25,42 @@ private func splitList(_ s: String) -> [String] {
 /// Resolved tiling-modifier glyphs (e.g. "⌃⌘") for "hold X" trigger hints.
 func tilingGlyphs(_ model: SettingsModel) -> String { ModGlyph.string(model.config.tilerModifier) }
 
+/// Renders a shortcut as visual key caps (kbd-style boxes) — so the UI SHOWS the shortcut instead of
+/// describing it in prose. `tokens` are resolved modifier tokens (ctrl/cmd/…); `key` is an optional
+/// trailing key.
+struct KeyCaps: View {
+    let tokens: [String]
+    var key: String? = nil
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(ModGlyph.order.filter(tokens.contains), id: \.self) { cap(ModGlyph.glyph[$0] ?? $0) }
+            if let key, !key.isEmpty { cap(key.uppercased()) }
+        }
+    }
+    private func cap(_ s: String) -> some View {
+        Text(s).font(.system(size: 12, weight: .semibold, design: .rounded))
+            .frame(minWidth: 18, minHeight: 20).padding(.horizontal, 4)
+            .background(RoundedRectangle(cornerRadius: 5).fill(Color.secondary.opacity(0.18)))
+            .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.secondary.opacity(0.30), lineWidth: 0.5))
+    }
+}
+
+/// One line that SHOWS a shortcut: leading text · key caps · trailing text.
+struct ShortcutLine: View {
+    let lead: String
+    let tokens: [String]
+    var key: String? = nil
+    let trail: String
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(lead).font(.caption).foregroundColor(.secondary)
+            KeyCaps(tokens: tokens, key: key)
+            Text(trail).font(.caption).foregroundColor(.secondary)
+            Spacer()
+        }
+    }
+}
+
 /// A Form section whose enable toggle lives IN the header (instead of a row that just restates the
 /// title), with the explanation as a footer rather than a header-duplicating caption. Extra controls
 /// go in `content` and are typically only built when `isOn`.
@@ -93,6 +129,30 @@ struct PreviewsTab: View {
                 }
             }
 
+        }
+        .formStyle(.grouped)
+    }
+}
+
+/// Spaces — its own pane (was buried in "Exposé & Hints"): the menu-bar Spaces widget + how the app
+/// switches Spaces.
+struct SpacesTab: View {
+    static let searchKeywords: [String] = ["spaces", "switching spaces", "switching method", "auto", "keyboard shortcuts", "trackpad gesture", "gesture", "mission control", "show spaces in the menu bar", "menu bar", "menubar", "bracket style", "use real macos spaces", "real spaces", "desktops", "virtual desktops"]
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            Section("Show Spaces (menu bar + Exposé)") {
+                Toggle("Show in the menu bar", isOn: Binding(
+                    get: { model.spacesMenubarEnabled }, set: { model.setSpacesMenubar($0) }))
+                if model.spacesMenubarEnabled {
+                    MenubarBracketPicker(model: model)
+                }
+                Toggle("Use real macOS Spaces (experimental)", isOn: Binding(
+                    get: { model.realSpacesEnabled }, set: { model.setRealSpaces($0) }))
+                Text("Either way the menu bar + Exposé list ALL your Spaces, grouped per monitor, and highlight the current one live — OFF uses NO private API (it reads the layout from a public preferences file and tracks the current Space with a tiny 1×1 marker window per Space; no onboarding). A monitor with 3+ Spaces may briefly mis-highlight until you've visited each once. What ON adds via the private API: a guaranteed-exact current highlight, per-Space wallpapers, and native full-screen Spaces. Switching Spaces needs neither.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+
             Section("Switching Spaces") {
                 Picker("Switching method", selection: Binding(
                     get: { model.spaceSwitchMethodChoice },
@@ -106,18 +166,6 @@ struct PreviewsTab: View {
                 Button("Open Mission Control Shortcuts…") {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!)
                 }
-            }
-
-            Section("Show Spaces (menu bar + Exposé)") {
-                Toggle("Show Spaces in the menu bar", isOn: Binding(
-                    get: { model.spacesMenubarEnabled }, set: { model.setSpacesMenubar($0) }))
-                if model.spacesMenubarEnabled {
-                    MenubarBracketPicker(model: model)
-                }
-                Toggle("Use real macOS Spaces (experimental)", isOn: Binding(
-                    get: { model.realSpacesEnabled }, set: { model.setRealSpaces($0) }))
-                Text("Either way the menu bar + Exposé list ALL your Spaces, grouped per monitor, and highlight the current one live — OFF uses NO private API (it reads the layout from a public preferences file and tracks the current Space with a tiny 1×1 marker window per Space; no onboarding). A monitor with 3+ Spaces may briefly mis-highlight until you've visited each once. What ON adds via the private API: a guaranteed-exact current highlight, per-Space wallpapers, and native full-screen Spaces. Switching Spaces needs neither.")
-                    .font(.caption).foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -158,16 +206,40 @@ struct GeneralTab: View {
 
 // MARK: - Tiling
 
-struct TilingTab: View {
-    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["zones", "auto-tile", "autotile", "auto-tiling mode", "usage", "session", "placement strategy", "rotate", "largest free space", "hybrid", "working-set capacity", "working-set staleness", "working set", "auto-tile center zones", "center zones", "zone hud", "hud", "hold delay", "drag-to-snap", "drag", "snap", "move to next monitor", "move to previous monitor", "focus next screen", "focus previous screen", "resize mode", "auto-tile screen", "zen mode", "session sandbox", "toggle float", "float", "stack focus next", "stack focus previous", "stacks"]
+/// Tiles → Hotkeys: the tiling + focus/navigation hotkeys (their own tab, per feedback — they're not
+/// "advanced").
+struct TilesHotkeysTab: View {
+    static let searchKeywords: [String] = ["move to next monitor", "move to previous monitor", "focus next screen", "focus previous screen", "resize mode", "auto-tile screen", "zen mode", "session sandbox", "toggle float", "float", "stack focus next", "stack focus previous", "stacks", "hotkeys", "shortcuts"]
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            Section("Tiling Hotkeys") {
+                HotkeyRowView(model: model, label: "Move to next monitor", section: "tiler.hotkeys", key: "placement_mode")
+                HotkeyRowView(model: model, label: "Move to previous monitor", section: "tiler.hotkeys", key: "zone_info")
+                HotkeyRowView(model: model, label: "Focus next screen", section: "tiler.hotkeys", key: "focus_next_screen")
+                HotkeyRowView(model: model, label: "Focus previous screen", section: "tiler.hotkeys", key: "focus_prev_screen")
+                HotkeyRowView(model: model, label: "Resize mode", section: "tiler.hotkeys", key: "resize_mode")
+                HotkeyRowView(model: model, label: "Auto-tile screen", section: "tiler.hotkeys", key: "auto_tile_screen")
+            }
+            Section("Focus & Navigation Hotkeys") {
+                HotkeyRowView(model: model, label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode")
+                HotkeyRowView(model: model, label: "Session sandbox", section: "system_hotkeys", key: "sandbox")
+                HotkeyRowView(model: model, label: "Toggle float", section: "tiler.hotkeys", key: "float")
+                HotkeyRowView(model: model, label: "Stack: focus next", section: "tiler.hotkeys", key: "stack_next")
+                HotkeyRowView(model: model, label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev")
+            }
+            if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+/// Tiles → Advanced: tiling internals + the per-app default zone.
+struct TilesAdvancedTab: View {
+    static let searchKeywords: [String] = ["placement strategy", "rotate", "largest free space", "hybrid", "auto-tiling mode", "usage", "session", "working-set capacity", "working-set staleness", "working set", "auto-tile center zones", "center zones", "default zone per app", "per app"]
     @ObservedObject var model: SettingsModel
     @State private var centerZonesEdit = ""
-
-    private func commitCenterZones() {
-        model.setCenterZones(splitList(centerZonesEdit))
-    }
-
+    private func commitCenterZones() { model.setCenterZones(splitList(centerZonesEdit)) }
     var body: some View {
         Form {
             Section("Tiling") {
@@ -198,47 +270,11 @@ struct TilingTab: View {
                     }
                 }
             }
-
-            let mods = tilingGlyphs(model)
-            ToggleSection("Zone HUD", isOn: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled),
-                          footer: "Hold \(mods) to show each zone's key on screen. Self-silences for quick chords.") {
-                HStack { Spacer(); ZoneHUDPreview(); Spacer() }.padding(.vertical, 8)
-                if model.config.zoneHUDEnabled {
-                    NumberRow(label: "Hold delay", value: Binding(
-                        get: { model.config.zoneHUDHoldDelayMs },
-                        set: { model.setZoneHUDHoldDelay($0) }), range: 120...2000, step: 20, suffix: "ms")
-                }
-            }
-
-            ToggleSection("Drag-to-snap", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled),
-                          footer: "Hold \(mods) while dragging a window; dropping it snaps to the zone under the cursor.") {
-                HStack { Spacer(); DragSnapPreview(); Spacer() }.padding(.vertical, 8)
-            }
-
-            Section("Tiling Hotkeys") {
-                HotkeyRowView(model: model, label: "Move to next monitor", section: "tiler.hotkeys", key: "placement_mode")
-                HotkeyRowView(model: model, label: "Move to previous monitor", section: "tiler.hotkeys", key: "zone_info")
-                HotkeyRowView(model: model, label: "Focus next screen", section: "tiler.hotkeys", key: "focus_next_screen")
-                HotkeyRowView(model: model, label: "Focus previous screen", section: "tiler.hotkeys", key: "focus_prev_screen")
-                HotkeyRowView(model: model, label: "Resize mode", section: "tiler.hotkeys", key: "resize_mode")
-                HotkeyRowView(model: model, label: "Auto-tile screen", section: "tiler.hotkeys", key: "auto_tile_screen")
-            }
-
-            Section("Focus & Navigation Hotkeys") {
-                HotkeyRowView(model: model, label: "Zen mode", section: "tiler.hotkeys", key: "zen_mode")
-                HotkeyRowView(model: model, label: "Session sandbox", section: "system_hotkeys", key: "sandbox")
-                HotkeyRowView(model: model, label: "Toggle float", section: "tiler.hotkeys", key: "float")
-                HotkeyRowView(model: model, label: "Stack: focus next", section: "tiler.hotkeys", key: "stack_next")
-                HotkeyRowView(model: model, label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev")
-            }
-
-            // The advanced per-app default zone (moved here from the old Layouts tab during the merge).
             Section("Default zone per app") {
                 Text("When an app first opens, auto-tile sends it to this zone if it has no learned position yet.")
                     .font(.caption).foregroundColor(.secondary)
                 DefaultZonesSection(model: model)
             }
-
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
         .formStyle(.grouped)
@@ -246,27 +282,31 @@ struct TilingTab: View {
     }
 }
 
-/// The merged "Tiles" pane (feedback: Tiling + Layouts are one feature). A segmented control splits the
-/// visual zone editor (Zones) from the advanced tiling internals + per-app defaults (Advanced).
+/// The "Tiles" pane (feedback: Tiling + Layouts are one feature). Three segments: the visual zone
+/// editor + zone HUD + drag-to-snap (Zones), the tiling hotkeys (Hotkeys), and the tiling internals +
+/// per-app defaults (Advanced).
 struct TilesTab: View {
-    static let searchKeywords: [String] = TilingTab.searchKeywords + LayoutEditorView.searchKeywords
+    static let searchKeywords: [String] = LayoutEditorView.searchKeywords
+        + ["zone hud", "hud", "hold delay", "drag-to-snap", "drag", "snap"]
+        + TilesHotkeysTab.searchKeywords + TilesAdvancedTab.searchKeywords
     @ObservedObject var model: SettingsModel
-    // QA: ZT_TILES_SEG=1 opens the Advanced segment directly (for headless screenshot review).
-    @State private var section = ProcessInfo.processInfo.environment["ZT_TILES_SEG"] == "1" ? 1 : 0
+    // QA: ZT_TILES_SEG=N opens segment N directly (0 Zones / 1 Hotkeys / 2 Advanced).
+    @State private var section = Int(ProcessInfo.processInfo.environment["ZT_TILES_SEG"] ?? "0") ?? 0
 
     var body: some View {
         VStack(spacing: 0) {
             Picker("", selection: $section) {
                 Text("Zones").tag(0)
-                Text("Advanced").tag(1)
+                Text("Hotkeys").tag(1)
+                Text("Advanced").tag(2)
             }
             .pickerStyle(.segmented).labelsHidden()
-            .frame(maxWidth: 280).padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 4)
+            .frame(maxWidth: 340).padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 4)
 
-            if section == 0 {
-                LayoutEditorView(model: model, showDefaultZones: false)   // visual zone/grid editor
-            } else {
-                TilingTab(model: model)                                   // tiling internals + per-app defaults
+            switch section {
+            case 1:  TilesHotkeysTab(model: model)
+            case 2:  TilesAdvancedTab(model: model)
+            default: LayoutEditorView(model: model, showDefaultZones: false, showInteractive: true)
             }
         }
     }

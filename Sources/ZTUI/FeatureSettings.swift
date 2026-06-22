@@ -201,7 +201,7 @@ struct DefaultZonesSection: View {
                     TextField("zone", text: Binding(
                         get: { zoneEdits[app] ?? model.config.windowMemory.appZones[app] ?? "" },
                         set: { zoneEdits[app] = $0 }))
-                        .textFieldStyle(.roundedBorder).frame(width: 60).multilineTextAlignment(.center)
+                        .textFieldStyle(.roundedBorder).frame(width: 80).multilineTextAlignment(.center).lineLimit(1)
                         .focused($focusedApp, equals: app)
                         .onSubmit { commit(app) }
                     Button { model.removeAppZone(app: app) } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
@@ -213,7 +213,7 @@ struct DefaultZonesSection: View {
             }
             HStack {
                 TextField("app name", text: $newApp).textFieldStyle(.roundedBorder).frame(maxWidth: 240)
-                TextField("zone", text: $newZone).textFieldStyle(.roundedBorder).frame(width: 60).multilineTextAlignment(.center)
+                TextField("zone", text: $newZone).textFieldStyle(.roundedBorder).frame(width: 80).multilineTextAlignment(.center).lineLimit(1)
                 Button("Add") {
                     let a = newApp.trimmingCharacters(in: .whitespaces), z = newZone.trimmingCharacters(in: .whitespaces)
                     guard !a.isEmpty, !z.isEmpty else { return }

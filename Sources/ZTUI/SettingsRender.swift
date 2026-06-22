@@ -11,7 +11,7 @@ public enum SettingsRender {
     /// Render a named settings tab to PNG at `width`. SwiftUI Form/List only lay out inside a real
     /// hosting window, so we host the tab in an OFF-SCREEN window, spin the runloop to let SwiftUI
     /// render, size to fit, then cacheDisplay to a bitmap (ImageRenderer renders Forms blank).
-    public static func png(model: SettingsModel, tab: String, width: CGFloat = 720) -> Data? {
+    public static func png(model: SettingsModel, tab: String, width: CGFloat = 1000) -> Data? {
         let host = NSHostingView(rootView: AnyView(tabView(tab, model).frame(width: width)))
         host.frame = NSRect(x: 0, y: 0, width: width, height: 2200)
         let win = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
