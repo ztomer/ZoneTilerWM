@@ -37,8 +37,11 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [x] **F2** The preview should show the **dock in its current position** with **two windows** for the app.
   Mock reads `DockObserver().dockEdge()` (0-AX) and orients the strip + popup accordingly.
 - [x] **F3** App name is redundant — replace it with the **window name**; traffic lights stay (functional).
-- [~] **F4** Verify hover previews actually trigger live ("not sure it works at all"). *Reviewing the
-  controller; needs a live hover test.*
+  Fixed in BOTH the settings mock AND the live `DockPreviewView` (dropped the app-name header row).
+- [x] **F4** Verify hover previews actually trigger live. Live-tested the signed app: the Dock AX read
+  returns 22 tiles, edge=right is detected correctly, and the panel renders anchored to the right-edge
+  Dock with a real captured window thumbnail. (Root cause of "doesn't work": default-off + the agent
+  wasn't running.) Capture + positioning + overlay all confirmed working.
 
 ## G. Zones editor
 - [x] **G1** "Grid" + "Edit grid" both shown but Edit-grid doesn't actually edit the grid — clarified.

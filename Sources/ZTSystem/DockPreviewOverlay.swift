@@ -110,7 +110,7 @@ public final class DockPreviewOverlay {
             let img = CGWindowListCreateImage(.null, .optionIncludingWindow, w.id, [.boundsIgnoreFraming])
             return WinThumb(id: w.id, pid: w.pid, title: w.title, frame: w.frame, image: img)
         }
-        let content = DockPreviewView(appName: appName, thumbs: thumbs, thumbWidth: thumbWidth,
+        let content = DockPreviewView(thumbs: thumbs, thumbWidth: thumbWidth,
                                       onAction: { [weak self] pid, frame, action in
             onAction(pid, frame, action); self?.hide()
         })
@@ -151,24 +151,24 @@ public final class DockPreviewOverlay {
     }
 }
 
-/// The panel's content: a dark frosted card with the app name + a row of window thumbnails. Dark by
+/// The panel's content: a dark frosted card with a row of window thumbnails, each labeled with its
+/// WINDOW title (the Dock icon already names the app, so no redundant app-name header — F3). Dark by
 /// design so it reads over ANY wallpaper (the validate-light-and-dark rule); click a thumbnail to
 /// raise that window.
 final class DockPreviewView: NSView {
-    private let appName: String
     private let thumbs: [DockPreviewOverlay.WinThumb]
     private let thumbW: CGFloat
     private let onAction: (pid_t, CGRect, DockWindowAction) -> Void
     private struct Hit { let rect: NSRect; let pid: pid_t; let frame: CGRect; let action: DockWindowAction }
     private var hits: [Hit] = []
 
-    private let pad: CGFloat = 14, titleH: CGFloat = 22, gap: CGFloat = 10, labelH: CGFloat = 16
+    private let pad: CGFloat = 14, gap: CGFloat = 10, labelH: CGFloat = 16
     private let dotR: CGFloat = 5.5   // traffic-light radius
     private var thumbH: CGFloat { (thumbW * 0.6).rounded() }   // uniform 5:3 cells
 
-    init(appName: String, thumbs: [DockPreviewOverlay.WinThumb], thumbWidth: CGFloat,
+    init(thumbs: [DockPreviewOverlay.WinThumb], thumbWidth: CGFloat,
          onAction: @escaping (pid_t, CGRect, DockWindowAction) -> Void) {
-        self.appName = appName; self.thumbs = thumbs; self.thumbW = thumbWidth; self.onAction = onAction
+        self.thumbs = thumbs; self.thumbW = thumbWidth; self.onAction = onAction
         super.init(frame: .zero)
     }
     required init?(coder: NSCoder) { nil }
@@ -177,7 +177,7 @@ final class DockPreviewView: NSView {
     func intrinsicSize() -> NSSize {
         let n = CGFloat(max(1, thumbs.count))
         return NSSize(width: pad * 2 + n * thumbW + (n - 1) * gap,
-                      height: pad * 2 + titleH + thumbH + labelH)
+                      height: pad * 2 + thumbH + labelH)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -186,14 +186,10 @@ final class DockPreviewView: NSView {
         NSColor.black.withAlphaComponent(0.82).setFill(); card.fill()
         NSColor.white.withAlphaComponent(0.10).setStroke(); card.lineWidth = 1; card.stroke()
 
-        (appName as NSString).draw(at: NSPoint(x: pad, y: pad - 2), withAttributes: [
-            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.92)])
-
         hits.removeAll()
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
         var x = pad
-        let top = pad + titleH
+        let top = pad
         for t in thumbs {
             let cell = NSRect(x: x, y: top, width: thumbW, height: thumbH)
             NSColor.white.withAlphaComponent(0.06).setFill()
