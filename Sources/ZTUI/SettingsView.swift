@@ -120,6 +120,8 @@ public final class SettingsModel: ObservableObject {
     public func setZoneHUDHoldDelay(_ ms: Int) { setOrAppend(section: "zone_hud", key: "hold_delay_ms", rawValue: "\(ms)") }
     public func setDragSnapEnabled(_ on: Bool) { setOrAppend(section: "drag_snap", key: "enabled", rawValue: on ? "true" : "false") }
     public func setTelemetryEnabled(_ on: Bool) { setOrAppend(section: "telemetry", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setDockPreviewsEnabled(_ on: Bool) { setOrAppend(section: "dock_previews", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setDockPreviewWidth(_ px: Int) { setOrAppend(section: "dock_previews", key: "width", rawValue: "\(px)") }
     public func setBreakScreenEnabled(_ on: Bool) { setOrAppend(section: "break_screen", key: "enabled", rawValue: on ? "true" : "false") }
     public func setBreakScreenDuration(_ s: Int) { setOrAppend(section: "break_screen", key: "duration_sec", rawValue: "\(s)") }
     public func setScratchpadApps(_ apps: [String]) { setOrAppend(section: "scratchpad", key: "apps", rawValue: tomlArray(apps)) }
@@ -410,6 +412,7 @@ public struct SettingsView: View {
         .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3",               keywords: TilingTab.searchKeywords),
         .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group",             keywords: LayoutEditorView.searchKeywords),
         .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: PreviewsTab.searchKeywords),
+        .init(id: "dockpreviews", title: "Dock Previews", icon: "macwindow.on.rectangle",        keywords: DockPreviewsTab.searchKeywords),
         .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
         .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: IOTab.searchKeywords),
         .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
@@ -473,6 +476,7 @@ struct SettingsGroupDetail: View {
         case "tiling":     TilingTab(model: model)
         case "layouts":    LayoutEditorView(model: model)
         case "previews":   PreviewsTab(model: model)
+        case "dockpreviews": DockPreviewsTab(model: model)
         case "keys":       KeybindEditorView(model: model)
         case "io":         IOTab(model: model)
         case "apps":       AppLauncherTab(model: model)
