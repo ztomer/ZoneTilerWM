@@ -91,7 +91,8 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
   just-opened and pane-selected states.
 
 ## M. Dock previews — selection feedback
-- [ ] **M1** On hover, **highlight both the actual on-screen window border AND the matching preview
-  thumbnail**, so the user can see which window they're about to select and that the preview is
-  reacting live to the hover. (Live affordance: tie the thumbnail hover/selection state to a real
-  window-border highlight on screen.)
+- [x] **M1** On hover, **highlight both the actual on-screen window border AND the matching preview
+  thumbnail**. Done: `DockPreviewView` tracks per-thumbnail hover (NSTrackingArea) → rings the hovered
+  thumbnail in accent and drives a click-through `WindowHighlightOverlay` (accent outline) around the
+  real window at that thumbnail's frame. Verified live — the overlay window sits at the exact hovered
+  window bounds (confirmed via window-server query) and the thumbnail ring renders.

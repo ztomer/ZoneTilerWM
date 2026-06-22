@@ -106,10 +106,12 @@ final class DockPreviewController {
         refreshDock(force: true)
         log("dock-preview QA: \(items.count) tiles, edge=\(edge)")
         for item in items {
-            let n = DockPreviewOverlay.windows(forApp: item.appName).count
-            if n > 0 {
-                log("dock-preview QA: showing '\(item.appName)' (\(n) windows) at tile \(item.frame)")
-                present(item); return
+            let wins = DockPreviewOverlay.windows(forApp: item.appName)
+            if let first = wins.first {
+                log("dock-preview QA: showing '\(item.appName)' (\(wins.count) windows) at tile \(item.frame); highlight frame=\(first.frame)")
+                present(item)
+                overlay.forceHoverForQA(0)   // M1: also render the hover highlight + ring for the shot
+                return
             }
         }
         log("dock-preview QA: no Dock app had capturable on-screen windows")

@@ -60,6 +60,49 @@ public enum DockWindowActions {
     }
 }
 
+/// A click-through accent outline drawn AROUND a real on-screen window — shown while the cursor hovers
+/// that window's thumbnail in the Dock preview, so the user sees which window they're about to act on
+/// and that the preview is reacting live (M1). Borderless, non-activating, ignores mouse events.
+final class WindowHighlightOverlay {
+    private var window: NSPanel?
+
+    /// Outline `cgFrame` (top-left CG, as CGWindowList reports). Reuses the window across hovers.
+    func show(cgFrame: CGRect) {
+        let ns = CoordConvert.nsFrame(fromCG: ZTRect(x: cgFrame.minX, y: cgFrame.minY,
+                                                     w: cgFrame.width, h: cgFrame.height))
+        let w = window ?? makeWindow()
+        w.setFrame(ns, display: true)
+        w.contentView?.needsDisplay = true
+        w.orderFrontRegardless()
+        window = w
+    }
+    func hide() { window?.orderOut(nil) }
+
+    private func makeWindow() -> NSPanel {
+        let p = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: false)
+        p.isFloatingPanel = true
+        p.level = .floating
+        p.backgroundColor = .clear
+        p.isOpaque = false
+        p.hasShadow = false
+        p.ignoresMouseEvents = true
+        p.hidesOnDeactivate = false
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        p.contentView = HighlightView(frame: .zero)
+        return p
+    }
+
+    private final class HighlightView: NSView {
+        override func draw(_ dirtyRect: NSRect) {
+            let r = bounds.insetBy(dx: 2, dy: 2)
+            let path = NSBezierPath(roundedRect: r, xRadius: 9, yRadius: 9)
+            path.lineWidth = 3.5
+            ZTPalette.accent.setStroke(); path.stroke()
+        }
+    }
+}
+
 public final class DockPreviewOverlay {
 
     /// One capturable window of the hovered app.
@@ -72,7 +115,13 @@ public final class DockPreviewOverlay {
     }
 
     private var panel: NSPanel?
+    private weak var contentView: DockPreviewView?     // for QA force-hover
+    private let highlight = WindowHighlightOverlay()    // M1: outlines the hovered window on screen
     public init() {}
+
+    /// QA: force-hover thumbnail `i` so the on-screen highlight + ring render for a screenshot without
+    /// a real mouse move (mirrors forceShowForQA in the controller).
+    public func forceHoverForQA(_ i: Int) { contentView?.forceHover(i) }
 
     /// On-screen, normal-layer windows owned by `appName`, front-to-back (0 AX, current Space only).
     /// Resolves the app's PID from its (Dock-title) display name and filters CGWindowList by OWNER PID
@@ -113,6 +162,9 @@ public final class DockPreviewOverlay {
         let content = DockPreviewView(thumbs: thumbs, thumbWidth: thumbWidth,
                                       onAction: { [weak self] pid, frame, action in
             onAction(pid, frame, action); self?.hide()
+        }, onHover: { [weak self] cgFrame in
+            // M1: mirror the hovered thumbnail onto the real window with an accent outline.
+            if let cgFrame { self?.highlight.show(cgFrame: cgFrame) } else { self?.highlight.hide() }
         })
         let size = content.intrinsicSize()
         let origin = DockPreview.panelOrigin(item: item, size: (w: Double(size.width), h: Double(size.height)),
@@ -128,6 +180,7 @@ public final class DockPreviewOverlay {
         p.contentView = content
         p.orderFrontRegardless()
         panel = p
+        contentView = content
         panelFrame = frame
     }
 
@@ -135,7 +188,7 @@ public final class DockPreviewOverlay {
     /// when hidden.
     public private(set) var panelFrame: NSRect?
 
-    public func hide() { panel?.orderOut(nil); panelFrame = nil }
+    public func hide() { panel?.orderOut(nil); panelFrame = nil; highlight.hide() }
 
     private func makePanel() -> NSPanel {
         let p = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
@@ -159,20 +212,31 @@ final class DockPreviewView: NSView {
     private let thumbs: [DockPreviewOverlay.WinThumb]
     private let thumbW: CGFloat
     private let onAction: (pid_t, CGRect, DockWindowAction) -> Void
+    private let onHover: (CGRect?) -> Void              // M1: hovered window frame (nil = none)
     private struct Hit { let rect: NSRect; let pid: pid_t; let frame: CGRect; let action: DockWindowAction }
     private var hits: [Hit] = []
+    private var cells: [(rect: NSRect, frame: CGRect)] = []   // thumbnail cell rects, for hover hit-test
+    private var hoveredIndex: Int?
 
     private let pad: CGFloat = 14, gap: CGFloat = 10, labelH: CGFloat = 16
     private let dotR: CGFloat = 5.5   // traffic-light radius
     private var thumbH: CGFloat { (thumbW * 0.6).rounded() }   // uniform 5:3 cells
 
     init(thumbs: [DockPreviewOverlay.WinThumb], thumbWidth: CGFloat,
-         onAction: @escaping (pid_t, CGRect, DockWindowAction) -> Void) {
-        self.thumbs = thumbs; self.thumbW = thumbWidth; self.onAction = onAction
+         onAction: @escaping (pid_t, CGRect, DockWindowAction) -> Void,
+         onHover: @escaping (CGRect?) -> Void) {
+        self.thumbs = thumbs; self.thumbW = thumbWidth; self.onAction = onAction; self.onHover = onHover
         super.init(frame: .zero)
     }
     required init?(coder: NSCoder) { nil }
     override var isFlipped: Bool { true }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways], owner: self, userInfo: nil))
+    }
 
     func intrinsicSize() -> NSSize {
         let n = CGFloat(max(1, thumbs.count))
@@ -186,17 +250,20 @@ final class DockPreviewView: NSView {
         NSColor.black.withAlphaComponent(0.82).setFill(); card.fill()
         NSColor.white.withAlphaComponent(0.10).setStroke(); card.lineWidth = 1; card.stroke()
 
-        hits.removeAll()
+        hits.removeAll(); cells.removeAll()
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
         var x = pad
         let top = pad
-        for t in thumbs {
+        for (idx, t) in thumbs.enumerated() {
             let cell = NSRect(x: x, y: top, width: thumbW, height: thumbH)
+            cells.append((cell, t.frame))
             NSColor.white.withAlphaComponent(0.06).setFill()
             NSBezierPath(roundedRect: cell, xRadius: 8, yRadius: 8).fill()
             if let img = t.image { drawUpright(img, in: aspectFit(CGSize(width: img.width, height: img.height), in: cell.insetBy(dx: 4, dy: 4))) }
-            NSColor.white.withAlphaComponent(0.12).setStroke()
-            let border = NSBezierPath(roundedRect: cell, xRadius: 8, yRadius: 8); border.lineWidth = 1; border.stroke()
+            // M1: the hovered thumbnail rings in accent, matching the on-screen window outline.
+            let hovered = hoveredIndex == idx
+            (hovered ? ZTPalette.accent : NSColor.white.withAlphaComponent(0.12)).setStroke()
+            let border = NSBezierPath(roundedRect: cell, xRadius: 8, yRadius: 8); border.lineWidth = hovered ? 2.5 : 1; border.stroke()
             (t.title as NSString).draw(in: NSRect(x: x, y: top + thumbH, width: thumbW, height: labelH), withAttributes: [
                 .font: NSFont.systemFont(ofSize: 10),
                 .foregroundColor: NSColor.white.withAlphaComponent(0.6), .paragraphStyle: trunc])
@@ -221,6 +288,25 @@ final class DockPreviewView: NSView {
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         if let hit = hits.first(where: { $0.rect.contains(p) }) { onAction(hit.pid, hit.frame, hit.action) }
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let idx = cells.firstIndex { $0.rect.contains(p) }
+        guard idx != hoveredIndex else { return }
+        hoveredIndex = idx
+        onHover(idx.map { cells[$0].frame })
+        needsDisplay = true
+    }
+    override func mouseExited(with event: NSEvent) {
+        guard hoveredIndex != nil else { return }
+        hoveredIndex = nil; onHover(nil); needsDisplay = true
+    }
+
+    /// QA: force-hover thumbnail `i` (no real mouse move) so the highlight + ring render for a shot.
+    func forceHover(_ i: Int) {
+        guard i < thumbs.count else { return }
+        hoveredIndex = i; onHover(thumbs[i].frame); needsDisplay = true
     }
 
     /// Fit `imageSize` inside `box` preserving aspect, centred.
