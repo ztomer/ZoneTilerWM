@@ -382,6 +382,10 @@ prediction = true            # lead the outline to compensate for follow-lag
 # enabled = true             # placement (so auto-tile remembers). Opt-in; AX-free (reuses the window
 #                            # poll). Off by default.
 #
+# [dock_previews]            # hover a Dock icon → a panel of that app's window thumbnails (click to
+# enabled = true             # raise). Works at any Dock position incl. auto-hidden. Opt-in, off by
+# width = 240                # default. `width` = per-window thumbnail width in points (120–420).
+#
 # [sync]                     # file-based settings sync across machines (no network/entitlements)
 # folder = "~/Library/Mobile Documents/com~apple~CloudDocs"   # a folder you already sync (iCloud/
 #                            # Dropbox/…). Then: `zonetiler-cli sync-export` / `sync-import`.

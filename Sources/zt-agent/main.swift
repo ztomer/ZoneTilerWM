@@ -143,6 +143,7 @@ final class AgentController: NSObject {
     var ffm: FocusFollowsMouseController!           // gated by [focus_follows_mouse] enabled
     var eventStream: EventStreamController!         // gated by [events] enabled
     var manualMoveRelearn: ManualMoveRelearnController!  // gated by [relearn_on_move] enabled (feedback 7b)
+    var dockPreview: DockPreviewController!               // gated by [dock_previews] enabled (Wave 4)
     // Config-derived state — rebuilt in place by applyConfig() on a live reload.
     var coordinator: TilerCoordinator
     var autoTilerConfig: AutoTiler.Config
@@ -415,6 +416,7 @@ case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "onboarding": DispatchQueue.main.async { controller.onboarding.showIfNeeded(force: true) }
 case "wizard":    DispatchQueue.main.async { controller.openWizard() }
+case "dockpreview": DispatchQueue.main.async { controller.dockPreview.forceShowForQA() }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "applauncher": DispatchQueue.main.async { controller.appLauncherHUD.forceShowForQA() }

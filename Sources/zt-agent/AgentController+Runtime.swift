@@ -210,6 +210,8 @@ extension AgentController {
         reconcileFocusFollowsMouse()  // start/stop focus-follows-mouse if [focus_follows_mouse] changed
         reconcileEventStream()        // start/stop the arrangement event stream if [events] changed
         manualMoveRelearn?.enabled = newConfig.relearnOnMoveEnabled  // feedback 7b: opt-in manual-drag re-learn
+        dockPreview?.thumbWidth = CGFloat(newConfig.dockPreviewWidth)
+        dockPreview?.enabled = newConfig.dockPreviewsEnabled         // Wave 4: opt-in Dock hover previews
         coordinator.seedFocusTimes(now: Int(Date().timeIntervalSince1970))
         refreshPomodoro()
     }

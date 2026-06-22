@@ -206,6 +206,9 @@ extension AgentController {
         manualMoveRelearn = ManualMoveRelearnController(
             coordinator: coordinator, enumerate: { [weak self] in self?.enumerateLiveWindows() ?? [] })
         manualMoveRelearn.enabled = config.relearnOnMoveEnabled
+        dockPreview = DockPreviewController()
+        dockPreview.thumbWidth = CGFloat(config.dockPreviewWidth)
+        dockPreview.enabled = config.dockPreviewsEnabled   // gated default-off; installs a passive mouse monitor
         focusTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.coordinator.noteFocusedWindow(now: Int(Date().timeIntervalSince1970))

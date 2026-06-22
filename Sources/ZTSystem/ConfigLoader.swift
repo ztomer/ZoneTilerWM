@@ -80,6 +80,8 @@ public enum ConfigLoader {
         public var dragSnapEnabled: Bool                   // [drag_snap] enabled (opt-in, default off; EDR-sensitive)
         public var telemetryEnabled: Bool                  // [telemetry] enabled — opt-in local usage log to /tmp (default off)
         public var relearnOnMoveEnabled: Bool              // [relearn_on_move] enabled — re-learn a window's zone after a manual drag (opt-in, default off; feedback 7b)
+        public var dockPreviewsEnabled: Bool               // [dock_previews] enabled — hover a Dock icon → window thumbnails (opt-in, default off; AX-budget gated)
+        public var dockPreviewWidth: Int                   // [dock_previews] width — per-window thumbnail width in points (customizable size)
         public var syncFolder: String?                     // [sync] folder — a synced dir for export/import (nil = off)
         public var breakScreenEnabled: Bool                // [break_screen] enabled (opt-in, default off)
         public var breakScreenDurationSec: Int             // how long the break overlay stays up
@@ -226,6 +228,7 @@ public enum ConfigLoader {
         var drag_snap: RawDragSnap?
         var telemetry: RawTelemetry?
         var relearn_on_move: RawRelearnOnMove?
+        var dock_previews: RawDockPreviews?
         var sync: RawSync?
         var break_screen: RawBreakScreen?
         var scratchpad: RawScratchpad?
@@ -255,6 +258,7 @@ public enum ConfigLoader {
     private struct RawDragSnap: Decodable { var enabled: Bool? }
     private struct RawTelemetry: Decodable { var enabled: Bool? }
     private struct RawRelearnOnMove: Decodable { var enabled: Bool? }
+    private struct RawDockPreviews: Decodable { var enabled: Bool?; var width: Int? }
     private struct RawSync: Decodable { var folder: String? }
     private struct RawBreakScreen: Decodable { var enabled: Bool?; var duration_sec: Int? }
     private struct RawScratchpad: Decodable { var apps: [String]?; var auto_dismiss: Bool? }
@@ -396,6 +400,8 @@ public enum ConfigLoader {
             dragSnapEnabled: raw.drag_snap?.enabled ?? false,              // opt-in; installs a passive mouse monitor
             telemetryEnabled: raw.telemetry?.enabled ?? false,             // opt-in local usage log (feedback 11)
             relearnOnMoveEnabled: raw.relearn_on_move?.enabled ?? false,   // opt-in manual-drag zone re-learn (feedback 7b)
+            dockPreviewsEnabled: raw.dock_previews?.enabled ?? false,      // opt-in Dock hover previews (Wave 4)
+            dockPreviewWidth: max(120, min(420, raw.dock_previews?.width ?? 240)),  // per-window thumb width (clamped)
             syncFolder: raw.sync?.folder.flatMap { $0.isEmpty ? nil : $0 },  // nil/empty = sync disabled
             breakScreenEnabled: raw.break_screen?.enabled ?? false,         // opt-in
             breakScreenDurationSec: raw.break_screen?.duration_sec ?? 6,
