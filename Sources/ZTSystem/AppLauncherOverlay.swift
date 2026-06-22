@@ -126,6 +126,13 @@ private final class AppLauncherView: NSView {
 
     static let cellW = 122.0, cellH = 80.0, pad = 28.0, inset = 6.0   // wider → fits long app names
     static let panelCorner: CGFloat = 24
+    // One-time, thread-safe — don't reconstruct fonts/paragraph style every draw (the CoreText race
+    // the live KeycapLabel was fixed for; cheaper too).
+    private static let keyFont = NSFont.monospacedSystemFont(ofSize: 23, weight: .bold)
+    private static let appFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+    private static let trunc: NSParagraphStyle = {
+        let p = NSMutableParagraphStyle(); p.lineBreakMode = .byTruncatingTail; p.alignment = .center; return p
+    }()
 
     static func panelSize(for caps: [AppLauncherHUD.Cap]) -> NSSize {
         guard !caps.isEmpty else { return .zero }
@@ -151,9 +158,7 @@ private final class AppLauncherView: NSView {
         }
 
         let gx = ox + pad, gy = oy + pad
-        let keyFont = NSFont.monospacedSystemFont(ofSize: 23, weight: .bold)
-        let appFont = NSFont.systemFont(ofSize: 12, weight: .medium)
-        let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
+        let keyFont = Self.keyFont, appFont = Self.appFont, trunc = Self.trunc
         for cap in caps {
             let x = gx + (cap.col - minCol) * cellW, y = gy + Double(cap.row - minRow) * cellH
             let r = NSRect(x: x + inset, y: y + inset, width: cellW - inset * 2, height: cellH - inset * 2)

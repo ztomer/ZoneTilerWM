@@ -13,7 +13,7 @@ struct DockPreviewsTab: View {
 
     var body: some View {
         Form {
-            ToggleSection("Dock hover previews", isOn: Binding(
+            ToggleSection("Hover previews", isOn: Binding(
                 get: { model.config.dockPreviewsEnabled }, set: { model.setDockPreviewsEnabled($0) }),
                 footer: "Hover a Dock icon to see live thumbnails of that app's windows. Click a thumbnail "
                     + "to bring that window forward, or use its traffic-light buttons to close, minimize, or "

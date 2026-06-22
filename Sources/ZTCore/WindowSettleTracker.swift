@@ -44,7 +44,7 @@ public struct WindowSettleTracker {
     public mutating func observe(_ windows: [Observation]) -> [Int] {
         var settled: [Int] = []
         let present = Set(windows.map { $0.id })
-        for id in tracks.keys where !present.contains(id) { tracks[id] = nil }   // forget vanished
+        tracks = tracks.filter { present.contains($0.key) }   // forget vanished windows
 
         for w in windows {
             guard var t = tracks[w.id] else {
