@@ -263,6 +263,28 @@ overlay goes native macOS 26 Liquid Glass via ONE shared template (`LiquidGlass.
   anywhere; needs a visual editor that *shows* "a zone is a named region; tiles are its slots." Own
   design pass — not a bolt-on.
 
+**Wave 4 — window previews (NEW 2026-06-21, user request):**
+- [P2] **HUD legibility on light desktops** (field bug). The overlay keycaps — dark frosted-glass
+  background + **amber/yellow lettering** — wash out over a white/light desktop (the glass is
+  translucent, so a bright wallpaper bleeds through and the yellow-on-pale-glass loses contrast). Fix:
+  give caps a contrast-guaranteeing treatment independent of the desktop behind them (a darker/denser
+  cap fill or a vibrancy-aware label colour + subtle text shadow), so they read on any background.
+  Validate via the render harness over BOTH a dark and a white backdrop (`ZT_RENDER_BG`) + Gemini.
+- [P2] **App previews on hover — DockDoor-style** (Windows-11-inspired). Hovering a Dock icon (or a
+  HUD/Exposé target) pops a live thumbnail of that app's window(s), click-to-raise. New **"Previews"
+  settings sidebar entry**. Requirements locked with the user:
+  - **All four Dock positions** — left, right, bottom, AND auto-hidden (must resolve the Dock's edge +
+    hidden state and anchor the panel correctly for each).
+  - **Customizable preview size.**
+  - **License: inspiration only.** Reference is [DockDoor](https://github.com/ejbills/DockDoor) but it
+    is **GPL** — this app is proprietary, so clean-room from behaviour only, **never** copy its code
+    (same discipline as the JankyBorders focus-border reimplementation).
+  - Capture path: reuse the existing window-image approach (Exposé thumbnails) for on-Space windows;
+    off-Space windows can't be captured (proven — §0), so previews are current-Space-only.
+- [P3] **HUD previews where relevant.** Where a HUD targets a specific window (zone picker showing the
+  focused window, app-launcher showing a running app), show a small live thumbnail so the user sees
+  *what* they're about to act on — same capture path as the hover previews above.
+
 ## 3. Standing decisions (context for the backlog)
 
 - **Spaces = REAL, not virtual** (2026-06-19). The cosmetic virtual-spaces model was removed; the
