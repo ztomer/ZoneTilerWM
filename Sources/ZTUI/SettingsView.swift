@@ -480,9 +480,11 @@ public struct SettingsView: View {
                 .navigationTitle("")   // the titlebar hosts the search field, not a duplicate pane name
         }
         .frame(minWidth: 960, idealWidth: 1000, minHeight: 560, idealHeight: 620)
-        // The search field fills the once-empty titlebar. Filters the sidebar as you type; ↵ jumps to
-        // the first match so you can drive it entirely from the keyboard.
-        .searchable(text: $search, placement: .toolbar, prompt: "Search settings")
+        // L1: pin search to the TOP OF THE SIDEBAR (macOS-26 Settings style). A `.toolbar`-placed field
+        // is auto-justified by AppKit and visibly jumps left→right as the detail pane's toolbar changes
+        // between "just opened" and "pane selected"; `.sidebar` placement is stable and frees the
+        // toolbar for the content area. Filters the sidebar as you type; ↵ jumps to the first match.
+        .searchable(text: $search, placement: .sidebar, prompt: "Search settings")
         .onSubmit(of: .search) { if let first = filteredGroups.first { sel = first.id } }
         // Live jump: as the query narrows the sidebar, move the SELECTION (not just the detail) to the
         // top match — so searching a section header like "window grid" or "margins" navigates straight

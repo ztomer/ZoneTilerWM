@@ -85,10 +85,10 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
   grid, Dock previews (alongside the existing HUD / border / drag-snap / palette / window-memory).
 
 ## L. Settings titlebar / search layout
-- [ ] **L1** The titlebar search field **shifts position** between states: on open it's left-aligned, and
-  selecting any sidebar element re-aligns it to the right. Make it stable. Direction: shrink the search
-  field a bit and place it **directly above the sidebar** (macOS 26 Settings style), and use the
-  **toolbar/appbar for the tab + content** area — so the search lives over the sidebar and doesn't jump.
+- [x] **L1** The titlebar search field **shifted position** between states (toolbar auto-justify). Fixed:
+  moved `.searchable` from `.toolbar` to `.sidebar` placement so the field pins to the top of the
+  sidebar column (macOS-26 Settings style) and stops jumping. Verified live — identical position in the
+  just-opened and pane-selected states.
 
 ## M. Dock previews — selection feedback
 - [ ] **M1** On hover, **highlight both the actual on-screen window border AND the matching preview
