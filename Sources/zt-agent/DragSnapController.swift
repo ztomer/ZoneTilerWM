@@ -21,6 +21,8 @@ final class DragSnapController {
     private var dragMonitor: Any?
     private var upMonitor: Any?
     private var dragging = false
+    private var downLocation: NSPoint?   // press point, to detect a drag by distance (the .dragged
+                                         // global event is unreliable during a window-server move)
 
     init(screens: NSScreenProvider, monitorManager: MonitorManager,
          zoneConfig: @escaping () -> ZoneConfig,
@@ -41,6 +43,7 @@ final class DragSnapController {
         // later unrelated up (with the modifier coincidentally held) can't trigger a phantom snap.
         downMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
             self?.dragging = false
+            self?.downLocation = NSEvent.mouseLocation
         }
         dragMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { [weak self] _ in
             self?.dragging = true
@@ -61,12 +64,23 @@ final class DragSnapController {
     func forceSnap() { performSnap() }
 
     private func mouseUp() {
-        defer { dragging = false }   // always reset, even on the early-returns below
-        guard dragging else { return }
+        let down = downLocation
+        defer { dragging = false; downLocation = nil }   // always reset, even on the early-returns below
+        // Treat it as a drag if EITHER a .dragged event fired OR the cursor moved a meaningful distance
+        // between press and release. The distance check is the reliable one: the window server's
+        // title-bar move loop swallows .leftMouseDragged so `dragging` often stays false for real
+        // window drags (this is why drag-snap "did nothing").
+        let up = NSEvent.mouseLocation
+        let movedFar = down.map { hypot(up.x - $0.x, up.y - $0.y) > 8 } ?? false
+        guard dragging || movedFar else { return }   // a plain click, not a drag
         // Only snap when the tiling modifier is held at drop — never hijack a plain drag.
         let held = NSEvent.modifierFlags.intersection(.tilingRelevant)
         let target = NSEvent.ModifierFlags(aliases: modifier())
-        guard !target.isEmpty, held == target else { return }
+        guard !target.isEmpty else { log("drag-snap: no tiling modifier configured"); return }
+        guard held == target else {
+            log("drag-snap: drop ignored — modifier \(held.rawValue) != required \(target.rawValue) (hold the tiling modifier through the drop)")
+            return
+        }
         performSnap()
     }
 
