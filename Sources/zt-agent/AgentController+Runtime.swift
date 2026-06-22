@@ -410,6 +410,18 @@ extension AgentController {
         tutorial?.show()
     }
 
+    /// The multi-step first-run wizard (welcome → Accessibility → modifier → features → telemetry →
+    /// done). Reuses the live config model so its toggles write straight to config.toml.
+    func openWizard(initialStep: WizardStep = .welcome) {
+        if wizard == nil {
+            wizard = FirstRunWizardController(
+                model: SettingsModel(configURL: configURL, config: config, memory: learnedMemory),
+                openTutorial: { [weak self] in self?.openTutorial() },
+                openSettings: { [weak self] in self?.openSettings() })
+        }
+        wizard?.show(initialStep: initialStep)
+    }
+
     /// QA / debug entry point to show the command palette (the normal trigger is the gated hotkey).
     func showCommandPalette() { commandPalette.show() }
 
@@ -432,7 +444,13 @@ extension AgentController {
     /// Deterministic render of a settings tab to PNG (QA / Gemini grading) via SwiftUI ImageRenderer.
     func renderSettingsPNG(_ tab: String, to path: String) {
         let model = SettingsModel(configURL: configURL, config: config, memory: learnedMemory)
-        let data = MainActor.assumeIsolated { SettingsRender.png(model: model, tab: tab) }
+        // "wizardN" → first-run wizard step N (fixed-size capture); otherwise a settings tab.
+        let data: Data?
+        if tab.hasPrefix("wizard"), let step = Int(tab.dropFirst("wizard".count)) {
+            data = MainActor.assumeIsolated { SettingsRender.wizardPNG(model: model, step: step) }
+        } else {
+            data = MainActor.assumeIsolated { SettingsRender.png(model: model, tab: tab) }
+        }
         if let data, (try? data.write(to: URL(fileURLWithPath: path))) != nil { log("zt-agent: rendered settings '\(tab)' → \(path)") }
         else { log("zt-agent: render settings '\(tab)' failed") }
     }
@@ -502,14 +520,17 @@ extension AgentController {
         let force = force || ProcessInfo.processInfo.environment["ZT_FORCE_ONBOARDING"] != nil
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            // Tutorial first so the (more urgent) permission guide lands on top.
             if force || !self.firstRunDone {
-                if self.tutorial == nil { self.tutorial = TutorialWindowController() }
-                self.tutorial?.show()
+                // First launch (every build, dev included): the full multi-step wizard, which itself
+                // walks the user through the Accessibility grant (feedback 0/2).
+                self.openWizard()
                 self.markFirstRunDone()
-            }
-            self.onboarding.showIfNeeded(force: force) {
-                log("zt-agent: Accessibility granted — window moves enabled")
+            } else if !AXWindowSystem.isTrusted() {
+                // Returning user who has lost/never-granted permission: the lightweight permission guide
+                // (don't re-run the whole wizard just to re-grant).
+                self.onboarding.showIfNeeded {
+                    log("zt-agent: Accessibility granted — window moves enabled")
+                }
             }
         }
     }

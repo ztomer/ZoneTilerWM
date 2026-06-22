@@ -186,6 +186,7 @@ final class AgentController: NSObject {
     var analytics: AnalyticsWindowController?
     var about: AboutWindowController?
     var tutorial: TutorialWindowController?
+    var wizard: FirstRunWizardController?
     let onboarding = AccessibilityOnboardingController()
 
     init(config: ConfigLoader.LoadedConfig, configURL: URL) {
@@ -413,6 +414,7 @@ case "settings":  DispatchQueue.main.async { controller.openSettings() }
 case "about":     DispatchQueue.main.async { controller.openAbout() }
 case "tutorial":  DispatchQueue.main.async { controller.openTutorial() }
 case "onboarding": DispatchQueue.main.async { controller.onboarding.showIfNeeded(force: true) }
+case "wizard":    DispatchQueue.main.async { controller.openWizard() }
 case "palette":   DispatchQueue.main.async { controller.showCommandPalette() }
 case "hud":       DispatchQueue.main.async { controller.showZoneHUDForQA() }
 case "applauncher": DispatchQueue.main.async { controller.appLauncherHUD.forceShowForQA() }

@@ -30,6 +30,25 @@ public enum SettingsRender {
         return rep.representation(using: .png, properties: [:])
     }
 
+    /// Render a single first-run wizard step (the view is fixed-size, so capture its exact bounds
+    /// rather than the Form-growth path png() uses). `step` is 0…5 (welcome…done).
+    public static func wizardPNG(model: SettingsModel, step: Int) -> Data? {
+        let s = WizardStep(rawValue: step) ?? .welcome
+        let view = FirstRunWizardView(model: model, initialStep: s)
+        let host = NSHostingView(rootView: AnyView(view))
+        host.frame = NSRect(x: 0, y: 0, width: WizardStyle.width, height: WizardStyle.height)
+        let win = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        win.contentView = host
+        win.setFrameOrigin(NSPoint(x: -30000, y: 0))
+        win.orderFrontRegardless()
+        host.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        defer { win.orderOut(nil) }
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        return rep.representation(using: .png, properties: [:])
+    }
+
     @ViewBuilder
     private static func tabView(_ tab: String, _ model: SettingsModel) -> some View {
         // "icons" → the custom sidebar-glyph montage (for the Gemini asset-grade loop).
