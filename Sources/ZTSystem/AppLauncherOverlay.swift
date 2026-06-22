@@ -91,7 +91,11 @@ private final class KeycapLabel: NSView {
     override var isFlipped: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
         guard let cap else { return }
-        let amber = NSColor(red: 0.95, green: 0.72, blue: 0.24, alpha: 1.0)
+        // Dark pill backing: guarantees the amber glyph + white app name read over ANY wallpaper. The
+        // glass chip alone goes pale over a light desktop (validated over white) and both labels wash out.
+        let pill = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 13, yRadius: 13)
+        NSColor.black.withAlphaComponent(0.66).setFill(); pill.fill()
+        let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
         let key = cap.key.uppercased() as NSString
         let keyAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 23, weight: .bold), .foregroundColor: amber]

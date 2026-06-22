@@ -168,16 +168,19 @@ private final class ZoneHUDView: NSView {
     }
 }
 
-/// The amber key glyph that sits inside a zone-HUD glass chip.
+/// The amber key glyph that sits inside a zone-HUD glass chip. Draws its OWN dark pill so the cap is
+/// legible over any wallpaper — the glass alone goes pale over a light desktop (NSGlassEffectView
+/// adapts toward the bright background) and the amber glyph washes out (validated over white).
 private final class ZoneKeyLabel: NSView {
     var key: String = "" { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
-        let amber = NSColor(red: 0.95, green: 0.72, blue: 0.24, alpha: 1.0)
+        let pill = NSBezierPath(roundedRect: bounds.insetBy(dx: 2.5, dy: 2.5), xRadius: 10, yRadius: 10)
+        NSColor.black.withAlphaComponent(0.68).setFill(); pill.fill()
+        let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
         let s = key.uppercased() as NSString
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: amber,
-            .shadow: { let sh = NSShadow(); sh.shadowColor = .black; sh.shadowBlurRadius = 2; return sh }()]
+            .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: amber]
         let sz = s.size(withAttributes: attrs)
         s.draw(at: NSPoint(x: bounds.midX - sz.width / 2, y: bounds.midY - sz.height / 2), withAttributes: attrs)
     }
