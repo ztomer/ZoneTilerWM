@@ -50,9 +50,11 @@ public final class AppLauncherOverlay {
             let x = gx + (cap.col - minCol) * cellW + inset
             let y = gy + Double(cap.row - minRow) * cellH + inset
             let label = KeycapLabel(); label.cap = cap
+            // Dark frosted glass, not clear: keep the keycap (amber glyph + white app name) legible over
+            // a light desktop too — a clear chip lets a white wallpaper bleed through and washes both out.
             let chip = LiquidGlass.chip(frame: NSRect(x: x, y: y, width: cellW - inset * 2, height: cellH - inset * 2),
-                                        cornerRadius: 16, tint: NSColor.black.withAlphaComponent(0.12),
-                                        clear: true, content: label)
+                                        cornerRadius: 16, tint: NSColor.black.withAlphaComponent(0.55),
+                                        clear: false, content: label)
             content.addSubview(chip)
         }
         return container

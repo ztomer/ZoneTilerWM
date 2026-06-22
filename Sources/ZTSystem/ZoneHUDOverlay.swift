@@ -74,9 +74,12 @@ public final class ZoneHUDOverlay {
         for cap in caps {
             let lx = cap.x - screenOrigin.x, ly = cap.y - screenOrigin.y
             let label = ZoneKeyLabel(); label.key = cap.key
+            // Dark frosted glass (NOT clear/lensing): a HUD must stay legible over ANY wallpaper, and
+            // a clear chip lets a white desktop bleed through until the amber glyph washes out (field
+            // bug). `.regular` frost + a strong dark tint keeps caps a consistent dark glass everywhere.
             let chip = LiquidGlass.chip(frame: NSRect(x: lx - chipW / 2, y: ly - chipH / 2, width: chipW, height: chipH),
-                                        cornerRadius: 13, tint: NSColor.black.withAlphaComponent(0.14),
-                                        clear: true, content: label)
+                                        cornerRadius: 13, tint: NSColor.black.withAlphaComponent(0.55),
+                                        clear: false, content: label)
             content.addSubview(chip)
         }
         return container
