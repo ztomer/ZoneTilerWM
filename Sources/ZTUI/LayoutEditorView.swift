@@ -80,6 +80,8 @@ struct LayoutEditorView: View {
     private var dragSnapCard: some View {
         SectionCard(title: "Drag-to-snap", toggle: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled)) {
             ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
+            Text("Right-click while dragging to cycle which tile in that zone the window lands in.")
+                .font(.caption).foregroundColor(.secondary)
             HStack { Spacer(); DragSnapPreview(); Spacer() }.padding(.top, 2)
         }
     }

@@ -42,9 +42,11 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [ ] **G1** "Grid" + "Edit grid" both shown but Edit-grid doesn't actually edit the grid — clarify/fix.
 
 ## H. Drag-to-snap correctness
-- [ ] **H1** **Bug:** dragging to a zone snaps to the WRONG zone (drag to `j` → lands in `n`). Fix the
-  drop→zone resolution.
-- [ ] **H2** Let the user **cycle the zone's tiles** during a drag by **right-clicking**.
+- [x] **H1** **Bug:** dragging to a zone snaps to the WRONG zone (drag to `j` → lands in `n`). Fixed:
+  `DragSnap.target` now resolves against the actual per-zone tiles, not the union bounding box (which
+  overlapped neighbours). Regression test added.
+- [x] **H2** Let the user **cycle the zone's tiles** during a drag by **right-clicking** (counts mid-drag
+  with the modifier held; offset 0 = auto-pick, each right-click steps the tile). *Needs live QA.*
 
 ## I. Settings search
 - [ ] **I1** Search should also match **section headers** (e.g. "window grid") and jump to that pane.

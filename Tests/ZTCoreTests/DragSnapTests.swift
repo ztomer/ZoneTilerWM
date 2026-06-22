@@ -43,6 +43,23 @@ final class DragSnapTests: XCTestCase {
         XCTAssertEqual(DragSnap.target(atX: 550, y: 500, zones: zones), "b")  // gap, closer to b
     }
 
+    func testMultiTileZoneResolvesToActualTileNotUnionBBox() {
+        // Regression for "drop on j, land in n": a keyboard-grid zone maps to SEVERAL cycle tiles.
+        // "j" cycles between the top-left and bottom-RIGHT cells, so its UNION bounding box is the
+        // whole screen and overlaps "n". Matching the union bbox would let the smaller "n" bbox win
+        // for a drop squarely inside j's bottom-right tile. Matching the actual tile picks "j".
+        let zones: [String: [ZTRect]] = [
+            "j": [ZTRect(x: 0, y: 0, w: 300, h: 300),        // top-left cell
+                  ZTRect(x: 700, y: 700, w: 300, h: 300)],   // bottom-right cell (cycle target)
+            "n": [ZTRect(x: 350, y: 350, w: 300, h: 300)],   // centre cell — inside j's union bbox
+            "default": [ZTRect(x: 0, y: 0, w: 1000, h: 1000)],
+        ]
+        // Drop in the middle of j's bottom-right tile → must be "j", not "n".
+        XCTAssertEqual(DragSnap.target(atX: 850, y: 850, zones: zones), "j")
+        // Drop in n's centre cell → "n".
+        XCTAssertEqual(DragSnap.target(atX: 500, y: 500, zones: zones), "n")
+    }
+
     func testNoZonesReturnsNil() {
         XCTAssertNil(DragSnap.target(atX: 10, y: 10, zones: [:]))
         XCTAssertNil(DragSnap.target(atX: 10, y: 10, zones: ["default": [ZTRect(x: 0, y: 0, w: 10, h: 10)]]))

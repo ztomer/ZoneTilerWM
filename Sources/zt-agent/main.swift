@@ -353,7 +353,12 @@ final class AgentController: NSObject {
             zoneConfig: { [unowned self] in self.config.zoneConfig },
             offset: { [weak resize] m, a, i in resize?.getOffset(monitor: m, axis: a, index: i) ?? 0 },
             modifier: { [unowned self] in self.config.tilerModifier },
-            snap: { [unowned self] zone in _ = self.dispatcher.perform(.tileFocusedToZone(zone: zone)) })
+            snap: { [unowned self] zone, tileOffset in
+                // No right-clicks (offset 0) → the smart occupancy-based auto-pick; each right-click
+                // mid-drag steps to an explicit tile in the zone's cycle (wraps in the coordinator).
+                if tileOffset > 0 { self.tileFocusedToZone(zone, tile: tileOffset) }
+                else { _ = self.dispatcher.perform(.tileFocusedToZone(zone: zone)) }
+            })
         breakScreen = BreakScreenController(
             screens: screens,
             enabled: { [unowned self] in self.config.breakScreenEnabled },

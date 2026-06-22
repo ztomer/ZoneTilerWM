@@ -16,19 +16,22 @@ final class DragSnapController {
     private let zoneConfig: () -> ZoneConfig
     private let offset: (_ monitor: String, _ axis: String, _ index: Int) -> Double
     private let modifier: () -> [String]
-    private let snap: (_ zone: String) -> Void
+    private let snap: (_ zone: String, _ tileOffset: Int) -> Void
 
     private var dragMonitor: Any?
     private var upMonitor: Any?
+    private var rightDownMonitor: Any?
     private var dragging = false
     private var downLocation: NSPoint?   // press point, to detect a drag by distance (the .dragged
                                          // global event is unreliable during a window-server move)
+    private var cycleOffset = 0          // right-clicks during the drag advance which tile in the
+                                         // target zone the window lands in (H2: cycle the zone's tiles)
 
     init(screens: NSScreenProvider, monitorManager: MonitorManager,
          zoneConfig: @escaping () -> ZoneConfig,
          offset: @escaping (_ monitor: String, _ axis: String, _ index: Int) -> Double,
          modifier: @escaping () -> [String],
-         snap: @escaping (_ zone: String) -> Void) {
+         snap: @escaping (_ zone: String, _ tileOffset: Int) -> Void) {
         self.screens = screens; self.monitorManager = monitorManager
         self.zoneConfig = zoneConfig; self.offset = offset; self.modifier = modifier; self.snap = snap
     }
@@ -43,6 +46,7 @@ final class DragSnapController {
         // later unrelated up (with the modifier coincidentally held) can't trigger a phantom snap.
         downMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
             self?.dragging = false
+            self?.cycleOffset = 0                        // fresh drag → start at the auto-picked tile
             self?.downLocation = NSEvent.mouseLocation
         }
         dragMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { [weak self] _ in
@@ -51,13 +55,23 @@ final class DragSnapController {
         upMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
             self?.mouseUp()
         }
+        // H2: a right-click MID-DRAG (with the tiling modifier held) cycles which tile in the hovered
+        // zone the window will snap to on release. Only counts during an active modifier-held drag.
+        rightDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { [weak self] _ in
+            guard let self, self.dragging else { return }
+            let held = NSEvent.modifierFlags.intersection(.tilingRelevant)
+            guard held == NSEvent.ModifierFlags(aliases: self.modifier()) else { return }
+            self.cycleOffset += 1
+        }
     }
 
     func stop() {
         if let m = downMonitor { NSEvent.removeMonitor(m) }
         if let m = dragMonitor { NSEvent.removeMonitor(m) }
         if let m = upMonitor { NSEvent.removeMonitor(m) }
-        downMonitor = nil; dragMonitor = nil; upMonitor = nil; dragging = false
+        if let m = rightDownMonitor { NSEvent.removeMonitor(m) }
+        downMonitor = nil; dragMonitor = nil; upMonitor = nil; rightDownMonitor = nil
+        dragging = false; cycleOffset = 0
     }
 
     /// QA/debug: snap as if a modifier-held drag just ended under the cursor (no real drag needed).
@@ -97,7 +111,7 @@ final class DragSnapController {
         guard let zone = DragSnap.target(atX: Double(loc.x), y: Double(loc.y), zones: zones) else {
             log("drag-snap: drop at (\(Int(loc.x)),\(Int(loc.y))) matched no zone on \(screen.name)"); return
         }
-        log("drag-snap: → zone \(zone) on \(screen.name)")
-        snap(zone)
+        log("drag-snap: → zone \(zone) (tile offset \(cycleOffset)) on \(screen.name)")
+        snap(zone, cycleOffset)
     }
 }
