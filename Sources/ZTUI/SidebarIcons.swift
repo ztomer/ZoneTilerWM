@@ -32,7 +32,7 @@ struct SidebarGlyph: View {
         func dot(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path { Path(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)) }
 
         switch id {
-        case "tiling":            // 2×2 outlined squares (stroked to match the set's line language)
+        case "tiling", "tiles":   // 2×2 outlined squares (stroked to match the set's line language)
             for (x, y) in [(2.5, 2.5), (10.5, 2.5), (2.5, 10.5), (10.5, 10.5)] {
                 line(rrect(x, y, 7, 7, 1.6))
             }

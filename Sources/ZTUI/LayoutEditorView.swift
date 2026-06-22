@@ -10,6 +10,8 @@ struct LayoutEditorView: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
     static let searchKeywords: [String] = ["grid", "edit grid", "monitor", "monitors", "zones", "edit zones", "tiles", "cycle order", "cells", "default zone per app"]
     @ObservedObject var model: SettingsModel
+    /// The default-zone-per-app section moves to the Tiles → Advanced tab; hide it here so it isn't shown twice.
+    var showDefaultZones = true
     @State private var grid: String = ""
     @State private var zone: String = ""
     @State private var tiles: [String] = []        // editable copy of the zone's cycle list
@@ -49,7 +51,7 @@ struct LayoutEditorView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
-                SectionCard(title: "Default zone per app") { DefaultZonesSection(model: model) }
+                if showDefaultZones { SectionCard(title: "Default zone per app") { DefaultZonesSection(model: model) } }
                 if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
             }
             .padding(16)

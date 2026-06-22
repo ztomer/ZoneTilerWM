@@ -409,8 +409,7 @@ public struct SettingsView: View {
     // jumps to the pane that holds it. Keep in sync when adding a setting.
     private let groups: [Group] = [
         .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: GeneralTab.searchKeywords),
-        .init(id: "tiling",     title: "Tiling",         icon: "square.grid.3x3",               keywords: TilingTab.searchKeywords),
-        .init(id: "layouts",    title: "Layouts",        icon: "rectangle.3.group",             keywords: LayoutEditorView.searchKeywords),
+        .init(id: "tiles",      title: "Tiles",          icon: "square.grid.3x3",               keywords: TilesTab.searchKeywords),
         .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: PreviewsTab.searchKeywords),
         .init(id: "dockpreviews", title: "Dock Previews", icon: "macwindow.on.rectangle",        keywords: DockPreviewsTab.searchKeywords),
         .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
@@ -473,8 +472,7 @@ struct SettingsGroupDetail: View {
     let id: String
     var body: some View {
         switch id {
-        case "tiling":     TilingTab(model: model)
-        case "layouts":    LayoutEditorView(model: model)
+        case "tiles":      TilesTab(model: model)
         case "previews":   PreviewsTab(model: model)
         case "dockpreviews": DockPreviewsTab(model: model)
         case "keys":       KeybindEditorView(model: model)

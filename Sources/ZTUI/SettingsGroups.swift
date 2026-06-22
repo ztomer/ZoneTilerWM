@@ -232,10 +232,42 @@ struct TilingTab: View {
                 HotkeyRowView(model: model, label: "Stack: focus previous", section: "tiler.hotkeys", key: "stack_prev")
             }
 
+            // The advanced per-app default zone (moved here from the old Layouts tab during the merge).
+            Section("Default zone per app") {
+                Text("When an app first opens, auto-tile sends it to this zone if it has no learned position yet.")
+                    .font(.caption).foregroundColor(.secondary)
+                DefaultZonesSection(model: model)
+            }
+
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
         .formStyle(.grouped)
         .onAppear { centerZonesEdit = model.config.autoTileCenterZones.joined(separator: ", ") }
+    }
+}
+
+/// The merged "Tiles" pane (feedback: Tiling + Layouts are one feature). A segmented control splits the
+/// visual zone editor (Zones) from the advanced tiling internals + per-app defaults (Advanced).
+struct TilesTab: View {
+    static let searchKeywords: [String] = TilingTab.searchKeywords + LayoutEditorView.searchKeywords
+    @ObservedObject var model: SettingsModel
+    @State private var section = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $section) {
+                Text("Zones").tag(0)
+                Text("Advanced").tag(1)
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .frame(maxWidth: 280).padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 4)
+
+            if section == 0 {
+                LayoutEditorView(model: model, showDefaultZones: false)   // visual zone/grid editor
+            } else {
+                TilingTab(model: model)                                   // tiling internals + per-app defaults
+            }
+        }
     }
 }
 
