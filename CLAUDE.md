@@ -64,6 +64,13 @@ quick operational guide.
 - **Visual features** get user-POV validation (run the app, screenshot, then a deterministic
   test) before "done" — use the `user-pov-debug` skill. For window moves the deterministic
   assertion is the post-move AX frame readback.
+- **Validate over BOTH a light and a dark background** (rule). Overlays/HUDs/glass float over the
+  user's wallpaper, so legibility must be checked on a light AND a dark backdrop — a translucent or
+  amber-on-glass element that reads fine on a dark desktop can wash out on a white one. Headless:
+  `ZT_RENDER_BG=<white|dark>.png`; live glass: capture over both a light and a dark wallpaper.
+- **It's fine to quit the running/installed app to validate** (rule, user-authorized). To live-QA a
+  build, kill the running ZoneTilerWM instance (`pkill -f ZoneTilerWM`) and run the dev build — don't
+  skip live validation just to avoid disrupting a running copy.
 - **Tooling:** prefer the Read/Grep tools over `sed`/`awk`/`head` (a shell-rewrite hook can
   mangle them). Push only to the `v2origin` remote (`ZoneTilerWMv2`), never to `origin`.
 - **Build gotcha:** changing a public `ZTCore` initializer/signature can leave the
