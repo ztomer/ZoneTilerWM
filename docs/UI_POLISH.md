@@ -7,10 +7,10 @@ Keep this in sync as items land; reference the item id in commits.
 A section whose only/first control is an "Enable X" toggle should put the toggle **in the header**
 (via `ToggleSection`) — a separate row that restates the title is a duplicate.
 
-- [ ] **A1** General → Startup → "Launch at login" → toggle in header.
-- [ ] **A2** Zone picker (HUD) → toggle in the card header (currently a separate "Show the zone picker…" row).
-- [ ] **A3** Drag-to-snap → toggle in the card header.
-- [ ] **A4** Spaces → "Show Spaces (menu bar + Exposé)" → toggle in header.
+- [x] **A1** General → Startup → "Launch at login" → toggle in header.
+- [x] **A2** Zone picker (HUD) → toggle in the card header (currently a separate "Show the zone picker…" row).
+- [x] **A3** Drag-to-snap → toggle in the card header.
+- [x] **A4** Spaces → "Show Spaces (menu bar + Exposé)" → toggle in header.
 - [ ] **A5** Automation → "Run shortcut on change" (audio) → add an enable/disable toggle.
 - [ ] **A6** App groups → toggle in header (see E5).
 
@@ -19,11 +19,11 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [ ] **B2** Exposé / Window Grid: add an enable/disable toggle (config + gate the hotkey).
 
 ## C. Sidebar order
-- [ ] **C1** Move **Appearance** directly below **General**.
+- [x] **C1** Move **Appearance** directly below **General**.
 
 ## D. Borders
-- [ ] **D1** Hazard stripes vs dashed look almost identical — make hazard **angled (trapezoid)** stripes.
-- [ ] **D2** Border preview swatch should render in the **selected color**, not hard-coded blue.
+- [x] **D1** Hazard stripes vs dashed look almost identical — make hazard **angled (trapezoid)** stripes.
+- [x] **D2** Border preview swatch should render in the **selected color** AND the **selected style/type**, not hard-coded blue solid.
 
 ## E. App Launcher tab
 - [ ] **E1** Big empty gap in the middle — move **App groups** out to its own new tab to fill it.

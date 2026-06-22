@@ -71,16 +71,14 @@ struct SpacesTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
-            Section("Show Spaces (menu bar + Exposé)") {
-                Toggle("Show in the menu bar", isOn: Binding(
-                    get: { model.spacesMenubarEnabled }, set: { model.setSpacesMenubar($0) }))
+            ToggleSection("Show Spaces in the menu bar", isOn: Binding(
+                get: { model.spacesMenubarEnabled }, set: { model.setSpacesMenubar($0) }),
+                footer: "The menu bar + Exposé list ALL your Spaces, grouped per monitor, highlighting the current one live. OFF uses NO private API (reads the layout from a public preferences file + a tiny per-Space marker window; a monitor with 3+ Spaces may briefly mis-highlight until visited once). ON adds via the private API: a guaranteed-exact highlight, per-Space wallpapers, and native full-screen Spaces. Switching Spaces needs neither.") {
                 if model.spacesMenubarEnabled {
                     MenubarBracketPicker(model: model)
                 }
                 Toggle("Use real macOS Spaces (experimental)", isOn: Binding(
                     get: { model.realSpacesEnabled }, set: { model.setRealSpaces($0) }))
-                Text("Either way the menu bar + Exposé list ALL your Spaces, grouped per monitor, and highlight the current one live — OFF uses NO private API (it reads the layout from a public preferences file and tracks the current Space with a tiny 1×1 marker window per Space; no onboarding). A monitor with 3+ Spaces may briefly mis-highlight until you've visited each once. What ON adds via the private API: a guaranteed-exact current highlight, per-Space wallpapers, and native full-screen Spaces. Switching Spaces needs neither.")
-                    .font(.caption).foregroundColor(.secondary)
             }
 
             Section("Switching Spaces") {
@@ -110,14 +108,11 @@ struct GeneralTab: View {
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
-            Section("Startup") {
-                Toggle("Launch at login", isOn: Binding(
-                    get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
-                    .disabled(!model.launchAtLoginAvailable)
-                if !model.launchAtLoginAvailable {
-                    caption("Available when running the installed ZoneTilerWM.app (not the dev binary).")
-                }
-            }
+            ToggleSection("Launch at login", isOn: Binding(
+                get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }),
+                footer: model.launchAtLoginAvailable ? nil
+                    : "Available when running the installed ZoneTilerWM.app (not the dev binary).")
+                .disabled(!model.launchAtLoginAvailable)
             Section("Config") {
                 LabeledContent("File") {
                     HStack(spacing: 8) {

@@ -406,10 +406,19 @@ struct AppShortcutsView: View {
 /// custom Layouts editor reads as the same design language (not a bare VStack of dividers).
 struct SectionCard<Content: View>: View {
     let title: String
+    /// Optional enable toggle shown IN the header, so a single-toggle card doesn't restate its title
+    /// in a separate row.
+    var toggle: Binding<Bool>? = nil
     @ViewBuilder let content: () -> Content
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.headline)
+            HStack {
+                Text(title).font(.headline)
+                if let toggle {
+                    Spacer()
+                    Toggle("", isOn: toggle).labelsHidden().toggleStyle(.switch)
+                }
+            }
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)

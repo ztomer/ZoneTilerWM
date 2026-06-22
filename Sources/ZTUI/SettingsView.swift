@@ -410,6 +410,7 @@ public struct SettingsView: View {
     // jumps to the pane that holds it. Keep in sync when adding a setting.
     private let groups: [Group] = [
         .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: GeneralTab.searchKeywords),
+        .init(id: "appearance", title: "Appearance",     icon: "paintbrush",                    keywords: AppearanceTab.searchKeywords),
         .init(id: "tiles",      title: "Tiles",          icon: "square.grid.3x3",               keywords: TilesTab.searchKeywords),
         .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: PreviewsTab.searchKeywords),
         .init(id: "spaces",     title: "Spaces",         icon: "rectangle.split.3x1",           keywords: SpacesTab.searchKeywords),
@@ -418,7 +419,6 @@ public struct SettingsView: View {
         .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: IOTab.searchKeywords),
         .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
         .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: PomodoroTab.searchKeywords),
-        .init(id: "appearance", title: "Appearance",     icon: "paintbrush",                    keywords: AppearanceTab.searchKeywords),
         .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: AutomationTab.searchKeywords),
         .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: AdvancedTab.searchKeywords),
     ]

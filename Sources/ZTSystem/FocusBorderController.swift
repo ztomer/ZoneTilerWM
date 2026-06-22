@@ -80,12 +80,38 @@ final class BorderShapeView: NSView {
         case .dotted:
             strokeRounded(stroke, dash: [0.1, width * 1.9], round: true)   // round caps + ~0 dash = dots
         case .hazard:
-            // Two interleaved dashes — accent then black — give caution/hazard banding around the ring.
-            strokeRounded(stroke, dash: [width * 2.0, width * 2.0])
-            strokeRounded(stroke, dash: [width * 2.0, width * 2.0], phase: width * 2.0, color: .black)
+            drawHazard(stroke)
         case .wavy:
             let p = Self.wavyPath(in: stroke, amplitude: width * 0.7, wavelength: max(width * 5, 14))
             p.lineWidth = width; p.lineJoinStyle = .round; color.setStroke(); p.stroke()
+        }
+    }
+
+    /// Real hazard-tape look: clip to the border BAND (outer minus inner rounded rect) and fill it with
+    /// 45° ANGLED stripes alternating accent / black — visibly different from the straight dashes.
+    private func drawHazard(_ rect: NSRect) {
+        guard let ctx = NSGraphicsContext.current else { return }
+        ctx.saveGraphicsState(); defer { ctx.restoreGraphicsState() }
+        let half = width / 2
+        let outer = NSBezierPath(roundedRect: rect.insetBy(dx: -half, dy: -half),
+                                 xRadius: radius + half, yRadius: radius + half)
+        let inner = NSBezierPath(roundedRect: rect.insetBy(dx: half, dy: half),
+                                 xRadius: max(1, radius - half), yRadius: max(1, radius - half))
+        outer.append(inner.reversed)
+        outer.windingRule = .evenOdd
+        outer.addClip()                       // paint only inside the ring band
+        let stripeW = max(6, width * 1.3)
+        var x = bounds.minX - bounds.height
+        var i = 0
+        while x < bounds.maxX + bounds.height {
+            let p = NSBezierPath()
+            p.move(to: NSPoint(x: x, y: bounds.minY))
+            p.line(to: NSPoint(x: x + bounds.height, y: bounds.maxY))
+            p.line(to: NSPoint(x: x + bounds.height + stripeW, y: bounds.maxY))
+            p.line(to: NSPoint(x: x + stripeW, y: bounds.minY))
+            p.close()
+            (i % 2 == 0 ? color : NSColor.black).setFill(); p.fill()
+            x += stripeW; i += 1
         }
     }
 

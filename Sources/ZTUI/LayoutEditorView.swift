@@ -66,9 +66,7 @@ struct LayoutEditorView: View {
     // The zone picker (HUD) + drag-to-snap — interactive zone features (not "advanced"). The preview
     // shows even when the toggle is off, so you can see what you'd get.
     private var zoneHUDCard: some View {
-        SectionCard(title: "Zone picker (HUD)") {
-            Toggle("Show the zone picker while you hold the modifier", isOn: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled))
-                .toggleStyle(.switch)
+        SectionCard(title: "Zone picker (HUD)", toggle: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled)) {
             ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "to show each zone's key, then tap one.")
             HStack { Spacer(); ZoneHUDPreview(); Spacer() }.padding(.top, 2)
             if model.config.zoneHUDEnabled {
@@ -80,9 +78,7 @@ struct LayoutEditorView: View {
     }
 
     private var dragSnapCard: some View {
-        SectionCard(title: "Drag-to-snap") {
-            Toggle("Drag a window with the modifier held to snap it", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled))
-                .toggleStyle(.switch)
+        SectionCard(title: "Drag-to-snap", toggle: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled)) {
             ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
             HStack { Spacer(); DragSnapPreview(); Spacer() }.padding(.top, 2)
         }

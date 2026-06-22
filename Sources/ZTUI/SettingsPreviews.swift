@@ -309,6 +309,7 @@ struct MenubarBracketPicker: View {
 
 /// Config colour-name → SwiftUI Color (mirrors the swatch set used in the editors).
 private let configSwatch: [String: Color] = [
+    "accent": ZTPalette.accentColor,
     "green": .green, "red": .red, "blue": .blue, "yellow": .yellow, "orange": .orange,
     "purple": .purple, "white": .white, "black": .black, "gray": .gray,
 ]
@@ -349,8 +350,9 @@ struct AppearancePreview: View {
     private func tile(focused: Bool, color: Color, b: ConfigLoader.Borders) -> some View {
         RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius))
             .fill(Color.white.opacity(focused ? 0.10 : 0.05))
-            .overlay(focused
-                     ? RoundedRectangle(cornerRadius: CGFloat(b.cornerRadius)).strokeBorder(color, lineWidth: CGFloat(b.width))
+            // Show the selected color AND line style (solid/dashed/dotted/wavy/hazard), not just a solid stroke.
+            .overlay(focused && b.enabled
+                     ? StyledBorderOverlay(style: b.style, color: color, width: CGFloat(b.width), radius: CGFloat(b.cornerRadius))
                      : nil)
             .overlay(focused ? Text("focused").font(.caption2).foregroundColor(.secondary) : nil)
     }
