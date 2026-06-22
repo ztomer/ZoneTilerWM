@@ -62,7 +62,7 @@ public struct FirstRunWizardView: View {
         VStack(spacing: 0) {
             header
             Divider().overlay(WizardStyle.cardStroke)
-            ScrollView { stepBody.padding(.horizontal, 32).padding(.vertical, 26) }
+            ScrollView { stepBody.padding(.horizontal, 32).padding(.top, 18).padding(.bottom, 26) }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider().overlay(WizardStyle.cardStroke)
             footer
@@ -164,14 +164,15 @@ public struct FirstRunWizardView: View {
     }
 
     private var accessibilityBody: some View {
-        VStack(spacing: 16) {
+        // Left-aligned to match the left-aligned header + the other steps (one consistent grammar).
+        VStack(alignment: .leading, spacing: 16) {
             Image(systemName: trusted ? "checkmark.shield.fill" : "lock.shield.fill")
                 .font(.system(size: 52)).foregroundColor(trusted ? .green : WizardStyle.accent)
-                .padding(.top, 6)
+                .padding(.top, 6).padding(.bottom, -8)   // tighten the gap below the hero icon
             Text(trusted ? "Accessibility granted — you're ready to tile."
                          : "macOS needs your permission for ZoneTilerWM to move other apps' windows.")
                 .font(.callout).foregroundColor(WizardStyle.primaryText)
-                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                .fixedSize(horizontal: false, vertical: true)
             if !trusted {
                 VStack(alignment: .leading, spacing: 10) {
                     WizardStepLine(n: 1, text: "Click **Open System Settings** below.")
@@ -179,10 +180,12 @@ public struct FirstRunWizardView: View {
                     WizardStepLine(n: 3, text: "Come back here — this updates the moment it's granted.")
                 }
                 .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 12).fill(WizardStyle.card))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(WizardStyle.cardStroke))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var modifierBody: some View {
@@ -206,29 +209,37 @@ public struct FirstRunWizardView: View {
     }
 
     private var featuresBody: some View {
-        VStack(spacing: 10) {
+        // ONE container card with internal dividers (not 5 floating cards) — matches the single-card
+        // grammar of the other steps.
+        VStack(spacing: 0) {
             WizardFeatureRow(icon: "square.grid.3x3.topleft.filled", title: "Zone picker (HUD)",
                              detail: "A grid appears while you hold the modifier, so you never guess a key.",
                              isOn: bind(\.zoneHUDEnabled, model.setZoneHUDEnabled))
+            Divider().overlay(WizardStyle.cardStroke)
             WizardFeatureRow(icon: "rectangle.dashed", title: "Focus border",
                              detail: "A subtle outline marks the active window.",
                              isOn: Binding(get: { model.config.borders.enabled }, set: { model.setBordersEnabled($0) }))
+            Divider().overlay(WizardStyle.cardStroke)
             WizardFeatureRow(icon: "hand.draw", title: "Drag-to-snap",
                              detail: "Drag with the modifier held to drop a window into a zone.",
                              isOn: bind(\.dragSnapEnabled, model.setDragSnapEnabled))
+            Divider().overlay(WizardStyle.cardStroke)
             WizardFeatureRow(icon: "command.square", title: "Command palette",
                              detail: "A searchable menu of every action.",
                              isOn: bind(\.commandPaletteEnabled, model.setCommandPaletteEnabled))
+            Divider().overlay(WizardStyle.cardStroke)
             WizardFeatureRow(icon: "brain", title: "Window memory",
                              detail: "Re-opens apps where you last tiled them.",
                              isOn: Binding(get: { model.config.windowMemory.enabled }, set: { model.setWindowMemoryEnabled($0) }))
         }
+        .background(RoundedRectangle(cornerRadius: 12).fill(WizardStyle.card))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(WizardStyle.cardStroke))
     }
 
     private var telemetryBody: some View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "lock.shield").font(.system(size: 40)).foregroundColor(WizardStyle.accent)
-                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, -8)   // tighten the gap below the hero icon
             Text("Help improve ZoneTilerWM?")
                 .font(.system(.title3, design: .rounded)).bold().foregroundColor(WizardStyle.primaryText)
             Text("If you opt in, the app appends one anonymous line per command — just the action name "
@@ -239,18 +250,17 @@ public struct FirstRunWizardView: View {
             WizardFeatureRow(icon: "chart.bar.doc.horizontal", title: "Local usage telemetry",
                              detail: "Anonymous, local-only, off by default.",
                              isOn: bind(\.telemetryEnabled, model.setTelemetryEnabled))
+                .background(RoundedRectangle(cornerRadius: 12).fill(WizardStyle.card))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(WizardStyle.cardStroke))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var doneBody: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Spacer()
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 52)).foregroundColor(.green)
-                Spacer()
-            }
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 52)).foregroundColor(.green)
             Text("You're all set.").font(.system(.title3, design: .rounded)).bold()
-                .foregroundColor(WizardStyle.primaryText).frame(maxWidth: .infinity, alignment: .center)
+                .foregroundColor(WizardStyle.primaryText)
             VStack(alignment: .leading, spacing: 0) {
                 WizardKeyRow(keys: "hold ⌃⌘", action: "Show the zone picker")
                 Divider().overlay(WizardStyle.cardStroke)
@@ -264,8 +274,9 @@ public struct FirstRunWizardView: View {
                 WizardButton(title: "Open Tutorial", prominent: false, action: openTutorial)
                 WizardButton(title: "Open Settings", prominent: false, action: openSettings)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 6)   // separate the secondary buttons from the cheatsheet card above
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Navigation
@@ -408,8 +419,6 @@ struct WizardFeatureRow: View {
             Toggle("", isOn: $isOn).labelsHidden().toggleStyle(.switch).tint(WizardStyle.accent)
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
-        .background(RoundedRectangle(cornerRadius: 11).fill(WizardStyle.card))
-        .overlay(RoundedRectangle(cornerRadius: 11).stroke(WizardStyle.cardStroke))
     }
 }
 
