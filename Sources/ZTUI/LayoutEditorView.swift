@@ -27,6 +27,7 @@ struct LayoutEditorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {   // de-crowd the dense Layouts sections
+                ZoneTilePrimer()                          // convey the zone-vs-tile mental model first (feedback 6)
                 monitorsSection
                 if !grid.isEmpty {
                     SectionCard(title: "Zones") {
