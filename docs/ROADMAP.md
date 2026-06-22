@@ -270,17 +270,28 @@ overlay goes native macOS 26 Liquid Glass via ONE shared template (`LiquidGlass.
   give caps a contrast-guaranteeing treatment independent of the desktop behind them (a darker/denser
   cap fill or a vibrancy-aware label colour + subtle text shadow), so they read on any background.
   Validate via the render harness over BOTH a dark and a white backdrop (`ZT_RENDER_BG`) + Gemini.
-- [P2] **App previews on hover — DockDoor-style** (Windows-11-inspired). Hovering a Dock icon (or a
-  HUD/Exposé target) pops a live thumbnail of that app's window(s), click-to-raise. New **"Previews"
-  settings sidebar entry**. Requirements locked with the user:
-  - **All four Dock positions** — left, right, bottom, AND auto-hidden (must resolve the Dock's edge +
-    hidden state and anchor the panel correctly for each).
+- [P2, in progress] **App previews on hover — DockDoor-style** (Windows-11-inspired). Hovering a Dock
+  icon (or a HUD/Exposé target) pops a live thumbnail of that app's window(s), click-to-raise. New
+  **"Previews" settings sidebar entry**. Requirements locked with the user:
+  - **All four Dock positions** — left, right, bottom, AND auto-hidden (resolve the Dock edge + hidden
+    state and anchor the panel correctly for each). "Hidden" = auto-hide on any edge, not a 4th edge.
   - **Customizable preview size.**
   - **License: inspiration only.** Reference is [DockDoor](https://github.com/ejbills/DockDoor) but it
     is **GPL** — this app is proprietary, so clean-room from behaviour only, **never** copy its code
     (same discipline as the JankyBorders focus-border reimplementation).
-  - Capture path: reuse the existing window-image approach (Exposé thumbnails) for on-Space windows;
-    off-Space windows can't be captured (proven — §0), so previews are current-Space-only.
+  - **Architecture (probe-validated 2026-06-21).** The Dock's AX tree (`com.apple.dock` process →
+    single `AXList` → `AXApplicationDockItem` children) yields every tile's **title + frame** in one
+    bounded query — cache it, re-query on Dock change. So hover detection is **0-AX**: a passive
+    NSEvent mouse monitor hit-tests the cursor against cached frames; only the one-shot tile-frame read
+    and click-to-raise touch AX. Dock edge + auto-hide come from `defaults read com.apple.dock
+    orientation/autohide` (no AX). Capture reuses the Exposé `CGWindowListCreateImage` path
+    (`MissionControlView`) — on-Space windows only (off-Space capture is impossible, §0).
+  - **Status:** [done] pure core `DockPreview` (ZTCore) — `DockEdge`, `DockItem`, cursor hit-test
+    (`item(at:)` w/ slop), per-edge panel anchoring (`panelOrigin`) + screen clamping, orientation
+    parsing; 8 tests. **Remaining:** `DockObserver` (ZTSystem AX adapter: tile frames + orientation/
+    autohide) → `DockPreviewController` (zt-agent: passive mouse monitor + hover dwell + thumbnail
+    capture + preview NSPanel + click-raise, gated `[dock_previews] enabled` default off, AX-budget
+    gated like focus-follows-mouse) → Previews settings tab (enable + size) → Gemini-grade the panel UI.
 - [P3] **HUD previews where relevant.** Where a HUD targets a specific window (zone picker showing the
   focused window, app-launcher showing a running app), show a small live thumbnail so the user sees
   *what* they're about to act on — same capture path as the hover previews above.
