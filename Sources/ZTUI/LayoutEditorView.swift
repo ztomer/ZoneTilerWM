@@ -35,14 +35,15 @@ struct LayoutEditorView: View {
                 monitorsSection
                 if !grid.isEmpty {
                     SectionCard(title: "Zones") {
+                        // One clear control: this picks WHICH grid's zones you're editing (it does not
+                        // resize the grid — a grid's rows×cols come from the monitor section above).
                         HStack(spacing: 8) {
-                            Text("Grid").foregroundColor(.secondary)
-                            Text(grid).font(.system(.body, design: .monospaced).weight(.semibold)).foregroundColor(.accentColor)
+                            Text("Editing zones for grid").foregroundColor(.secondary)
+                            Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
+                                .labelsHidden().frame(width: 150).onChange(of: grid) { _ in syncZone() }
                             Spacer()
-                            Picker("Edit grid", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
-                                .frame(width: 150).onChange(of: grid) { _ in syncZone() }
                         }
-                        Text("Each key shows the zone mapped to it; the cells show its first tile. Click to edit.")
+                        Text("Each key shows the zone mapped to it; the cells show its first tile. Click a key to edit its tiles. (To change the grid's rows×cols, use the monitor's grid above.)")
                             .font(.caption).foregroundColor(.secondary)
                         zonePreviews
                         Divider().padding(.vertical, 6)

@@ -39,7 +39,9 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [ ] **F4** Verify hover previews actually trigger live ("not sure it works at all").
 
 ## G. Zones editor
-- [ ] **G1** "Grid" + "Edit grid" both shown but Edit-grid doesn't actually edit the grid — clarify/fix.
+- [x] **G1** "Grid" + "Edit grid" both shown but Edit-grid doesn't actually edit the grid — clarified.
+  Collapsed the redundant static "Grid: NxM" label + mislabeled "Edit grid" picker into one control,
+  "Editing zones for grid: [picker]", and noted that grid rows×cols come from the monitor section.
 
 ## H. Drag-to-snap correctness
 - [x] **H1** **Bug:** dragging to a zone snaps to the WRONG zone (drag to `j` → lands in `n`). Fixed:
