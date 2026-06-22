@@ -33,10 +33,12 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [ ] **E5** App groups and Scratchpad are mutually exclusive → **remove Scratchpad**, add enable toggle to App groups header.
 
 ## F. Dock Previews
-- [ ] **F1** Put the **preview first** (above the controls); drop the redundant "Preview" header/caption.
-- [ ] **F2** The preview should show the **dock in its current position** with **two windows** for the app.
-- [ ] **F3** App name is redundant — replace it with the **window name**; traffic lights stay (functional).
-- [ ] **F4** Verify hover previews actually trigger live ("not sure it works at all").
+- [x] **F1** Put the **preview first** (above the controls); drop the redundant "Preview" header/caption.
+- [x] **F2** The preview should show the **dock in its current position** with **two windows** for the app.
+  Mock reads `DockObserver().dockEdge()` (0-AX) and orients the strip + popup accordingly.
+- [x] **F3** App name is redundant — replace it with the **window name**; traffic lights stay (functional).
+- [~] **F4** Verify hover previews actually trigger live ("not sure it works at all"). *Reviewing the
+  controller; needs a live hover test.*
 
 ## G. Zones editor
 - [x] **G1** "Grid" + "Edit grid" both shown but Edit-grid doesn't actually edit the grid — clarified.
