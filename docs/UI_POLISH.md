@@ -70,3 +70,15 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
   derives glyphs from the live bindings (tiler modifier for picker/zone keys, HYPER for auto-tile).
 - [x] **K2** Added the key missing discoverable features to onboarding: Window hints, Exposé/window
   grid, Dock previews (alongside the existing HUD / border / drag-snap / palette / window-memory).
+
+## L. Settings titlebar / search layout
+- [ ] **L1** The titlebar search field **shifts position** between states: on open it's left-aligned, and
+  selecting any sidebar element re-aligns it to the right. Make it stable. Direction: shrink the search
+  field a bit and place it **directly above the sidebar** (macOS 26 Settings style), and use the
+  **toolbar/appbar for the tab + content** area — so the search lives over the sidebar and doesn't jump.
+
+## M. Dock previews — selection feedback
+- [ ] **M1** On hover, **highlight both the actual on-screen window border AND the matching preview
+  thumbnail**, so the user can see which window they're about to select and that the preview is
+  reacting live to the hover. (Live affordance: tie the thumbnail hover/selection state to a real
+  window-border highlight on screen.)
