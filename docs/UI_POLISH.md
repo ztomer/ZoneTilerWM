@@ -52,7 +52,9 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [ ] **I1** Search should also match **section headers** (e.g. "window grid") and jump to that pane.
 
 ## J. Analytics window
-- [ ] **J1** Use the selected palette (Braun **orange** + shades) instead of the old blue/multicolor.
+- [x] **J1** Use the selected palette (Braun **orange** + shades) instead of the old blue/multicolor.
+  Heatmap ramp → muted Braun orange; bars + selection → `ZTPalette.accentColor`. *Needs live QA (no
+  headless render path — analytics needs seeded placement data).*
 
 ## K. Onboarding wizard
 - [x] **K1** Auto-tile shortcut shown wrong — it's **HYPER+Return**, not ⌃⌘+Return. Cheatsheet now

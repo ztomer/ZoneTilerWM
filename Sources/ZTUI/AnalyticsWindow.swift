@@ -4,6 +4,7 @@
 import AppKit
 import SwiftUI
 import ZTCore
+import ZTSystem
 
 public struct AnalyticsView: View {
     @ObservedObject var model: SettingsModel
@@ -43,9 +44,9 @@ public struct AnalyticsView: View {
                    by: { $0.zone })
             .mapValues { $0.reduce(0) { $0 + $1.count } }.max { $0.value < $1.value }?.key
     }
-    // Muted slate-blue heat ramp: encodes frequency by intensity while sitting calmly against the
-    // dark window chrome. (The vivid system-accent blue read as "neon" against the dark palette.)
-    private static let heatBase = Color(red: 0.36, green: 0.47, blue: 0.66)
+    // Muted Braun-orange heat ramp (matches ZTPalette.accent #FF6B00, dialed back so it sits calmly
+    // against the dark chrome instead of reading as neon). Encodes frequency by intensity.
+    private static let heatBase = Color(red: 0.80, green: 0.42, blue: 0.12)
     private func intensityColor(_ count: Int, _ maxCount: Int) -> Color {
         count > 0 ? Self.heatBase.opacity(0.16 + 0.72 * (Double(count) / Double(max(maxCount, 1))))
                   : Color(NSColor.controlBackgroundColor)
@@ -224,7 +225,7 @@ public struct AnalyticsView: View {
                         HStack(alignment: .bottom, spacing: 3) {
                             ForEach(data, id: \.day) { d in
                                 RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.accentColor.opacity(0.85))
+                                    .fill(ZTPalette.accentColor.opacity(0.85))
                                     .frame(height: max(2, 150 * CGFloat(d.count) / CGFloat(max(maxC, 1))))
                                     .frame(maxWidth: 36)
                                     .help("\(dayLabel(d.day)): \(d.count.formatted())")
@@ -284,29 +285,35 @@ public struct AnalyticsView: View {
         return ScrollView {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(topApps, id: \.app) { item in
-                    let selected = app == item.app
-                    VStack(spacing: 5) {
-                        Text(item.app).font(.caption).fontWeight(.semibold).lineLimit(1).truncationMode(.tail)
-                        miniHeatmap(app: item.app)
-                        HStack(spacing: 4) {
-                            Text(item.count.formatted())
-                            if let tz = topZone(forApp: item.app) {
-                                Text("· \(displayKey(tz))").foregroundColor(.secondary)
-                            }
-                        }.font(.caption2).foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity).frame(height: 138)
-                    .background(RoundedRectangle(cornerRadius: 8)
-                        .fill(selected ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor).opacity(0.5)))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Color.accentColor : Color.secondary.opacity(0.2)))
-                    .contentShape(Rectangle())
-                    .onTapGesture { app = (selected ? "all" : item.app) }
-                    .help("\(item.app): \(item.count.formatted()) placements — tap to filter")
+                    appCard(item: item)
                 }
             }
             .padding(.vertical, 2)
         }
         .frame(maxHeight: 300)
+    }
+
+    /// One app's small-multiple card (extracted from the grid to keep the body type-checkable).
+    @ViewBuilder
+    private func appCard(item: (app: String, count: Int)) -> some View {
+        let selected = app == item.app
+        VStack(spacing: 5) {
+            Text(item.app).font(.caption).fontWeight(.semibold).lineLimit(1).truncationMode(.tail)
+            miniHeatmap(app: item.app)
+            HStack(spacing: 4) {
+                Text(item.count.formatted())
+                if let tz = topZone(forApp: item.app) {
+                    Text("· \(displayKey(tz))").foregroundColor(.secondary)
+                }
+            }.font(.caption2).foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity).frame(height: 138)
+        .background(RoundedRectangle(cornerRadius: 8)
+            .fill(selected ? ZTPalette.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor).opacity(0.5)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? ZTPalette.accentColor : Color.secondary.opacity(0.2)))
+        .contentShape(Rectangle())
+        .onTapGesture { app = (selected ? "all" : item.app) }
+        .help("\(item.app): \(item.count.formatted()) placements — tap to filter")
     }
 
     /// A small, uniform footprint glyph: square cells, identical size for every app (all share
