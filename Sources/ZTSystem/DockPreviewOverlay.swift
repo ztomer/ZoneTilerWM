@@ -10,6 +10,45 @@ import AppKit
 import ApplicationServices
 import ZTCore
 
+/// What a click on a preview thumbnail does: the body raises; the three traffic lights close /
+/// minimize / full-screen that specific window (DockDoor-style).
+public enum DockWindowAction { case raise, close, minimize, fullscreen }
+
+/// Perform a window action via AX, matching the app's window by title (the only AX touch, and only
+/// on an explicit click). No-op if the window can't be matched.
+public enum DockWindowActions {
+    public static func perform(pid: pid_t, title: String, _ action: DockWindowAction) {
+        if action == .raise {
+            NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateIgnoringOtherApps])
+        }
+        let app = AXUIElementCreateApplication(pid)
+        var winsV: AnyObject?
+        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &winsV) == .success,
+              let wins = winsV as? [AXUIElement] else { return }
+        // Match by title; fall back to the first window if titles are blank.
+        let target = wins.first { (attr($0, kAXTitleAttribute) as? String) == title } ?? wins.first
+        guard let w = target else { return }
+        switch action {
+        case .raise:
+            AXUIElementPerformAction(w, kAXRaiseAction as CFString)
+        case .minimize:
+            AXUIElementSetAttributeValue(w, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        case .close:
+            if let btn = attr(w, kAXCloseButtonAttribute) { AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString) }
+        case .fullscreen:
+            if let btn = attr(w, kAXFullScreenButtonAttribute) {
+                AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString)
+            } else { // older AX: toggle the attribute
+                AXUIElementSetAttributeValue(w, "AXFullScreen" as CFString, kCFBooleanTrue)
+            }
+        }
+    }
+    private static func attr(_ el: AXUIElement, _ a: String) -> AnyObject? {
+        var v: AnyObject?; return AXUIElementCopyAttributeValue(el, a as CFString, &v) == .success ? v : nil
+    }
+    private static let kAXFullScreenButtonAttribute = "AXFullScreenButton"
+}
+
 public final class DockPreviewOverlay {
 
     /// One capturable window of the hovered app.
@@ -48,15 +87,16 @@ public final class DockPreviewOverlay {
     /// hides any existing panel) if the app has no capturable windows. `onRaise` fires with a window
     /// id when a thumbnail is clicked.
     public func show(appName: String, item: DockItem, edge: DockEdge, thumbWidth: CGFloat,
-                     screen: ZTRect, onRaise: @escaping (CGWindowID, pid_t) -> Void) {
+                     screen: ZTRect, onAction: @escaping (CGWindowID, pid_t, String, DockWindowAction) -> Void) {
         let wins = Self.windows(forApp: appName)
         guard !wins.isEmpty else { hide(); return }
         let thumbs: [WinThumb] = wins.prefix(6).map { w in
             let img = CGWindowListCreateImage(.null, .optionIncludingWindow, w.id, [.boundsIgnoreFraming])
             return WinThumb(id: w.id, pid: w.pid, title: w.title, frame: w.frame, image: img)
         }
-        let content = DockPreviewView(appName: appName, thumbs: thumbs, thumbWidth: thumbWidth, onRaise: { [weak self] id, pid in
-            onRaise(id, pid); self?.hide()
+        let content = DockPreviewView(appName: appName, thumbs: thumbs, thumbWidth: thumbWidth,
+                                      onAction: { [weak self] id, pid, title, action in
+            onAction(id, pid, title, action); self?.hide()
         })
         let size = content.intrinsicSize()
         let origin = DockPreview.panelOrigin(item: item, size: (w: Double(size.width), h: Double(size.height)),
@@ -97,15 +137,17 @@ final class DockPreviewView: NSView {
     private let appName: String
     private let thumbs: [DockPreviewOverlay.WinThumb]
     private let thumbW: CGFloat
-    private let onRaise: (CGWindowID, pid_t) -> Void
-    private var cellRects: [(rect: NSRect, id: CGWindowID, pid: pid_t)] = []
+    private let onAction: (CGWindowID, pid_t, String, DockWindowAction) -> Void
+    private struct Hit { let rect: NSRect; let id: CGWindowID; let pid: pid_t; let title: String; let action: DockWindowAction }
+    private var hits: [Hit] = []
 
     private let pad: CGFloat = 14, titleH: CGFloat = 22, gap: CGFloat = 10, labelH: CGFloat = 16
+    private let dotR: CGFloat = 5.5   // traffic-light radius
     private var thumbH: CGFloat { (thumbW * 0.6).rounded() }   // uniform 5:3 cells
 
     init(appName: String, thumbs: [DockPreviewOverlay.WinThumb], thumbWidth: CGFloat,
-         onRaise: @escaping (CGWindowID, pid_t) -> Void) {
-        self.appName = appName; self.thumbs = thumbs; self.thumbW = thumbWidth; self.onRaise = onRaise
+         onAction: @escaping (CGWindowID, pid_t, String, DockWindowAction) -> Void) {
+        self.appName = appName; self.thumbs = thumbs; self.thumbW = thumbWidth; self.onAction = onAction
         super.init(frame: .zero)
     }
     required init?(coder: NSCoder) { nil }
@@ -127,7 +169,7 @@ final class DockPreviewView: NSView {
             .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
             .foregroundColor: NSColor.white.withAlphaComponent(0.92)])
 
-        cellRects.removeAll()
+        hits.removeAll()
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
         var x = pad
         let top = pad + titleH
@@ -141,14 +183,27 @@ final class DockPreviewView: NSView {
             (t.title as NSString).draw(in: NSRect(x: x, y: top + thumbH, width: thumbW, height: labelH), withAttributes: [
                 .font: NSFont.systemFont(ofSize: 10),
                 .foregroundColor: NSColor.white.withAlphaComponent(0.6), .paragraphStyle: trunc])
-            cellRects.append((cell, t.id, t.pid))
+
+            // Per-window traffic lights (top-left), each a clickable action. Added to `hits` BEFORE the
+            // cell-body raise hit so a click on a light wins over a raise.
+            let lights: [(NSColor, DockWindowAction)] = [
+                (NSColor(red: 1.0, green: 0.37, blue: 0.34, alpha: 1), .close),
+                (NSColor(red: 1.0, green: 0.74, blue: 0.18, alpha: 1), .minimize),
+                (NSColor(red: 0.31, green: 0.79, blue: 0.31, alpha: 1), .fullscreen)]
+            for (i, light) in lights.enumerated() {
+                let cx = cell.minX + 12 + CGFloat(i) * 17, cy = cell.minY + 12
+                let dot = NSRect(x: cx - dotR, y: cy - dotR, width: dotR * 2, height: dotR * 2)
+                light.0.setFill(); NSBezierPath(ovalIn: dot).fill()
+                hits.append(Hit(rect: dot.insetBy(dx: -3, dy: -3), id: t.id, pid: t.pid, title: t.title, action: light.1))
+            }
+            hits.append(Hit(rect: cell, id: t.id, pid: t.pid, title: t.title, action: .raise))
             x += thumbW + gap
         }
     }
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
-        if let hit = cellRects.first(where: { $0.rect.contains(p) }) { onRaise(hit.id, hit.pid) }
+        if let hit = hits.first(where: { $0.rect.contains(p) }) { onAction(hit.id, hit.pid, hit.title, hit.action) }
     }
 
     /// Fit `imageSize` inside `box` preserving aspect, centred.

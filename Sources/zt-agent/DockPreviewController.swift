@@ -119,7 +119,9 @@ final class DockPreviewController {
         let scr = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame ?? NSScreen.main?.frame ?? .zero
         let screenRect = ZTRect(x: 0, y: 0, w: Double(scr.width), h: Double(scr.height))
         overlay.show(appName: item.appName, item: item, edge: edge, thumbWidth: thumbWidth,
-                     screen: screenRect) { [weak self] id, pid in self?.raise(id, pid: pid) }
+                     screen: screenRect) { _, pid, title, action in
+            DockWindowActions.perform(pid: pid, title: title, action)   // raise / close / minimize / fullscreen
+        }
         shown = item
     }
 
@@ -132,9 +134,4 @@ final class DockPreviewController {
     }
 
     private func cursorOverPanel() -> Bool { false }   // panel keeps itself; grace timer handles leave
-
-    /// Click-to-raise: bring the window's app forward (v1; specific-window raise is a refinement).
-    private func raise(_ id: CGWindowID, pid: pid_t) {
-        NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateIgnoringOtherApps])
-    }
 }
