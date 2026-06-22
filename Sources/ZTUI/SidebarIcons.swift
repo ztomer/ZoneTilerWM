@@ -66,6 +66,10 @@ struct SidebarGlyph: View {
             line(up); line(dn)
         case "apps":              // 3×3 dot grid (launchpad)
             for gy in [4.5, 10.0, 15.5] { for gx in [4.5, 10.0, 15.5] { fill(dot(gx, gy, 1.5)) } }
+        case "appgroups":         // a stack of grouped cards (apps summoned together)
+            line(rrect(5, 3, 11, 6, 1.6))
+            line(rrect(3.5, 7.5, 13, 6, 1.6))
+            line(rrect(2, 12, 16, 5, 1.6))
         case "pomodoro":          // clock: circle + two hands
             line(Path(ellipseIn: CGRect(x: 3, y: 3, width: 14, height: 14)))
             var hands = Path(); hands.move(to: .init(x: 10, y: 10)); hands.addLine(to: .init(x: 10, y: 5.5))

@@ -303,86 +303,114 @@ struct AliasEditorSection: View {
 /// for the selected modifier group. Click a key to assign / change / clear its app.
 struct AppShortcutsView: View {
     @ObservedObject var model: SettingsModel
-    @State private var group = "appCuts"
+    @State private var selLayer: String?            // which layer the selected key belongs to
     @State private var selectedKey: String?
     @State private var edit = ""
 
+    init(model: SettingsModel) {
+        self.model = model
+        // QA: ZT_APPS_SEED="layer:key:text" pre-selects a key + seeds the picker text, so the footer /
+        // fuzzy dropdown / collision warning render for a screenshot without a real click.
+        if let seed = ProcessInfo.processInfo.environment["ZT_APPS_SEED"] {
+            let p = seed.split(separator: ":", maxSplits: 2).map(String.init)
+            if p.count >= 2 { _selLayer = State(initialValue: p[0]); _selectedKey = State(initialValue: p[1]); _edit = State(initialValue: p.count >= 3 ? p[2] : "") }
+        }
+    }
+
+    // E2: both app-launch layers are shown at once (no inner segmented tabs — there's room now that
+    // App groups moved to their own pane).
+    private let layers: [(id: String, title: String)] = [("appCuts", "App launcher"), ("hyperAppCuts", "Hyper apps")]
     private var keyRows: [[String]] { model.keyboardRows }
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
-    private var currentGroup: ConfigLoader.AppHotkeyGroup {
-        group == "appCuts" ? model.config.appCuts : model.config.hyperAppCuts
+    private func group(_ id: String) -> ConfigLoader.AppHotkeyGroup {
+        id == "appCuts" ? model.config.appCuts : model.config.hyperAppCuts
     }
     private func displayKey(_ k: String) -> String { k.count == 1 ? k.uppercased() : k }
 
     var body: some View {
-        let apps = currentGroup.apps
-        return VStack(alignment: .leading, spacing: 16) {   // more breathing room around the controls + keymap
-            HStack(spacing: 12) {
-                Picker("", selection: $group) {
-                    Text("App launcher").tag("appCuts")
-                    Text("Hyper apps").tag("hyperAppCuts")
-                }.pickerStyle(.segmented).frame(width: 240).labelsHidden()
-                Text("Modifier").foregroundColor(.secondary)
-                ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: currentGroup.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash")) {
-                    model.setValue(section: group, key: "modifier", rawValue: "[\"\($0)\"]")
-                }
-                Spacer()
-            }
-            Text("Each key shows the app it launches with the selected modifier. Click a key to edit.")
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Two app-launch layers, each on its own modifier. Click a key to assign the app it "
+                 + "launches; both layers are editable at once.")
                 .font(.caption).foregroundColor(.secondary)
-            // Wide keyboard rows (a 10–13 key qwerty row is ~600px+) scroll horizontally
-            // rather than overflow / clip a narrow window.
-            ScrollView(.horizontal, showsIndicators: false) {
-                VStack(spacing: 4) {
-                    ForEach(keyRows.indices, id: \.self) { r in
-                        HStack(spacing: 4) {
-                            ForEach(keyRows[r], id: \.self) { key in keycap(key, app: apps[key] ?? "") }
-                        }
-                    }
-                }
-            }
-            // Footer panel: assign/clear the selected key's app, or a hint when none is selected.
-            // Same footprint either way, so selecting a key never shifts the layout.
-            Group {
-                if let k = selectedKey {
-                    HStack(spacing: 8) {
-                        Text(ModGlyph.string(currentGroup.modifier) + displayKey(k))
-                            .font(.system(.body, design: .monospaced)).frame(width: 90, alignment: .leading)
-                        TextField("app name (blank to clear)", text: $edit)
-                            .textFieldStyle(.roundedBorder).frame(width: 240).onSubmit { commit(k) }
-                        Button("Set") { commit(k) }
-                        Button("Clear") { model.removeAppShortcut(group: group, key: k); selectedKey = nil; edit = "" }
-                        Spacer()
-                    }
-                } else {
-                    HStack(spacing: 8) {
-                        Image(systemName: "cursorarrow.rays").foregroundColor(.secondary)
-                        Text("Select a key above to assign or change its app.").foregroundColor(.secondary)
-                        Spacer()
-                    }
-                }
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
+            ForEach(layers, id: \.id) { layer in layerCard(layer.id, title: layer.title) }
+            footerPanel
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        // Match the inset the grouped-Form tabs (General/Keys/Pomodoro/Advanced) and the Layouts
-        // cards land their content at (~46pt from the window edge). This view only got the shared
-        // 16pt container padding, so its content sat ~30pt further left than every other tab.
         .padding(.horizontal, 30)
         .padding(.vertical, 4)
     }
 
-    private func keycap(_ key: String, app: String) -> some View {
+    private func layerCard(_ id: String, title: String) -> some View {
+        let g = group(id)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Text(title).font(.headline)
+                Text("Modifier").foregroundColor(.secondary)
+                ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: g.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash")) {
+                    model.setValue(section: id, key: "modifier", rawValue: "[\"\($0)\"]")
+                }
+                Spacer()
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 4) {
+                    ForEach(keyRows.indices, id: \.self) { r in
+                        HStack(spacing: 4) {
+                            ForEach(keyRows[r], id: \.self) { key in keycap(layer: id, key: key, app: g.apps[key] ?? "") }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
+    }
+
+    // Footer: assign/clear the selected key's app (fuzzy app picker — E3), with a collision warning
+    // (E4). Fixed footprint so selecting a key never shifts the layout.
+    @ViewBuilder private var footerPanel: some View {
+        Group {
+            if let k = selectedKey, let layer = selLayer {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text(ModGlyph.string(group(layer).modifier) + displayKey(k))
+                            .font(.system(.body, design: .monospaced)).frame(width: 90, alignment: .leading)
+                            .padding(.top, 3)
+                        AppPickerField(installed: model.installedApps, text: $edit) { picked in
+                            edit = picked; commit(layer: layer, key: k)
+                        }
+                        Button("Set") { commit(layer: layer, key: k) }.padding(.top, 1)
+                        Button("Clear") { model.removeAppShortcut(group: layer, key: k); selectedKey = nil; edit = "" }.padding(.top, 1)
+                        Spacer()
+                    }
+                    if let warn = collision(layer: layer, key: k) {
+                        Label(warn, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption).foregroundColor(ZTPalette.accentColor)
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "cursorarrow.rays").foregroundColor(.secondary)
+                    Text("Select a key above to assign or change its app.").foregroundColor(.secondary)
+                    Spacer()
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
+    }
+
+    private func keycap(layer: String, key: String, app: String) -> some View {
         let mapped = !app.isEmpty
-        let sel = selectedKey == key
+        let sel = selectedKey == key && selLayer == layer
         return VStack(spacing: 2) {
             Text(displayKey(key)).font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundColor(mapped ? .white : .secondary.opacity(0.7))
-            Text(app).font(.system(size: 9)).lineLimit(1).minimumScaleFactor(0.7)   // shrink long names instead of truncating
+            Text(app).font(.system(size: 9)).lineLimit(1).minimumScaleFactor(0.7)
                 .truncationMode(.tail).frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 3)
@@ -390,13 +418,85 @@ struct AppShortcutsView: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(mapped ? Color.accentColor.opacity(0.22) : Color(NSColor.controlBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(sel ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: sel ? 2 : 0.5))
         .contentShape(Rectangle())
-        .onTapGesture { selectedKey = key; edit = app }
+        .onTapGesture { selLayer = layer; selectedKey = key; edit = app }
     }
 
-    private func commit(_ k: String) {
+    private func commit(layer: String, key: String) {
         let v = edit.trimmingCharacters(in: .whitespaces)
-        if v.isEmpty { model.removeAppShortcut(group: group, key: k) }
-        else { model.setAppShortcut(group: group, key: k, app: v) }
+        if v.isEmpty { model.removeAppShortcut(group: layer, key: key) }
+        else { model.setAppShortcut(group: layer, key: key, app: v) }
+    }
+
+    /// E4: warn if the selected (modifier, key) is already bound elsewhere — the other app layer, a
+    /// tiling / system / pomodoro hotkey, an app-group hotkey, or (when this layer shares the tiling
+    /// modifier) the per-zone tiling keys. Same modifier SET + same key = a real conflict.
+    private func collision(layer: String, key: String) -> String? {
+        let mod = group(layer).modifier
+        guard !mod.isEmpty, !key.isEmpty else { return nil }
+        let modSet = Set(mod.map { $0.lowercased() })
+        let keyLC = key.lowercased()
+        func sameMod(_ other: [String]) -> Bool { Set(other.map { $0.lowercased() }) == modSet }
+        func aliasMods(_ a: String) -> [String] { model.config.aliases[a] ?? [a] }
+
+        // The other app-launch layer.
+        for other in layers where other.id != layer {
+            let og = group(other.id)
+            if sameMod(og.modifier), let app = og.apps[key] { return "Also \(other.title): \(app)" }
+        }
+        // Explicit [alias, key] hotkey tables — name the precise conflicting action.
+        let tables: [(String, [String: [String]])] = [
+            ("tiling", model.config.tilerHotkeys), ("system", model.config.systemHotkeys),
+            ("pomodoro", model.config.pomodoroHotkeys)]
+        for (kind, table) in tables {
+            for (name, hk) in table where hk.count >= 2 {
+                if sameMod(aliasMods(hk[0])), hk[1].lowercased() == keyLC { return "Also \(kind) hotkey ‘\(name)’" }
+            }
+        }
+        // App-group hotkeys.
+        for grp in model.config.appGroups where grp.hotkey.count >= 2 {
+            if sameMod(aliasMods(grp.hotkey[0])), grp.hotkey[1].lowercased() == keyLC { return "Also app group ‘\(grp.name)’" }
+        }
+        // Broad: this layer shares the tiling modifier, so its keys also fire the per-zone tile hotkeys.
+        if sameMod(model.config.tilerModifier) { return "Shares the tiling modifier — this key may also tile a zone" }
+        return nil
+    }
+}
+
+/// A text field for an app name with a live fuzzy-match dropdown sourced from installed apps (E3).
+/// Typing filters the list (prefix matches first, shortest names next); clicking a row fills it.
+struct AppPickerField: View {
+    let installed: [String]
+    @Binding var text: String
+    let onPick: (String) -> Void
+
+    private var matches: [String] {
+        let q = text.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return [] }
+        if installed.contains(where: { $0.caseInsensitiveCompare(text.trimmingCharacters(in: .whitespaces)) == .orderedSame }) { return [] }
+        return Array(installed.filter { $0.lowercased().contains(q) }.sorted { a, b in
+            let ap = a.lowercased().hasPrefix(q), bp = b.lowercased().hasPrefix(q)
+            return ap != bp ? (ap && !bp) : a.count < b.count
+        }.prefix(6))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            TextField("app name (blank to clear)", text: $text)
+                .textFieldStyle(.roundedBorder).frame(width: 240)
+            if !matches.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(matches, id: \.self) { m in
+                        Button { onPick(m) } label: {
+                            HStack { Text(m).font(.system(size: 12)); Spacer() }
+                                .padding(.horizontal, 8).padding(.vertical, 3).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                }
+                .frame(width: 240, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color(NSColor.controlBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 0.5))
+            }
+        }
     }
 }
 

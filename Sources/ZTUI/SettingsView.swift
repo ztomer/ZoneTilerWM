@@ -21,6 +21,21 @@ public final class SettingsModel: ObservableObject {
         self.memory = memory
     }
 
+    /// Installed app names (basename, no ".app"), for the app-launcher fuzzy selector. Scanned once
+    /// and cached — it's a directory listing, not a launch-time cost worth repeating per keystroke.
+    public private(set) lazy var installedApps: [String] = Self.scanInstalledApps()
+    private static func scanInstalledApps() -> [String] {
+        let dirs = ["/Applications", "/Applications/Utilities", "/System/Applications",
+                    "/System/Applications/Utilities", NSHomeDirectory() + "/Applications"]
+        var names = Set<String>()
+        let fm = FileManager.default
+        for d in dirs {
+            guard let items = try? fm.contentsOfDirectory(atPath: d) else { continue }
+            for it in items where it.hasSuffix(".app") { names.insert(String(it.dropLast(4))) }
+        }
+        return names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
     /// Persist a scalar change to config.toml (comment-preserving) and reload the model.
     public func setValue(section: String, key: String, rawValue: String) {
         guard let text = try? String(contentsOf: configURL, encoding: .utf8),
@@ -120,6 +135,7 @@ public final class SettingsModel: ObservableObject {
     public func setCommandPaletteEnabled(_ on: Bool) { setOrAppend(section: "command_palette", key: "enabled", rawValue: on ? "true" : "false") }
     public func setWindowHintsEnabled(_ on: Bool) { setOrAppend(section: "ui", key: "window_hints_enabled", rawValue: on ? "true" : "false") }
     public func setExposeEnabled(_ on: Bool) { setOrAppend(section: "ui", key: "expose_enabled", rawValue: on ? "true" : "false") }
+    public func setAppGroupsEnabled(_ on: Bool) { setOrAppend(section: "ui", key: "app_groups_enabled", rawValue: on ? "true" : "false") }
     public func setZoneHUDEnabled(_ on: Bool) { setOrAppend(section: "zone_hud", key: "enabled", rawValue: on ? "true" : "false") }
     public func setZoneHUDHoldDelay(_ ms: Int) { setOrAppend(section: "zone_hud", key: "hold_delay_ms", rawValue: "\(ms)") }
     public func setDragSnapEnabled(_ on: Bool) { setOrAppend(section: "drag_snap", key: "enabled", rawValue: on ? "true" : "false") }
@@ -421,6 +437,7 @@ public struct SettingsView: View {
         .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
         .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: IOTab.searchKeywords),
         .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
+        .init(id: "appgroups",  title: "App Groups",     icon: "square.stack.3d.up",            keywords: AppGroupsTab.searchKeywords),
         .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: PomodoroTab.searchKeywords),
         .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: AutomationTab.searchKeywords),
         .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: AdvancedTab.searchKeywords),
@@ -493,6 +510,7 @@ struct SettingsGroupDetail: View {
         case "keys":       KeybindEditorView(model: model)
         case "io":         IOTab(model: model)
         case "apps":       AppLauncherTab(model: model)
+        case "appgroups":  AppGroupsTab(model: model)
         case "pomodoro":   PomodoroTab(model: model)
         case "appearance": AppearanceTab(model: model)
         case "automation": AutomationTab(model: model)

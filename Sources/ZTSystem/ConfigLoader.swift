@@ -75,6 +75,7 @@ public enum ConfigLoader {
         public var spacesMenubarBracket: String            // [ui] spaces_menubar_bracket: "bold"(default)/"thin"/"paren"/"square"/"none"
         public var windowHintsEnabled: Bool                // [ui] window_hints_enabled — gate the window-hints hotkey (default on)
         public var exposeEnabled: Bool                     // [ui] expose_enabled — gate the Exposé / window-grid hotkey (default on)
+        public var appGroupsEnabled: Bool                  // [ui] app_groups_enabled — gate the app-group hotkeys (default on)
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
         public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
@@ -254,6 +255,7 @@ public enum ConfigLoader {
         var expose_scope: String?
         var window_hints_enabled: Bool?
         var expose_enabled: Bool?
+        var app_groups_enabled: Bool?
         var experimental_real_spaces: Bool?
         var spaces_menubar: Bool?
         var space_switch_method: String?
@@ -396,6 +398,7 @@ public enum ConfigLoader {
             spacesMenubarBracket: raw.ui?.spaces_menubar_bracket ?? "bold",
             windowHintsEnabled: raw.ui?.window_hints_enabled ?? true,   // on by default; preserves prior behavior
             exposeEnabled: raw.ui?.expose_enabled ?? true,              // on by default; preserves prior behavior
+            appGroupsEnabled: raw.ui?.app_groups_enabled ?? true,       // on by default; preserves prior behavior
             borders: Borders(
                 enabled: raw.borders?.enabled ?? false,
                 backend: raw.borders?.backend ?? "overlay",

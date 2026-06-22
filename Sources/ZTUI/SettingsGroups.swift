@@ -281,7 +281,7 @@ struct IOTab: View {
 
 struct AppLauncherTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app groups", "auto-dismiss", "scratchpad", "app integrations", "chrome", "chrome toggle tab strip", "add group", "clusters"]
+    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app cuts", "modifier", "layer", "app integrations", "chrome", "chrome toggle tab strip"]
     @ObservedObject var model: SettingsModel
 
     var body: some View {
@@ -289,35 +289,6 @@ struct AppLauncherTab: View {
             AppShortcutsView(model: model).padding(16)
             Divider()
             Form {
-                AppGroupsSection(model: model)
-                ToggleSection("Scratchpad", isOn: Binding(
-                    get: { !model.config.scratchpadApps.isEmpty },
-                    set: { on in
-                        if on {
-                            model.setScratchpadApps(["Terminal"])
-                        } else {
-                            model.setScratchpadApps([])
-                        }
-                    }
-                ), footer: "Summon a set of utility apps together and dismiss them together.") {
-                    if !model.config.scratchpadApps.isEmpty {
-                        HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "scratchpad")
-                        LabeledContent("Apps") {
-                            TextField("e.g. Terminal, Notes", text: Binding(
-                                get: { model.config.scratchpadApps.joined(separator: ", ") },
-                                set: { val in
-                                    let apps = val.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                                    model.setScratchpadApps(apps)
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                        }
-                        Toggle("Auto-dismiss", isOn: Binding(
-                            get: { model.config.scratchpadAutoDismiss },
-                            set: { model.setScratchpadAutoDismiss($0) }
-                        ))
-                    }
-                }
                 Section {
                     HotkeyRowView(model: model, label: "Chrome: toggle tab strip", section: "system_hotkeys", key: "chrome_tabs")
                 } header: {
@@ -354,9 +325,13 @@ struct AppGroupsSection: View {
     }
 
     var body: some View {
-        Section("App groups") {
-            caption("Named sets of apps summoned and dismissed together, each with its own hotkey "
-                    + "(supersedes the single scratchpad). Press ⏎ in a field to save.")
+        // E5/A6: the header enable toggle (gates all app-group hotkeys); Scratchpad removed — app
+        // groups supersede it.
+        ToggleSection("App groups", isOn: Binding(
+            get: { model.config.appGroupsEnabled }, set: { model.setAppGroupsEnabled($0) }),
+            footer: "Named sets of apps summoned and dismissed together, each with its own hotkey. "
+                + "Press ⏎ in a field to save. Off unbinds every group hotkey.") {
+            caption("Each group toggles its apps to the foreground (and hides them again) with its hotkey.")
             ForEach(model.config.appGroups, id: \.name) { g in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -403,6 +378,20 @@ struct AppGroupsSection: View {
                 Spacer()
             }
         }
+    }
+}
+
+/// The "App Groups" pane (E1: split out of App Launcher to fill the empty gap there). Just the
+/// named-group editor with its header enable toggle.
+struct AppGroupsTab: View {
+    static let searchKeywords: [String] = ["app groups", "groups", "scratchpad", "summon", "dismiss",
+        "auto-dismiss", "add group", "clusters", "utility apps", "enable app groups"]
+    @ObservedObject var model: SettingsModel
+    var body: some View {
+        Form {
+            AppGroupsSection(model: model)
+        }
+        .formStyle(.grouped)
     }
 }
 

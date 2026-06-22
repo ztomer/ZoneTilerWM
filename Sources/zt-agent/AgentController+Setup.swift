@@ -77,6 +77,7 @@ extension AgentController {
     /// bindAllHotkeys (after unbindAll); the per-group controller reads the live config by name so a
     /// renamed / re-app'd group stays correct without rebuilding it.
     func bindAppGroupHotkeys() {
+        guard config.appGroupsEnabled else { return }   // gated by the App Groups header toggle ([ui] app_groups_enabled)
         var bound = 0
         for g in config.appGroups where g.hotkey.count >= 2 {
             let mods = config.aliases[g.hotkey[0]] ?? [g.hotkey[0]]

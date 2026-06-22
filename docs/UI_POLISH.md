@@ -3,6 +3,12 @@
 Tracking list for the settings/UI polish pass. Status: `[ ]` todo · `[~]` in progress · `[x]` done.
 Keep this in sync as items land; reference the item id in commits.
 
+## N. App launcher — custom layers (deferred from E4)
+- [ ] **N1** Allow **adding more app-launch layers** beyond the fixed two (`[appCuts]`/`[hyperAppCuts]`),
+  each with a user-chosen modifier. Needs a config-schema change (e.g. an `[[app_layers]]` array), an
+  agent binding loop over the layers, and a UI to add/remove a layer. The collision-warning groundwork
+  (E4) already generalizes to N layers.
+
 ## A. Toggle-in-header (kill duplicate enable rows)
 A section whose only/first control is an "Enable X" toggle should put the toggle **in the header**
 (via `ToggleSection`) — a separate row that restates the title is a duplicate.
@@ -26,11 +32,18 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [x] **D2** Border preview swatch should render in the **selected color** AND the **selected style/type**, not hard-coded blue solid.
 
 ## E. App Launcher tab
-- [ ] **E1** Big empty gap in the middle — move **App groups** out to its own new tab to fill it.
-- [ ] **E2** App-cuts and Hyper-app-cuts are two layers — show **both** at once (we have the space; no inner tabs).
-- [ ] **E3** The app-name field should be an **app selector** with fuzzy matching from the installed-app list.
-- [ ] **E4** Allow adding **more layers** (custom modifier), **warn on key collisions** across layers.
-- [ ] **E5** App groups and Scratchpad are mutually exclusive → **remove Scratchpad**, add enable toggle to App groups header.
+- [x] **E1** Big empty gap in the middle — moved **App groups** out to its own new sidebar tab.
+- [x] **E2** App-cuts and Hyper-app-cuts are two layers — now shown as **two stacked keymap cards at
+  once** (no inner segmented tabs), each with its own modifier selector.
+- [x] **E3** The app-name field is now an **`AppPickerField`** with a live fuzzy-match dropdown sourced
+  from installed apps (prefix matches first). Verified live (typing "saf" → Safari).
+- [~] **E4** **Key-collision warnings** done: assigning a key warns if its (modifier, key) is already
+  bound by the other layer, a tiling/system/pomodoro hotkey, an app group, or the tiling zone keys —
+  verified live (HYPER+0 → "Also system hotkey 'expose'"). The "add **more layers** (custom modifier)"
+  part is deferred — it needs a config-schema change (the two layers are fixed `[appCuts]`/
+  `[hyperAppCuts]` tables); see backlog **N1**.
+- [x] **E5 / A6** Removed **Scratchpad** (superseded by app groups); App groups now carry an **enable
+  toggle in the header** ([ui] app_groups_enabled, gates all group hotkeys).
 
 ## F. Dock Previews
 - [x] **F1** Put the **preview first** (above the controls); drop the redundant "Preview" header/caption.
