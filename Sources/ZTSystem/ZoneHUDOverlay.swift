@@ -129,10 +129,12 @@ private final class ZoneHUDView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         // No desktop dim — the picker floats over the LIVE desktop (the grid + caps + fill carry it).
-        let amber = NSColor(red: 0.92, green: 0.68, blue: 0.20, alpha: 1.0)
+        // Palette (Rams/Kare): the accent is binary — ONLY the selected tile + active chip. The grid +
+        // inactive chips stay neutral (structural lines are not an "active" element).
+        let accent = ZTPalette.accent
 
-        // 1) the TRUE base grid — faint interior lines (honest, non-overlapping separation).
-        amber.withAlphaComponent(0.28).setStroke()
+        // 1) the TRUE base grid — faint NEUTRAL interior lines (structure, not a signal → not accent).
+        NSColor.white.withAlphaComponent(0.20).setStroke()
         let lines = NSBezierPath(); lines.lineWidth = 1.0
         for x in gridV where x > bounds.minX + 0.5 && x < bounds.maxX - 0.5 {
             lines.move(to: NSPoint(x: x, y: bounds.minY)); lines.line(to: NSPoint(x: x, y: bounds.maxY))
@@ -148,8 +150,8 @@ private final class ZoneHUDView: NSView {
             let r = NSRect(x: t.x, y: t.y, width: t.w, height: t.h).insetBy(dx: 2, dy: 2)
             if r.width > 4, r.height > 4 {
                 let path = NSBezierPath(roundedRect: r, xRadius: 6, yRadius: 6)
-                amber.withAlphaComponent(0.22).setFill(); path.fill()
-                amber.withAlphaComponent(0.95).setStroke(); path.lineWidth = 2.0; path.stroke()
+                accent.withAlphaComponent(0.22).setFill(); path.fill()         // the SELECTED tile → accent
+                accent.withAlphaComponent(0.95).setStroke(); path.lineWidth = 2.0; path.stroke()
             }
         }
 
@@ -162,10 +164,11 @@ private final class ZoneHUDView: NSView {
             let r = NSRect(x: cap.x - chipW / 2, y: cap.y - chipH / 2, width: chipW, height: chipH)
             let bg = NSBezierPath(roundedRect: r, xRadius: 8, yRadius: 8)
             let active = cap.key == highlightedKey
-            (active ? amber.withAlphaComponent(0.92) : NSColor.black.withAlphaComponent(0.78)).setFill(); bg.fill()
-            (active ? NSColor.clear : amber.withAlphaComponent(0.7)).setStroke(); bg.lineWidth = 1.0; bg.stroke()
+            (active ? accent.withAlphaComponent(0.95) : NSColor.black.withAlphaComponent(0.78)).setFill(); bg.fill()
+            (active ? NSColor.clear : NSColor.white.withAlphaComponent(0.22)).setStroke(); bg.lineWidth = 1.0; bg.stroke()
             let label = cap.key.uppercased() as NSString
-            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: active ? NSColor.black : amber]
+            // active key sits on the accent fill (black glyph for contrast); inactive keys are neutral off-white.
+            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: active ? NSColor.black : ZTPalette.primaryText]
             let sz = label.size(withAttributes: attrs)
             label.draw(at: NSPoint(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2), withAttributes: attrs)
         }
@@ -180,9 +183,10 @@ private final class ZoneKeyLabel: NSView {
     override var isFlipped: Bool { true }
     // One-time, thread-safe — avoids the per-draw NSFont construction that raced a layer redraw and
     // crashed in CoreText (see KeycapLabel, 2026-06-22).
-    private static let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
+    // Neutral off-white: the active zone is signalled by the accent preview fill, not by coloring keys
+    // (the binary-accent rule). All chip glyphs read the same; only the selected tile is accented.
     private static let attrs: [NSAttributedString.Key: Any] = [
-        .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: amber]
+        .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: ZTPalette.primaryText]
     override func draw(_ dirtyRect: NSRect) {
         let pill = NSBezierPath(roundedRect: bounds.insetBy(dx: 2.5, dy: 2.5), xRadius: 10, yRadius: 10)
         NSColor.black.withAlphaComponent(0.68).setFill(); pill.fill()

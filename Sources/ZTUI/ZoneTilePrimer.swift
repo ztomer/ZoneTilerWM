@@ -3,6 +3,7 @@
 // zone and how repeated presses cycle through its tiles. Sits at the top of the Layouts editor.
 
 import SwiftUI
+import ZTSystem
 
 struct ZoneTilePrimer: View {
     // An illustrative "J" zone cycle, as screen-fraction rects (mirrors a real centre-zone cycle:
@@ -44,7 +45,8 @@ struct ZoneTilePrimer: View {
 private struct MiniScreen: View {
     let tile: CGRect
     let key: String
-    private let amber = Color(red: 1.0, green: 0.62, blue: 0.16)
+    // The demonstrated tile IS the "selected" state → the binary accent is correct here.
+    private let amber = ZTPalette.accentColor
 
     var body: some View {
         Canvas { ctx, size in

@@ -94,10 +94,11 @@ private final class KeycapLabel: NSView {
     // draw raced the layer-backed redraw that fires during a display-arrangement change, and CoreText
     // read a half-built font/color cache → a nil attribute value → NSInvalidArgumentException. Built
     // once, these are immutable and safe to read from any draw. (Observed crash, 2026-06-22.)
-    private static let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
+    // Neutral palette (Rams/Kare binary-accent rule): a launcher is a reference palette with no active
+    // element, so the key glyph carries no accent — hierarchy comes from size/weight, not color.
     private static let keyFont = NSFont.monospacedSystemFont(ofSize: 23, weight: .bold)
     private static let appFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
-    private static let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: amber]
+    private static let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: ZTPalette.primaryText]
     private static let appAttrs: [NSAttributedString.Key: Any] = {
         let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
         let shadow = NSShadow(); shadow.shadowColor = .black; shadow.shadowBlurRadius = 2

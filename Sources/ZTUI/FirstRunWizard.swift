@@ -16,13 +16,15 @@ import ZTSystem
 // MARK: - Palette (one source of truth so every step is consistent — what the grader rewards)
 
 enum WizardStyle {
-    static let bg0 = Color(red: 0.11, green: 0.11, blue: 0.12)   // panel top
-    static let bg1 = Color(red: 0.06, green: 0.06, blue: 0.07)   // panel bottom
-    static let card = Color(red: 0.16, green: 0.16, blue: 0.18)
+    // All from the shared ZTPalette (Rams/Kare): neutral charcoal base, one functional accent used
+    // only for the active step / selected chip / toggled switch / primary CTA.
+    static let bg0 = ZTPalette.backgroundColor                                   // #1A1A1A
+    static let bg1 = Color(.sRGB, red: 0.063, green: 0.063, blue: 0.063)         // a touch darker for the gradient
+    static let card = ZTPalette.surfaceColor                                     // #282828
     static let cardStroke = Color.white.opacity(0.08)
-    static let accent = Color(red: 1.0, green: 0.62, blue: 0.16) // amber — the HUD brand colour
-    static let primaryText = Color.white.opacity(0.95)
-    static let secondaryText = Color.white.opacity(0.55)
+    static let accent = ZTPalette.accentColor                                    // #FF6B00 — binary accent
+    static let primaryText = ZTPalette.primaryTextColor                          // #F5F5F7
+    static let secondaryText = ZTPalette.secondaryTextColor                      // #8E8E93
     static let width: CGFloat = 540
     static let height: CGFloat = 600
 }
@@ -393,7 +395,8 @@ struct WizardBullet: View {
     let icon: String, title: String, detail: String
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: icon).font(.system(size: 20)).foregroundColor(WizardStyle.accent)
+            // Neutral: these illustrate features, they're not the active element (binary-accent rule).
+            Image(systemName: icon).font(.system(size: 20)).foregroundColor(WizardStyle.primaryText)
                 .frame(width: 28, height: 26)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline).foregroundColor(WizardStyle.primaryText)
@@ -409,7 +412,8 @@ struct WizardFeatureRow: View {
     @Binding var isOn: Bool
     var body: some View {
         HStack(spacing: 13) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundColor(WizardStyle.accent)
+            // Neutral icon; the accent appears only when the row's toggle is ON (binary-accent rule).
+            Image(systemName: icon).font(.system(size: 18)).foregroundColor(isOn ? WizardStyle.accent : WizardStyle.secondaryText)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundColor(WizardStyle.primaryText)

@@ -388,7 +388,7 @@ public enum ConfigLoader {
             borders: Borders(
                 enabled: raw.borders?.enabled ?? false,
                 backend: raw.borders?.backend ?? "overlay",
-                color: raw.borders?.color ?? "blue",
+                color: raw.borders?.color ?? "accent",   // the app's functional accent (#FF6B00)
                 width: Double(raw.borders?.width ?? 4),
                 cornerRadius: Double(raw.borders?.corner_radius ?? 9),
                 prediction: raw.borders?.prediction ?? false),   // default off: raw 1:1 tracking
