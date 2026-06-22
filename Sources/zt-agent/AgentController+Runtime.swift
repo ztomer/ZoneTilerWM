@@ -283,8 +283,11 @@ extension AgentController {
             self?.dispatcher.perform(.cycleZoneStack(direction: .previous))
         }
         // System: window hints (label each window, type to focus) + config reload hotkey.
-        bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
-            self?.dispatcher.perform(.toggleWindowHints)
+        // Gated by the [ui] window_hints_enabled toggle (default on).
+        if config.windowHintsEnabled {
+            bindAction(config.resolvedHotkey("window_hints", in: config.systemHotkeys), label: "window_hints") { [weak self] in
+                self?.dispatcher.perform(.toggleWindowHints)
+            }
         }
         // Window peek: hints scoped to the focused window's zone (opt-in — only bound when a `peek`
         // hotkey is set; also via palette/CLI/MCP).
@@ -297,8 +300,11 @@ extension AgentController {
         }
         // Exposé replacement: lay all windows out in a grid with jump labels (opt-in `expose` hotkey).
         // Routed through the dispatcher so the hotkey, MCP, IPC, CLI and URL all share one path.
-        bindAction(config.resolvedHotkey("expose", in: config.systemHotkeys), label: "expose") { [weak self] in
-            self?.dispatcher.perform(.toggleExpose)
+        // Gated by the [ui] expose_enabled toggle (default on).
+        if config.exposeEnabled {
+            bindAction(config.resolvedHotkey("expose", in: config.systemHotkeys), label: "expose") { [weak self] in
+                self?.dispatcher.perform(.toggleExpose)
+            }
         }
         // Chrome tab-strip toggle (opt-in `chrome_tabs` hotkey; only acts when Chrome is frontmost).
         bindAction(config.resolvedHotkey("chrome_tabs", in: config.systemHotkeys), label: "chrome_tabs") { [weak self] in

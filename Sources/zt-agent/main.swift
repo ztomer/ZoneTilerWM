@@ -285,7 +285,7 @@ final class AgentController: NSObject {
             autoTilerConfig: { [unowned self] in self.autoTilerConfig },
             appSwitcherConfig: { [unowned self] in self.appSwitcher },
             audioDevices: { [unowned self] in self.config.audioDevices },
-            audioShortcut: { [unowned self] in self.config.audioShortcutCallback },
+            audioShortcut: { [unowned self] in self.config.audioRunShortcutEnabled ? self.config.audioShortcutCallback : nil },
             now: { Int(Date().timeIntervalSince1970) },
             pomodoro: { [unowned self] cmd in
                 switch cmd {

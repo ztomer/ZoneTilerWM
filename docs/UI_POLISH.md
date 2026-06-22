@@ -11,12 +11,12 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [x] **A2** Zone picker (HUD) → toggle in the card header (currently a separate "Show the zone picker…" row).
 - [x] **A3** Drag-to-snap → toggle in the card header.
 - [x] **A4** Spaces → "Show Spaces (menu bar + Exposé)" → toggle in header.
-- [ ] **A5** Automation → "Run shortcut on change" (audio) → add an enable/disable toggle.
+- [x] **A5** Automation → "Run shortcut on change" (audio) → add an enable/disable toggle.
 - [ ] **A6** App groups → toggle in header (see E5).
 
 ## B. Window Hints & Exposé need enable toggles
-- [ ] **B1** Window Hints: add an enable/disable toggle (config + gate the hotkey).
-- [ ] **B2** Exposé / Window Grid: add an enable/disable toggle (config + gate the hotkey).
+- [x] **B1** Window Hints: add an enable/disable toggle (config + gate the hotkey).
+- [x] **B2** Exposé / Window Grid: add an enable/disable toggle (config + gate the hotkey).
 
 ## C. Sidebar order
 - [x] **C1** Move **Appearance** directly below **General**.

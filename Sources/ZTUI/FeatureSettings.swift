@@ -129,13 +129,17 @@ struct AudioSettings: View {
                     .textFieldStyle(.roundedBorder).frame(width: 56).multilineTextAlignment(.center)
             }
             HStack(spacing: 8) {
-                Text("Run Shortcut on change")
+                Toggle("Run Shortcut on change", isOn: Binding(
+                    get: { model.config.audioRunShortcutEnabled },
+                    set: { model.setAudioRunShortcutEnabled($0) }))
                 Spacer(minLength: 12)
                 TextField("Shortcut name", text: $shortcutEdit).textFieldStyle(.roundedBorder).frame(width: 200)
                     .onSubmit { model.setAudioShortcut(shortcutEdit) }
+                    .disabled(!model.config.audioRunShortcutEnabled)
                 Button("Save") { model.setAudioShortcut(shortcutEdit) }
+                    .disabled(!model.config.audioRunShortcutEnabled)
             }
-            Text("Runs a macOS Shortcut by name when the output device changes (blank = none).")
+            Text("Runs a macOS Shortcut by name when the output device changes. Off keeps the name but skips running it.")
                 .font(.caption).foregroundColor(.secondary)
         }
         .onAppear {

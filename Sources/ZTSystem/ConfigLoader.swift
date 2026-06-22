@@ -54,6 +54,7 @@ public enum ConfigLoader {
         public var audioHotkeyModifier: [String]
         public var audioHotkeyKey: String?
         public var audioShortcutCallback: String?
+        public var audioRunShortcutEnabled: Bool           // [audio_switcher] run_shortcut_enabled — gate running the Shortcut on device change (default on)
         public var pomodoroWorkSec: Int
         public var pomodoroRestSec: Int
         public var pomodoroEnableColorBar: Bool
@@ -72,6 +73,8 @@ public enum ConfigLoader {
         public var spacesMenubar: Bool                     // [ui] spaces_menubar — show the Spaces widget in the menu bar (default off)
         public var spaceSwitchMethod: String               // [ui] space_switch_method: "auto" / "keyboard" / "gesture" (all public, no private API)
         public var spacesMenubarBracket: String            // [ui] spaces_menubar_bracket: "bold"(default)/"thin"/"paren"/"square"/"none"
+        public var windowHintsEnabled: Bool                // [ui] window_hints_enabled — gate the window-hints hotkey (default on)
+        public var exposeEnabled: Bool                     // [ui] expose_enabled — gate the Exposé / window-grid hotkey (default on)
         public var borders: Borders
         public var automationEnabled: Bool                 // [automation] enabled — the MCP/CLI socket
         public var commandPaletteEnabled: Bool             // [command_palette] enabled (opt-in, default off)
@@ -188,6 +191,7 @@ public enum ConfigLoader {
         var devices: [String]?
         var hotkey: [String]?
         var shortcut_callback: String?
+        var run_shortcut_enabled: Bool?
     }
 
     private struct RawPomodoro: Decodable {
@@ -248,6 +252,8 @@ public enum ConfigLoader {
         var expose_spaces_bar_position: String?
         var expose_nav: String?
         var expose_scope: String?
+        var window_hints_enabled: Bool?
+        var expose_enabled: Bool?
         var experimental_real_spaces: Bool?
         var spaces_menubar: Bool?
         var space_switch_method: String?
@@ -369,6 +375,7 @@ public enum ConfigLoader {
             audioHotkeyModifier: resolveMod((raw.audio_switcher?.hotkey ?? []).first),
             audioHotkeyKey: (raw.audio_switcher?.hotkey ?? []).count >= 2 ? raw.audio_switcher?.hotkey?[1] : nil,
             audioShortcutCallback: raw.audio_switcher?.shortcut_callback,
+            audioRunShortcutEnabled: raw.audio_switcher?.run_shortcut_enabled ?? true,   // on by default; preserves prior behavior
             pomodoroWorkSec: raw.pomodoro?.work_period_sec ?? 3120,
             pomodoroRestSec: raw.pomodoro?.rest_period_sec ?? 1020,
             pomodoroEnableColorBar: raw.pomodoro?.enable_color_bar ?? true,
@@ -387,6 +394,8 @@ public enum ConfigLoader {
             spacesMenubar: raw.ui?.spaces_menubar ?? false,
             spaceSwitchMethod: raw.ui?.space_switch_method ?? "auto",
             spacesMenubarBracket: raw.ui?.spaces_menubar_bracket ?? "bold",
+            windowHintsEnabled: raw.ui?.window_hints_enabled ?? true,   // on by default; preserves prior behavior
+            exposeEnabled: raw.ui?.expose_enabled ?? true,              // on by default; preserves prior behavior
             borders: Borders(
                 enabled: raw.borders?.enabled ?? false,
                 backend: raw.borders?.backend ?? "overlay",

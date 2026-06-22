@@ -114,9 +114,12 @@ public final class SettingsModel: ObservableObject {
     public func setAudioDevices(_ devices: [String]) { setOrAppend(section: "audio_switcher", key: "devices", rawValue: tomlArray(devices)) }
     public func setAudioHotkey(alias: String, key: String) { setOrAppend(section: "audio_switcher", key: "hotkey", rawValue: "[\"\(alias)\", \"\(key)\"]") }
     public func setAudioShortcut(_ s: String) { setOrAppend(section: "audio_switcher", key: "shortcut_callback", rawValue: "\"\(s)\"") }
+    public func setAudioRunShortcutEnabled(_ on: Bool) { setOrAppend(section: "audio_switcher", key: "run_shortcut_enabled", rawValue: on ? "true" : "false") }
 
     // MARK: - Gated v3 features (all opt-in, default off) — persisted comment-preserving.
     public func setCommandPaletteEnabled(_ on: Bool) { setOrAppend(section: "command_palette", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setWindowHintsEnabled(_ on: Bool) { setOrAppend(section: "ui", key: "window_hints_enabled", rawValue: on ? "true" : "false") }
+    public func setExposeEnabled(_ on: Bool) { setOrAppend(section: "ui", key: "expose_enabled", rawValue: on ? "true" : "false") }
     public func setZoneHUDEnabled(_ on: Bool) { setOrAppend(section: "zone_hud", key: "enabled", rawValue: on ? "true" : "false") }
     public func setZoneHUDHoldDelay(_ ms: Int) { setOrAppend(section: "zone_hud", key: "hold_delay_ms", rawValue: "\(ms)") }
     public func setDragSnapEnabled(_ on: Bool) { setOrAppend(section: "drag_snap", key: "enabled", rawValue: on ? "true" : "false") }

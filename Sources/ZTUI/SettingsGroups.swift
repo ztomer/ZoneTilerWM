@@ -33,29 +33,37 @@ struct PreviewsTab: View {
         Form {
             // Each preview sits with the options that affect it (no shared "Settings" dump; keyboard
             // layout lives in Input & Output, not duplicated here).
-            Section("Window Hints") {
+            ToggleSection("Window Hints", isOn: Binding(
+                get: { model.config.windowHintsEnabled }, set: { model.setWindowHintsEnabled($0) }),
+                footer: "Label every window with a key; type it to jump focus. Off unbinds the hotkey.") {
                 HStack { Spacer(); WindowHintsPreview(model: model); Spacer() }.padding(.vertical, 8)
-                HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "window_hints")
+                if model.config.windowHintsEnabled {
+                    HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "window_hints")
+                }
             }
 
-            Section("Exposé / Window Grid") {
+            ToggleSection("Exposé / Window Grid", isOn: Binding(
+                get: { model.config.exposeEnabled }, set: { model.setExposeEnabled($0) }),
+                footer: "Lay every window out in a labeled grid; type a label to focus. Off unbinds the hotkey.") {
                 HStack { Spacer(); ExposePreview(model: model); Spacer() }.padding(.vertical, 8)
-                HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "expose")
-                Picker("Spaces bar position", selection: Binding(
-                    get: { model.exposeSpacesBarPositionChoice },
-                    set: { model.setExposeSpacesBarPosition($0) })) {
-                    Text("Top").tag("top"); Text("Left").tag("left")
-                    Text("Right").tag("right"); Text("Bottom").tag("bottom")
-                }
-                Picker("Navigation keys", selection: Binding(
-                    get: { model.exposeNavChoice },
-                    set: { model.setExposeNav($0) })) {
-                    Text("Arrows").tag("arrows"); Text("Vim (hjkl)").tag("vim"); Text("WASD").tag("wasd")
-                }
-                Picker("Show windows from", selection: Binding(
-                    get: { model.exposeScopeChoice },
-                    set: { model.setExposeScope($0) })) {
-                    Text("Active monitor").tag("active"); Text("All monitors").tag("all")
+                if model.config.exposeEnabled {
+                    HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "expose")
+                    Picker("Spaces bar position", selection: Binding(
+                        get: { model.exposeSpacesBarPositionChoice },
+                        set: { model.setExposeSpacesBarPosition($0) })) {
+                        Text("Top").tag("top"); Text("Left").tag("left")
+                        Text("Right").tag("right"); Text("Bottom").tag("bottom")
+                    }
+                    Picker("Navigation keys", selection: Binding(
+                        get: { model.exposeNavChoice },
+                        set: { model.setExposeNav($0) })) {
+                        Text("Arrows").tag("arrows"); Text("Vim (hjkl)").tag("vim"); Text("WASD").tag("wasd")
+                    }
+                    Picker("Show windows from", selection: Binding(
+                        get: { model.exposeScopeChoice },
+                        set: { model.setExposeScope($0) })) {
+                        Text("Active monitor").tag("active"); Text("All monitors").tag("all")
+                    }
                 }
             }
 
