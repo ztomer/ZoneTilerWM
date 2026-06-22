@@ -99,13 +99,37 @@ struct WindowHintsPreview: View {
 
 /// Live preview of the Zone HUD: holding the tiling modifier overlays each zone's key where pressing
 /// it lands the window. Mirrors `ZoneHUD.layout` on the default y/u/i/o · h/j/k/l · n/m/,/. grid.
+/// Faithful to the LIVE zone HUD: a dark screen with faint NEUTRAL grid lines, dark keycaps with
+/// off-white glyphs, and exactly ONE selected zone (J) shown by the accent fill + an accent chip
+/// (the binary-accent rule — matches ZoneHUDOverlay). Replaces the old blue keyboard that looked
+/// nothing like the real HUD.
 struct ZoneHUDPreview: View {
     private let rows = [["y", "u", "i", "o"], ["h", "j", "k", "l"], ["n", "m", ",", "."]]
+    private let selected = "j"
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(LinearGradient(colors: [Color(white: 0.15), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.10))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+            GeometryReader { geo in
+                let w = geo.size.width, h = geo.size.height
+                // Neutral interior grid (structure, not a signal).
+                Canvas { ctx, size in
+                    for f in [0.25, 0.5, 0.75] {
+                        var p = Path(); p.move(to: CGPoint(x: size.width * f, y: 0)); p.addLine(to: CGPoint(x: size.width * f, y: size.height))
+                        ctx.stroke(p, with: .color(.white.opacity(0.14)), lineWidth: 1)
+                    }
+                    for f in [0.333, 0.667] {
+                        var p = Path(); p.move(to: CGPoint(x: 0, y: size.height * f)); p.addLine(to: CGPoint(x: size.width, y: size.height * f))
+                        ctx.stroke(p, with: .color(.white.opacity(0.14)), lineWidth: 1)
+                    }
+                }
+                // The SELECTED "J" zone fill (centre columns) — the only accent in the picker.
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(ZTPalette.accentColor.opacity(0.22))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(ZTPalette.accentColor, lineWidth: 1.5))
+                    .frame(width: w * 0.5 - 10, height: h - 12)
+                    .position(x: w * 0.5, y: h * 0.5)
+            }
             VStack(spacing: 6) {
                 ForEach(rows, id: \.self) { row in
                     HStack(spacing: 6) { ForEach(row, id: \.self) { cell($0) } }
@@ -116,10 +140,12 @@ struct ZoneHUDPreview: View {
         .frame(width: 330, height: 200)
     }
     private func cell(_ key: String) -> some View {
-        RoundedRectangle(cornerRadius: 6)
-            .fill(Color.black.opacity(0.32))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor.opacity(0.55), lineWidth: 1))
-            .overlay(Text(key.uppercased()).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundColor(.accentColor))
+        let active = key == selected
+        return RoundedRectangle(cornerRadius: 6)
+            .fill(active ? ZTPalette.accentColor : Color.black.opacity(0.78))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(active ? Color.clear : Color.white.opacity(0.22), lineWidth: 1))
+            .overlay(Text(key.uppercased()).font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundColor(active ? .black : ZTPalette.primaryTextColor))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -162,10 +188,10 @@ struct DragSnapPreview: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(LinearGradient(colors: [Color(white: 0.15), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
-            // Target zone (left half) lit up as the drop target.
+            // Target zone (left half) lit up as the drop target — the accent (matches the live snap fill).
             HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.22))
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.accentColor, lineWidth: 2))
+                RoundedRectangle(cornerRadius: 6).fill(ZTPalette.accentColor.opacity(0.22))
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(ZTPalette.accentColor, lineWidth: 2))
                 Color.clear
             }
             .padding(12)

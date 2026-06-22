@@ -251,7 +251,8 @@ struct TilingTab: View {
 struct TilesTab: View {
     static let searchKeywords: [String] = TilingTab.searchKeywords + LayoutEditorView.searchKeywords
     @ObservedObject var model: SettingsModel
-    @State private var section = 0
+    // QA: ZT_TILES_SEG=1 opens the Advanced segment directly (for headless screenshot review).
+    @State private var section = ProcessInfo.processInfo.environment["ZT_TILES_SEG"] == "1" ? 1 : 0
 
     var body: some View {
         VStack(spacing: 0) {
