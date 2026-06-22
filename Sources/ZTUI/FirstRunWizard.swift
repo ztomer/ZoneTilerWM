@@ -233,6 +233,18 @@ public struct FirstRunWizardView: View {
             WizardFeatureRow(icon: "brain", title: "Window memory",
                              detail: "Re-opens apps where you last tiled them.",
                              isOn: Binding(get: { model.config.windowMemory.enabled }, set: { model.setWindowMemoryEnabled($0) }))
+            Divider().overlay(WizardStyle.cardStroke)
+            WizardFeatureRow(icon: "character.cursor.ibeam", title: "Window hints",
+                             detail: "Label every window; type a key to jump focus.",
+                             isOn: Binding(get: { model.config.windowHintsEnabled }, set: { model.setWindowHintsEnabled($0) }))
+            Divider().overlay(WizardStyle.cardStroke)
+            WizardFeatureRow(icon: "rectangle.3.group", title: "Exposé / window grid",
+                             detail: "Lay every window out in a labeled grid; type to focus.",
+                             isOn: Binding(get: { model.config.exposeEnabled }, set: { model.setExposeEnabled($0) }))
+            Divider().overlay(WizardStyle.cardStroke)
+            WizardFeatureRow(icon: "dock.rectangle", title: "Dock previews",
+                             detail: "Hover a Dock icon to preview that app's windows.",
+                             isOn: Binding(get: { model.config.dockPreviewsEnabled }, set: { model.setDockPreviewsEnabled($0) }))
         }
         .background(RoundedRectangle(cornerRadius: 12).fill(WizardStyle.card))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(WizardStyle.cardStroke))
@@ -258,17 +270,24 @@ public struct FirstRunWizardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // The configured tiler modifier (picker + per-zone tiles) and the fixed HYPER modifier (auto-tile),
+    // rendered as key-cap glyphs so the cheatsheet always matches the live bindings.
+    private var tilerGlyphs: String { tilingGlyphs(model) }
+    private var hyperGlyphs: String { ModGlyph.string(model.config.aliases["HYPER"] ?? ["shift", "ctrl", "option", "cmd"]) }
+
     private var doneBody: some View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 52)).foregroundColor(.green)
             Text("You're all set.").font(.system(.title3, design: .rounded)).bold()
                 .foregroundColor(WizardStyle.primaryText)
             VStack(alignment: .leading, spacing: 0) {
-                WizardKeyRow(keys: "hold ⌃⌘", action: "Show the zone picker")
+                // Reflect the ACTUAL bindings: the zone picker + per-zone tiles use the tiler modifier;
+                // auto-tile is bound to HYPER+Return (see AgentController bindAutoTile).
+                WizardKeyRow(keys: "hold \(tilerGlyphs)", action: "Show the zone picker")
                 Divider().overlay(WizardStyle.cardStroke)
-                WizardKeyRow(keys: "⌃⌘ + J", action: "Tile focused window to the centre zone")
+                WizardKeyRow(keys: "\(tilerGlyphs) + J", action: "Tile focused window to the centre zone")
                 Divider().overlay(WizardStyle.cardStroke)
-                WizardKeyRow(keys: "⌃⌘ + Return", action: "Auto-tile the whole desktop")
+                WizardKeyRow(keys: "\(hyperGlyphs) + Return", action: "Auto-tile the whole desktop")
             }
             .background(RoundedRectangle(cornerRadius: 12).fill(WizardStyle.card))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(WizardStyle.cardStroke))

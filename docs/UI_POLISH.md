@@ -55,5 +55,7 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [ ] **J1** Use the selected palette (Braun **orange** + shades) instead of the old blue/multicolor.
 
 ## K. Onboarding wizard
-- [ ] **K1** Auto-tile shortcut shown wrong — it's **HYPER+Return**, not ⌃⌘+Return.
-- [ ] **K2** A bunch of features are missing from onboarding — audit + add the key ones.
+- [x] **K1** Auto-tile shortcut shown wrong — it's **HYPER+Return**, not ⌃⌘+Return. Cheatsheet now
+  derives glyphs from the live bindings (tiler modifier for picker/zone keys, HYPER for auto-tile).
+- [x] **K2** Added the key missing discoverable features to onboarding: Window hints, Exposé/window
+  grid, Dock previews (alongside the existing HUD / border / drag-snap / palette / window-memory).
