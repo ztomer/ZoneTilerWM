@@ -49,7 +49,9 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
   with the modifier held; offset 0 = auto-pick, each right-click steps the tile). *Needs live QA.*
 
 ## I. Settings search
-- [ ] **I1** Search should also match **section headers** (e.g. "window grid") and jump to that pane.
+- [x] **I1** Search should also match **section headers** (e.g. "window grid") and jump to that pane.
+  Section-header text is indexed in each tab's `searchKeywords` (verified coverage); the sidebar
+  selection now follows the top match live as you type, so it navigates straight to the pane.
 
 ## J. Analytics window
 - [x] **J1** Use the selected palette (Braun **orange** + shades) instead of the old blue/multicolor.

@@ -467,6 +467,15 @@ public struct SettingsView: View {
         // the first match so you can drive it entirely from the keyboard.
         .searchable(text: $search, placement: .toolbar, prompt: "Search settings")
         .onSubmit(of: .search) { if let first = filteredGroups.first { sel = first.id } }
+        // Live jump: as the query narrows the sidebar, move the SELECTION (not just the detail) to the
+        // top match — so searching a section header like "window grid" or "margins" navigates straight
+        // to the pane that holds it, highlight and all.
+        .onChange(of: search) { newValue in
+            let q = newValue.trimmingCharacters(in: .whitespaces)
+            guard !q.isEmpty, !filteredGroups.contains(where: { $0.id == sel }),
+                  let first = filteredGroups.first else { return }
+            sel = first.id
+        }
     }
 }
 
