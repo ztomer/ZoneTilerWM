@@ -18,7 +18,7 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
 - [x] **A3** Drag-to-snap → toggle in the card header.
 - [x] **A4** Spaces → "Show Spaces (menu bar + Exposé)" → toggle in header.
 - [x] **A5** Automation → "Run shortcut on change" (audio) → add an enable/disable toggle.
-- [ ] **A6** App groups → toggle in header (see E5).
+- [x] **A6** App groups → toggle in header (done with E5).
 
 ## B. Window Hints & Exposé need enable toggles
 - [x] **B1** Window Hints: add an enable/disable toggle (config + gate the hotkey).
