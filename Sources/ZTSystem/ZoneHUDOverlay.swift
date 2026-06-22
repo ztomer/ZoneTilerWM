@@ -9,6 +9,10 @@
 import AppKit
 import ZTCore
 
+/// One-time, thread-safe cap font for the headless-render keycaps (per-draw construction raced a
+/// layer redraw and crashed in CoreText — see KeycapLabel, 2026-06-22).
+private let zoneHUDCapFont = NSFont.monospacedSystemFont(ofSize: 20, weight: .bold)
+
 public final class ZoneHUDOverlay {
     private var window: NSWindow?
     private weak var bgView: ZoneHUDView?   // draws the grid + preview fill behind the glass caps
@@ -153,7 +157,7 @@ private final class ZoneHUDView: NSView {
         //    chips (drawsCaps=false); the headless render draws opaque chips here for the harness.
         guard drawsCaps else { return }
         let chipW = 46.0, chipH = 38.0
-        let font = NSFont.monospacedSystemFont(ofSize: 20, weight: .bold)
+        let font = zoneHUDCapFont
         for cap in caps {
             let r = NSRect(x: cap.x - chipW / 2, y: cap.y - chipH / 2, width: chipW, height: chipH)
             let bg = NSBezierPath(roundedRect: r, xRadius: 8, yRadius: 8)
@@ -174,14 +178,16 @@ private final class ZoneHUDView: NSView {
 private final class ZoneKeyLabel: NSView {
     var key: String = "" { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
+    // One-time, thread-safe — avoids the per-draw NSFont construction that raced a layer redraw and
+    // crashed in CoreText (see KeycapLabel, 2026-06-22).
+    private static let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
+    private static let attrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: amber]
     override func draw(_ dirtyRect: NSRect) {
         let pill = NSBezierPath(roundedRect: bounds.insetBy(dx: 2.5, dy: 2.5), xRadius: 10, yRadius: 10)
         NSColor.black.withAlphaComponent(0.68).setFill(); pill.fill()
-        let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
         let s = key.uppercased() as NSString
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 20, weight: .bold), .foregroundColor: amber]
-        let sz = s.size(withAttributes: attrs)
-        s.draw(at: NSPoint(x: bounds.midX - sz.width / 2, y: bounds.midY - sz.height / 2), withAttributes: attrs)
+        let sz = s.size(withAttributes: Self.attrs)
+        s.draw(at: NSPoint(x: bounds.midX - sz.width / 2, y: bounds.midY - sz.height / 2), withAttributes: Self.attrs)
     }
 }

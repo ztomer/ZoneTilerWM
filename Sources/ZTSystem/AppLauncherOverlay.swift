@@ -89,26 +89,32 @@ public final class AppLauncherOverlay {
 private final class KeycapLabel: NSView {
     var cap: AppLauncherHUD.Cap? { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
+
+    // Hoisted to one-time, thread-safe `static let`s. Constructing NSFont.monospacedSystemFont every
+    // draw raced the layer-backed redraw that fires during a display-arrangement change, and CoreText
+    // read a half-built font/color cache → a nil attribute value → NSInvalidArgumentException. Built
+    // once, these are immutable and safe to read from any draw. (Observed crash, 2026-06-22.)
+    private static let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
+    private static let keyFont = NSFont.monospacedSystemFont(ofSize: 23, weight: .bold)
+    private static let appFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    private static let keyAttrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: amber]
+    private static let appAttrs: [NSAttributedString.Key: Any] = {
+        let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
+        let shadow = NSShadow(); shadow.shadowColor = .black; shadow.shadowBlurRadius = 2
+        return [.font: appFont, .foregroundColor: NSColor.white, .paragraphStyle: trunc, .shadow: shadow]
+    }()
+
     override func draw(_ dirtyRect: NSRect) {
         guard let cap else { return }
         // Dark pill backing: guarantees the amber glyph + white app name read over ANY wallpaper. The
         // glass chip alone goes pale over a light desktop (validated over white) and both labels wash out.
         let pill = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 13, yRadius: 13)
         NSColor.black.withAlphaComponent(0.66).setFill(); pill.fill()
-        let amber = NSColor(red: 0.99, green: 0.80, blue: 0.34, alpha: 1.0)
         let key = cap.key.uppercased() as NSString
-        let keyAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 23, weight: .bold), .foregroundColor: amber]
-        let ks = key.size(withAttributes: keyAttrs)
-        key.draw(at: NSPoint(x: bounds.midX - ks.width / 2, y: 8), withAttributes: keyAttrs)
-
-        let trunc = NSMutableParagraphStyle(); trunc.lineBreakMode = .byTruncatingTail; trunc.alignment = .center
-        let app = (cap.label) as NSString
-        let appAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-            .foregroundColor: NSColor.white, .paragraphStyle: trunc,
-            .shadow: { let s = NSShadow(); s.shadowColor = .black; s.shadowBlurRadius = 2; return s }()]
-        app.draw(in: NSRect(x: 2, y: ks.height + 14, width: bounds.width - 4, height: 18), withAttributes: appAttrs)
+        let ks = key.size(withAttributes: Self.keyAttrs)
+        key.draw(at: NSPoint(x: bounds.midX - ks.width / 2, y: 8), withAttributes: Self.keyAttrs)
+        (cap.label as NSString).draw(in: NSRect(x: 2, y: ks.height + 14, width: bounds.width - 4, height: 18),
+                                     withAttributes: Self.appAttrs)
     }
 }
 
