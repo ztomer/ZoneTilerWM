@@ -2,9 +2,13 @@
 // SliderRow: label + slider). Used across all the settings panes. Split out of FeatureSettings.swift.
 
 import SwiftUI
+import ZTSystem
 
-private let colorNames = ["green", "red", "blue", "yellow", "orange", "purple", "white", "black", "gray"]
+// "accent" first — it's the default border color (ConfigLoader). Kept in sync with the resolver
+// PomodoroBar.color(named:) so the picker can always represent the configured value.
+private let colorNames = ["accent", "green", "red", "blue", "yellow", "orange", "purple", "white", "black", "gray"]
 private let swatchColor: [String: Color] = [
+    "accent": ZTPalette.accentColor,
     "green": .green, "red": .red, "blue": .blue, "yellow": .yellow, "orange": .orange,
     "purple": .purple, "white": .white, "black": .black, "gray": .gray,
 ]

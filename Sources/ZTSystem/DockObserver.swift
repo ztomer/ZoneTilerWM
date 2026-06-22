@@ -49,7 +49,7 @@ public struct DockObserver {
               let posV = attr(el, kAXPositionAttribute as String), let sizeV = attr(el, kAXSizeAttribute as String)
         else { return nil }
         var pt = CGPoint.zero, sz = CGSize.zero
-        AXValueGetValue(posV as! AXValue, .cgPoint, &pt)
+        AXValueGetValue(posV as! AXValue, .cgPoint, &pt)   // CF unchecked bridge — safe, AX contract
         AXValueGetValue(sizeV as! AXValue, .cgSize, &sz)
         guard sz.width > 0, sz.height > 0 else { return nil }
         return DockItem(appName: title, frame: ZTRect(x: pt.x, y: pt.y, w: sz.width, h: sz.height))

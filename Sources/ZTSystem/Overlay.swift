@@ -344,6 +344,7 @@ public final class PomodoroBar {
         case "white": return .white
         case "black": return .black
         case "accent": return ZTPalette.accent   // the app's functional accent (#FF6B00)
+        case "gray": return .gray
         default: return .gray
         }
     }

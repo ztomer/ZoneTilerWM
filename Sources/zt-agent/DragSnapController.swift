@@ -66,12 +66,15 @@ final class DragSnapController {
     private func mouseUp() {
         let down = downLocation
         defer { dragging = false; downLocation = nil }   // always reset, even on the early-returns below
+        // Require a captured press THIS cycle — never snap on an up whose down we missed (e.g. the press
+        // went to another app), even if `dragging` lingered from a prior drag. Closes the phantom-snap.
+        guard let down else { return }
         // Treat it as a drag if EITHER a .dragged event fired OR the cursor moved a meaningful distance
         // between press and release. The distance check is the reliable one: the window server's
         // title-bar move loop swallows .leftMouseDragged so `dragging` often stays false for real
         // window drags (this is why drag-snap "did nothing").
         let up = NSEvent.mouseLocation
-        let movedFar = down.map { hypot(up.x - $0.x, up.y - $0.y) > 8 } ?? false
+        let movedFar = hypot(up.x - down.x, up.y - down.y) > 8
         guard dragging || movedFar else { return }   // a plain click, not a drag
         // Only snap when the tiling modifier is held at drop — never hijack a plain drag.
         let held = NSEvent.modifierFlags.intersection(.tilingRelevant)

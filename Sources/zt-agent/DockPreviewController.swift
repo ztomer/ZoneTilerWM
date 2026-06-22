@@ -116,13 +116,25 @@ final class DockPreviewController {
     }
 
     private func present(_ item: DockItem) {
-        let scr = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame ?? NSScreen.main?.frame ?? .zero
-        let screenRect = ZTRect(x: 0, y: 0, w: Double(scr.width), h: Double(scr.height))
+        // Clamp the panel to the display the tile is ON (top-left CG), not a hardcoded primary — so a
+        // multi-monitor / non-primary dock anchors on the right screen.
+        let mid = CGPoint(x: item.frame.x + item.frame.w / 2, y: item.frame.y + item.frame.h / 2)
         overlay.show(appName: item.appName, item: item, edge: edge, thumbWidth: thumbWidth,
-                     screen: screenRect) { _, pid, title, action in
-            DockWindowActions.perform(pid: pid, title: title, action)   // raise / close / minimize / fullscreen
+                     screen: screenCGFrame(containing: mid)) { pid, frame, action in
+            DockWindowActions.perform(pid: pid, frame: frame, action)   // raise / close / minimize / fullscreen
         }
         shown = item
+    }
+
+    /// The CG (top-left) frame of the display containing `point`, defaulting to the primary.
+    private func screenCGFrame(containing point: CGPoint) -> ZTRect {
+        let primaryH = NSScreen.screens.first(where: { $0.frame.origin == .zero })?.frame.height
+            ?? NSScreen.main?.frame.height ?? 0
+        for s in NSScreen.screens {
+            let cg = ZTRect(x: s.frame.minX, y: primaryH - s.frame.maxY, w: s.frame.width, h: s.frame.height)
+            if point.x >= cg.x && point.x < cg.x + cg.w && point.y >= cg.y && point.y < cg.y + cg.h { return cg }
+        }
+        return ZTRect(x: 0, y: 0, w: Double(NSScreen.main?.frame.width ?? 0), h: Double(primaryH))
     }
 
     private func scheduleHide() {
@@ -133,5 +145,11 @@ final class DockPreviewController {
         }
     }
 
-    private func cursorOverPanel() -> Bool { false }   // panel keeps itself; grace timer handles leave
+    /// True when the cursor is over the shown preview panel — so a move onto the panel (e.g. to click a
+    /// traffic light) doesn't trigger the hide timer and yank it away. Hit-tests against the panel's
+    /// known frame (bottom-left global, matching NSEvent.mouseLocation).
+    private func cursorOverPanel() -> Bool {
+        guard let f = overlay.panelFrame else { return false }
+        return NSMouseInRect(NSEvent.mouseLocation, f, false)
+    }
 }

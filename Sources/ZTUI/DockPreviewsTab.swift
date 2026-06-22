@@ -50,9 +50,9 @@ struct DockPreviewMock: View {
                     .overlay(Image(systemName: "macwindow").font(.system(size: width * 0.16))
                         .foregroundColor(.white.opacity(0.18)))
                 HStack(spacing: 5) {                                  // the per-window traffic lights
-                    Circle().fill(Color(red: 1.0, green: 0.37, blue: 0.34)).frame(width: 9, height: 9)
-                    Circle().fill(Color(red: 1.0, green: 0.74, blue: 0.18)).frame(width: 9, height: 9)
-                    Circle().fill(Color(red: 0.31, green: 0.79, blue: 0.31)).frame(width: 9, height: 9)
+                    Circle().fill(ZTPalette.trafficCloseColor).frame(width: 9, height: 9)
+                    Circle().fill(ZTPalette.trafficMinimizeColor).frame(width: 9, height: 9)
+                    Circle().fill(ZTPalette.trafficFullscreenColor).frame(width: 9, height: 9)
                 }
                 .padding(7)
             }

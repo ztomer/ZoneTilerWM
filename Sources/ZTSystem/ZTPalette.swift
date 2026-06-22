@@ -30,6 +30,15 @@ public enum ZTPalette {
     /// Default focus-border color name (the border is an active-state indicator → the accent).
     public static let accentHex = "#FF6B00"
 
+    // Traffic-light dots (close / minimize / fullscreen) — one definition shared by the live Dock
+    // preview panel (NSColor) and its settings mock (Color), so they can't drift.
+    public static let trafficClose      = NSColor(srgbRed: 1.0, green: 0.37, blue: 0.34, alpha: 1)
+    public static let trafficMinimize   = NSColor(srgbRed: 1.0, green: 0.74, blue: 0.18, alpha: 1)
+    public static let trafficFullscreen = NSColor(srgbRed: 0.31, green: 0.79, blue: 0.31, alpha: 1)
+    public static var trafficCloseColor:      Color { Color(.sRGB, red: 1.0, green: 0.37, blue: 0.34) }
+    public static var trafficMinimizeColor:   Color { Color(.sRGB, red: 1.0, green: 0.74, blue: 0.18) }
+    public static var trafficFullscreenColor: Color { Color(.sRGB, red: 0.31, green: 0.79, blue: 0.31) }
+
     private static func ns(_ c: (CGFloat, CGFloat, CGFloat)) -> NSColor {
         NSColor(srgbRed: c.0, green: c.1, blue: c.2, alpha: 1)
     }

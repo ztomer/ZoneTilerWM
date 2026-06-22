@@ -154,10 +154,10 @@ struct WindowMemorySection: View {
     @State private var loaded = false
 
     var body: some View {
-        Section("Window memory") {
-            Toggle("Learn & restore window positions", isOn: Binding(
-                get: { model.config.windowMemory.enabled },
-                set: { model.setWindowMemoryEnabled($0) }))
+        ToggleSection("Window memory", isOn: Binding(
+            get: { model.config.windowMemory.enabled },
+            set: { model.setWindowMemoryEnabled($0) }),
+            footer: "Learn where you tile each app and restore it on the next launch.") {
             Text("Excluded apps (never auto-tiled or learned):").font(.caption).foregroundColor(.secondary)
             ForEach(excluded.indices, id: \.self) { i in
                 HStack {
@@ -340,7 +340,7 @@ struct AutomationTab: View {
                 caption("A folder you already sync (iCloud / Dropbox) for sync-export / sync-import.")
             }
 
-            ToggleSection("Enable MCP", isOn: Binding(
+            ToggleSection("MCP server", isOn: Binding(
                 get: { model.automationEnabled }, set: { model.setAutomationEnabled($0) }),
                 footer: "Lets Claude (Desktop/Code) and zonetiler-cli drive the window manager over a local "
                       + "Unix socket. No model, key, or network is bundled.") {

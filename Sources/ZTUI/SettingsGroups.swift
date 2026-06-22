@@ -483,18 +483,18 @@ struct AppearanceTab: View {
         Form {
             Section { AppearancePreview(model: model) }
             BordersSettings(model: model)
-            Section("Margins") {
-                Toggle("Enable margins", isOn: Binding(
-                    get: { model.config.zoneConfig.margins?.enabled ?? false },
-                    set: { model.setMarginsEnabled($0) }))
-                SliderRow(label: "Size", value: Binding(
-                    get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
-                    set: { model.setMarginsSize($0) }), range: 0...40, suffix: "px")
-                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
-                Toggle("Apply margin at screen edges", isOn: Binding(
-                    get: { model.config.zoneConfig.margins?.screen_edge ?? false },
-                    set: { model.setMarginsScreenEdge($0) }))
-                    .disabled(!(model.config.zoneConfig.margins?.enabled ?? false))
+            ToggleSection("Margins", isOn: Binding(
+                get: { model.config.zoneConfig.margins?.enabled ?? false },
+                set: { model.setMarginsEnabled($0) }),
+                footer: "Gaps between tiled windows (and optionally the screen edge).") {
+                if model.config.zoneConfig.margins?.enabled ?? false {
+                    SliderRow(label: "Size", value: Binding(
+                        get: { Int(model.config.zoneConfig.margins?.size ?? 0) },
+                        set: { model.setMarginsSize($0) }), range: 0...40, suffix: "px")
+                    Toggle("Apply at screen edges", isOn: Binding(
+                        get: { model.config.zoneConfig.margins?.screen_edge ?? false },
+                        set: { model.setMarginsScreenEdge($0) }))
+                }
             }
 
         }

@@ -110,17 +110,23 @@ final class BorderShapeView: NSView {
             (CGPoint(x: r.maxX, y: r.maxY), CGVector(dx: -1, dy: 0), CGVector(dx: 0, dy: 1),  r.width),  // bottom
             (CGPoint(x: r.minX, y: r.maxY), CGVector(dx: 0, dy: -1), CGVector(dx: -1, dy: 0), r.height), // left
         ]
+        // Carry a CONTINUOUS arc-length `s` around the whole perimeter so the sine phase doesn't jump
+        // at corners (the old per-edge reset kinked every corner). Snap the wavelength so a whole number
+        // of waves fits the perimeter — then the wave closes seamlessly back at the start.
+        let perimeter = 2 * (r.width + r.height)
+        let waveLen = perimeter / max(1, (perimeter / wl).rounded())
+        var s: CGFloat = 0
         var first = true
         for e in edges {
-            let steps = max(2, Int((e.len / wl) * 8))
+            let steps = max(2, Int((e.len / waveLen) * 8))
             for i in 0...steps {
-                let t = CGFloat(i) / CGFloat(steps)
-                let along = t * e.len
-                let off = a * sin((along / wl) * 2 * .pi)
+                let along = (CGFloat(i) / CGFloat(steps)) * e.len
+                let off = a * sin(((s + along) / waveLen) * 2 * .pi)
                 let pt = CGPoint(x: e.start.x + e.dir.dx * along + e.normal.dx * off,
                                  y: e.start.y + e.dir.dy * along + e.normal.dy * off)
                 if first { path.move(to: pt); first = false } else { path.line(to: pt) }
             }
+            s += e.len
         }
         path.close()
         return path
@@ -263,7 +269,9 @@ public final class FocusBorderController {
     /// CGWindowList (zero AX) and renders it (raw 1:1, plus the optional lead). Coalesced by the
     /// skip-when-unchanged check, so duplicate event+timer fires don't double-draw.
     fileprivate func update() {
-        if CACurrentMediaTime() < suppressUntil { return }   // muted during a minimize/unminimize animation
+        if CACurrentMediaTime() < suppressUntil { lastTick = 0; return }   // muted during a minimize/unminimize
+        // animation; reset lastTick so the FIRST tick after the mute uses a 1-frame dt, not the whole
+        // mute duration (a ~0.6s dt would fling the predictor far off).
         guard let cur = Self.focusedWindowFrame() else {
             if lastRendered != nil { renderer?.render(frame: nil, style: style); lastRendered = nil }
             return

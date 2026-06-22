@@ -13,3 +13,4 @@ ZoneTilerWM.xcodeproj/
 build/
 *.iconset
 dist/
+.vscode/

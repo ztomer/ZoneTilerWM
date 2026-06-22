@@ -14,20 +14,22 @@ import ZTCore
 /// minimize / full-screen that specific window (DockDoor-style).
 public enum DockWindowAction { case raise, close, minimize, fullscreen }
 
-/// Perform a window action via AX, matching the app's window by title (the only AX touch, and only
-/// on an explicit click). No-op if the window can't be matched.
+/// Perform a window action via AX, matching the app's window by its on-screen FRAME (the only AX
+/// touch, and only on an explicit click). Frame-matching — not title — because titles are often blank
+/// or duplicated, and a wrong match on `.close` would close the WRONG window. No fallback: an
+/// unmatched action (esp. close) is a safe no-op.
 public enum DockWindowActions {
-    public static func perform(pid: pid_t, title: String, _ action: DockWindowAction) {
+    private static let kAXFullScreenButtonAttribute = "AXFullScreenButton"
+
+    public static func perform(pid: pid_t, frame: CGRect, _ action: DockWindowAction) {
         if action == .raise {
             NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateIgnoringOtherApps])
         }
         let app = AXUIElementCreateApplication(pid)
         var winsV: AnyObject?
         guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &winsV) == .success,
-              let wins = winsV as? [AXUIElement] else { return }
-        // Match by title; fall back to the first window if titles are blank.
-        let target = wins.first { (attr($0, kAXTitleAttribute) as? String) == title } ?? wins.first
-        guard let w = target else { return }
+              let wins = winsV as? [AXUIElement],
+              let w = wins.first(where: { axFrame($0).map { framesMatch($0, frame) } ?? false }) else { return }
         switch action {
         case .raise:
             AXUIElementPerformAction(w, kAXRaiseAction as CFString)
@@ -43,10 +45,19 @@ public enum DockWindowActions {
             }
         }
     }
+
+    private static func axFrame(_ el: AXUIElement) -> CGRect? {
+        guard let pv = attr(el, kAXPositionAttribute), let sv = attr(el, kAXSizeAttribute) else { return nil }
+        var p = CGPoint.zero, s = CGSize.zero
+        AXValueGetValue(pv as! AXValue, .cgPoint, &p); AXValueGetValue(sv as! AXValue, .cgSize, &s)
+        return CGRect(origin: p, size: s)
+    }
+    private static func framesMatch(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) < 4 && abs(a.minY - b.minY) < 4 && abs(a.width - b.width) < 4 && abs(a.height - b.height) < 4
+    }
     private static func attr(_ el: AXUIElement, _ a: String) -> AnyObject? {
         var v: AnyObject?; return AXUIElementCopyAttributeValue(el, a as CFString, &v) == .success ? v : nil
     }
-    private static let kAXFullScreenButtonAttribute = "AXFullScreenButton"
 }
 
 public final class DockPreviewOverlay {
@@ -64,21 +75,26 @@ public final class DockPreviewOverlay {
     public init() {}
 
     /// On-screen, normal-layer windows owned by `appName`, front-to-back (0 AX, current Space only).
+    /// Resolves the app's PID from its (Dock-title) display name and filters CGWindowList by OWNER PID
+    /// — exact — rather than owner NAME, which can differ from the Dock's localized title (so the
+    /// feature wouldn't silently do nothing for those apps). Falls back to a name match if unresolved.
     public static func windows(forApp appName: String) -> [(id: CGWindowID, pid: pid_t, title: String, frame: CGRect)] {
+        let pid = NSWorkspace.shared.runningApplications.first {
+            $0.localizedName == appName || $0.localizedName?.caseInsensitiveCompare(appName) == .orderedSame
+        }?.processIdentifier
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
         guard let infos = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [] }
         var out: [(CGWindowID, pid_t, String, CGRect)] = []
         for info in infos {
-            guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
-                  (info[kCGWindowOwnerName as String] as? String) == appName,
+            let ownerPID = pid_t((info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? 0)
+            let matches = pid != nil ? (ownerPID == pid!) : ((info[kCGWindowOwnerName as String] as? String) == appName)
+            guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0, matches,
                   let num = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
                   let b = info[kCGWindowBounds as String] as? [String: CGFloat],
                   let rect = CGRect(dictionaryRepresentation: b as CFDictionary) else { continue }
-            // Skip tiny utility/shadow windows.
-            guard rect.width >= 80, rect.height >= 60 else { continue }
-            let pid = pid_t((info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? 0)
+            guard rect.width >= 80, rect.height >= 60 else { continue }   // skip tiny utility/shadow windows
             let title = (info[kCGWindowName as String] as? String) ?? appName
-            out.append((num, pid, title, rect))
+            out.append((num, ownerPID, title, rect))
         }
         return out.map { (id: $0.0, pid: $0.1, title: $0.2, frame: $0.3) }
     }
@@ -87,7 +103,7 @@ public final class DockPreviewOverlay {
     /// hides any existing panel) if the app has no capturable windows. `onRaise` fires with a window
     /// id when a thumbnail is clicked.
     public func show(appName: String, item: DockItem, edge: DockEdge, thumbWidth: CGFloat,
-                     screen: ZTRect, onAction: @escaping (CGWindowID, pid_t, String, DockWindowAction) -> Void) {
+                     screen: ZTRect, onAction: @escaping (pid_t, CGRect, DockWindowAction) -> Void) {
         let wins = Self.windows(forApp: appName)
         guard !wins.isEmpty else { hide(); return }
         let thumbs: [WinThumb] = wins.prefix(6).map { w in
@@ -95,26 +111,31 @@ public final class DockPreviewOverlay {
             return WinThumb(id: w.id, pid: w.pid, title: w.title, frame: w.frame, image: img)
         }
         let content = DockPreviewView(appName: appName, thumbs: thumbs, thumbWidth: thumbWidth,
-                                      onAction: { [weak self] id, pid, title, action in
-            onAction(id, pid, title, action); self?.hide()
+                                      onAction: { [weak self] pid, frame, action in
+            onAction(pid, frame, action); self?.hide()
         })
         let size = content.intrinsicSize()
         let origin = DockPreview.panelOrigin(item: item, size: (w: Double(size.width), h: Double(size.height)),
                                              edge: edge, screen: screen)
-        // CG top-left origin → AppKit bottom-left for the window frame.
-        let scrH: CGFloat = (NSScreen.screens.first { NSPointInRect(NSPoint(x: origin.x, y: origin.y), $0.frame) }?.frame.height)
-            ?? NSScreen.main?.frame.height ?? CGFloat(screen.h)
-        let appKitY = scrH - CGFloat(origin.y) - size.height
-        let frame = NSRect(x: CGFloat(origin.x), y: appKitY, width: size.width, height: size.height)
-
+        // Top-left CG → bottom-left AppKit via the shared converter (flips by the PRIMARY display
+        // height, x unchanged) — the same path every other overlay uses. The old hand-rolled flip
+        // hit-tested a top-left point against bottom-left NSScreen frames and broke on right/left
+        // docks + multi-monitor.
+        let frame = CoordConvert.nsFrame(fromCG: ZTRect(x: origin.x, y: origin.y,
+                                                        w: Double(size.width), h: Double(size.height)))
         let p = panel ?? makePanel()
         p.setFrame(frame, display: true)
         p.contentView = content
         p.orderFrontRegardless()
         panel = p
+        panelFrame = frame
     }
 
-    public func hide() { panel?.orderOut(nil) }
+    /// The shown panel's screen frame (bottom-left global), for the controller's hover hit-test. nil
+    /// when hidden.
+    public private(set) var panelFrame: NSRect?
+
+    public func hide() { panel?.orderOut(nil); panelFrame = nil }
 
     private func makePanel() -> NSPanel {
         let p = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
@@ -137,8 +158,8 @@ final class DockPreviewView: NSView {
     private let appName: String
     private let thumbs: [DockPreviewOverlay.WinThumb]
     private let thumbW: CGFloat
-    private let onAction: (CGWindowID, pid_t, String, DockWindowAction) -> Void
-    private struct Hit { let rect: NSRect; let id: CGWindowID; let pid: pid_t; let title: String; let action: DockWindowAction }
+    private let onAction: (pid_t, CGRect, DockWindowAction) -> Void
+    private struct Hit { let rect: NSRect; let pid: pid_t; let frame: CGRect; let action: DockWindowAction }
     private var hits: [Hit] = []
 
     private let pad: CGFloat = 14, titleH: CGFloat = 22, gap: CGFloat = 10, labelH: CGFloat = 16
@@ -146,7 +167,7 @@ final class DockPreviewView: NSView {
     private var thumbH: CGFloat { (thumbW * 0.6).rounded() }   // uniform 5:3 cells
 
     init(appName: String, thumbs: [DockPreviewOverlay.WinThumb], thumbWidth: CGFloat,
-         onAction: @escaping (CGWindowID, pid_t, String, DockWindowAction) -> Void) {
+         onAction: @escaping (pid_t, CGRect, DockWindowAction) -> Void) {
         self.appName = appName; self.thumbs = thumbs; self.thumbW = thumbWidth; self.onAction = onAction
         super.init(frame: .zero)
     }
@@ -187,28 +208,28 @@ final class DockPreviewView: NSView {
             // Per-window traffic lights (top-left), each a clickable action. Added to `hits` BEFORE the
             // cell-body raise hit so a click on a light wins over a raise.
             let lights: [(NSColor, DockWindowAction)] = [
-                (NSColor(red: 1.0, green: 0.37, blue: 0.34, alpha: 1), .close),
-                (NSColor(red: 1.0, green: 0.74, blue: 0.18, alpha: 1), .minimize),
-                (NSColor(red: 0.31, green: 0.79, blue: 0.31, alpha: 1), .fullscreen)]
+                (ZTPalette.trafficClose, .close),
+                (ZTPalette.trafficMinimize, .minimize),
+                (ZTPalette.trafficFullscreen, .fullscreen)]
             for (i, light) in lights.enumerated() {
                 let cx = cell.minX + 12 + CGFloat(i) * 17, cy = cell.minY + 12
                 let dot = NSRect(x: cx - dotR, y: cy - dotR, width: dotR * 2, height: dotR * 2)
                 light.0.setFill(); NSBezierPath(ovalIn: dot).fill()
-                hits.append(Hit(rect: dot.insetBy(dx: -3, dy: -3), id: t.id, pid: t.pid, title: t.title, action: light.1))
+                hits.append(Hit(rect: dot.insetBy(dx: -3, dy: -3), pid: t.pid, frame: t.frame, action: light.1))
             }
-            hits.append(Hit(rect: cell, id: t.id, pid: t.pid, title: t.title, action: .raise))
+            hits.append(Hit(rect: cell, pid: t.pid, frame: t.frame, action: .raise))
             x += thumbW + gap
         }
     }
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
-        if let hit = hits.first(where: { $0.rect.contains(p) }) { onAction(hit.id, hit.pid, hit.title, hit.action) }
+        if let hit = hits.first(where: { $0.rect.contains(p) }) { onAction(hit.pid, hit.frame, hit.action) }
     }
 
     /// Fit `imageSize` inside `box` preserving aspect, centred.
     private func aspectFit(_ imageSize: CGSize, in box: NSRect) -> NSRect {
-        guard imageSize.width > 0, imageSize.height > 0 else { return box }
+        guard imageSize.width > 0, imageSize.height > 0, box.width > 0, box.height > 0 else { return box }
         let s = min(box.width / imageSize.width, box.height / imageSize.height)
         let w = imageSize.width * s, h = imageSize.height * s
         return NSRect(x: box.midX - w / 2, y: box.midY - h / 2, width: w, height: h)
