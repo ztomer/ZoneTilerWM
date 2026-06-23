@@ -256,11 +256,8 @@ struct PomodoroTab: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Pomodoro").font(.headline)
-            }
-        }
+        .navigationTitle("Pomodoro")
+        .toolbar {}
     }
 }
 
@@ -281,11 +278,8 @@ struct AdvancedTab: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Advanced").font(.headline)
-            }
-        }
+        .navigationTitle("Advanced")
+        .toolbar {}
     }
 }
 
@@ -297,7 +291,7 @@ struct AdvancedTab: View {
 /// catalog + QueryRequest, so this pane can never drift from what the agent actually supports.
 struct AutomationTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["command palette", "natural language", "hotkey", "arrangement events", "poll interval", "sync folder", "enable mcp", "mcp", "state", "socket", "command line", "binary", "cli", "url scheme", "app intents", "rules", "events"]
+    static let searchKeywords: [String] = ["hotkey", "arrangement events", "poll interval", "sync folder", "enable mcp", "mcp", "state", "socket", "command line", "binary", "cli", "url scheme", "app intents", "rules", "events"]
     @ObservedObject var model: SettingsModel
 
     private func copy(_ s: String) {
@@ -307,30 +301,8 @@ struct AutomationTab: View {
 
     private func caption(_ s: String) -> some View { Text(s).font(.caption).foregroundColor(.secondary) }
 
-    private var nlAvailable: Bool {
-        if case .available = NLInterpreter.status { return true }
-        return false
-    }
-
     var body: some View {
         Form {
-            ToggleSection("Command palette", isOn: Binding(
-                get: { model.config.commandPaletteEnabled }, set: { model.setCommandPaletteEnabled($0) }),
-                footer: paletteHint) {
-                HStack { Spacer(); CommandPalettePreview(); Spacer() }.padding(.vertical, 8)
-                if model.config.commandPaletteEnabled {
-                    // Natural language is greyed out when the on-device model isn't available (no separate
-                    // status row); the palette hotkey follows.
-                    Toggle("Natural language", isOn: Binding(
-                        get: { model.config.nlEnabled && nlAvailable }, set: { model.setNLEnabled($0) }))
-                        .disabled(!nlAvailable)
-                    HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "command_palette")
-                    caption(nlAvailable
-                            ? "With Natural language on, ⏎ on an unmatched query asks the on-device model (\"put terminal left\"). 100% local."
-                            : "Natural language needs Apple Intelligence, which isn't available on this Mac.")
-                }
-            }
-
             ToggleSection("Arrangement events", isOn: Binding(
                 get: { model.config.eventsEnabled }, set: { model.setEventsEnabled($0) }),
                 footer: "Append layout-change events to a file you can tail -f from scripts / status bars.") {
@@ -406,19 +378,8 @@ struct AutomationTab: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Automation").font(.headline)
-            }
-        }
-    }
-
-    /// "Open with ⌃⌘K" from the configured command-palette hotkey, or a hint to set one.
-    private var paletteHint: String {
-        if let r = model.config.resolvedHotkey("command_palette", in: model.config.systemHotkeys) {
-            return "Open with " + ModGlyph.string(r.modifier) + r.key.uppercased()
-        }
-        return "No hotkey set yet — add one under Keys → Feature actions."
+        .navigationTitle("Automation")
+        .toolbar {}
     }
 
     /// Pick a sync folder with the standard open panel (directories only).

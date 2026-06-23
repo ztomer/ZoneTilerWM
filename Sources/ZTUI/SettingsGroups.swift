@@ -69,11 +69,8 @@ struct PreviewsTab: View {
 
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Exposé & Hints").font(.headline)
-            }
-        }
+        .navigationTitle("Exposé & Hints")
+        .toolbar {}
     }
 }
 
@@ -110,11 +107,8 @@ struct SpacesTab: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Spaces").font(.headline)
-            }
-        }
+        .navigationTitle("Spaces")
+        .toolbar {}
     }
 }
 
@@ -122,8 +116,21 @@ struct SpacesTab: View {
 
 struct GeneralTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload", "keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "modifier aliases", "aliases", "mash", "hyper"]
+    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload", "keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "modifier aliases", "aliases", "mash", "hyper", "command palette", "natural language"]
     @ObservedObject var model: SettingsModel
+
+    private var nlAvailable: Bool {
+        if case .available = NLInterpreter.status { return true }
+        return false
+    }
+
+    private var paletteHint: String {
+        if let r = model.config.resolvedHotkey("command_palette", in: model.config.systemHotkeys) {
+            return "Open with " + ModGlyph.string(r.modifier) + r.key.uppercased()
+        }
+        return "Summon a searchable palette of every action. Set hotkey below."
+    }
+
     var body: some View {
         Form {
             ToggleSection("Launch at login", isOn: Binding(
@@ -131,6 +138,21 @@ struct GeneralTab: View {
                 footer: model.launchAtLoginAvailable ? nil
                     : "Available when running the installed ZoneTilerWM.app (not the dev binary).")
                 .disabled(!model.launchAtLoginAvailable)
+
+            ToggleSection("Command palette", isOn: Binding(
+                get: { model.config.commandPaletteEnabled }, set: { model.setCommandPaletteEnabled($0) }),
+                footer: paletteHint) {
+                HStack { Spacer(); CommandPalettePreview(); Spacer() }.padding(.vertical, 8)
+                if model.config.commandPaletteEnabled {
+                    Toggle("Natural language", isOn: Binding(
+                        get: { model.config.nlEnabled && nlAvailable }, set: { model.setNLEnabled($0) }))
+                        .disabled(!nlAvailable)
+                    HotkeyRowView(model: model, label: "Hotkey", section: "system_hotkeys", key: "command_palette")
+                    caption(nlAvailable
+                            ? "With Natural language on, ⏎ on an unmatched query asks the on-device model (\"put terminal left\"). 100% local."
+                            : "Natural language needs Apple Intelligence, which isn't available on this Mac.")
+                }
+            }
 
             Section("Keyboard") {
                 Picker("Keyboard layout", selection: Binding(
@@ -165,11 +187,8 @@ struct GeneralTab: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("General").font(.headline)
-            }
-        }
+        .navigationTitle("General")
+        .toolbar {}
     }
 }
 
@@ -322,11 +341,8 @@ struct TweaksTab: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Tweaks").font(.headline)
-            }
-        }
+        .navigationTitle("Tweaks")
+        .toolbar {}
     }
 }
 
@@ -479,10 +495,7 @@ struct AppearanceTab: View {
 
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("Appearance").font(.headline)
-            }
-        }
+        .navigationTitle("Appearance")
+        .toolbar {}
     }
 }
