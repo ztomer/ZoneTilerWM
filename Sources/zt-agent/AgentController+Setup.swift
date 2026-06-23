@@ -59,6 +59,7 @@ extension AgentController {
     }
 
     func bindAppHotkeys(_ group: ConfigLoader.AppHotkeyGroup, label: String) {
+        guard group.enabled else { log("zt-agent: \(label) disabled — skipping"); return }   // per-layer toggle
         let mask = KeyMap.modifierMask(for: group.modifier)
         guard mask != 0 else { log("zt-agent: \(label) has no usable modifier \(group.modifier)"); return }
         var bound = 0

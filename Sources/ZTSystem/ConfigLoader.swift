@@ -172,6 +172,7 @@ public enum ConfigLoader {
     private struct RawAppCuts: Decodable {
         var modifier: [String]
         var apps: [String: String]
+        var enabled: Bool          // [<layer>] enabled (default true) — toggle a layer off without removing it
         private struct Key: CodingKey {
             var stringValue: String; init?(stringValue: String) { self.stringValue = stringValue }
             var intValue: Int? { nil }; init?(intValue: Int) { nil }
@@ -180,14 +181,17 @@ public enum ConfigLoader {
             let c = try decoder.container(keyedBy: Key.self)
             var mods: [String] = []
             var entries: [String: String] = [:]
+            var en = true
             for key in c.allKeys {
                 if key.stringValue == "modifier" {
                     mods = (try? c.decode([String].self, forKey: key)) ?? []
+                } else if key.stringValue == "enabled" {
+                    en = (try? c.decode(Bool.self, forKey: key)) ?? true
                 } else if let app = try? c.decode(String.self, forKey: key) {
                     entries[key.stringValue] = app
                 }
             }
-            modifier = mods; apps = entries
+            modifier = mods; apps = entries; enabled = en
         }
     }
 
@@ -306,7 +310,10 @@ public enum ConfigLoader {
     public struct AppHotkeyGroup: Equatable {
         public let modifier: [String]
         public let apps: [String: String]
-        public init(modifier: [String], apps: [String: String]) { self.modifier = modifier; self.apps = apps }
+        public let enabled: Bool   // a disabled layer keeps its keys but binds none (toggle off to park it)
+        public init(modifier: [String], apps: [String: String], enabled: Bool = true) {
+            self.modifier = modifier; self.apps = apps; self.enabled = enabled
+        }
     }
 
     /// A user-defined extra app-launch layer ([app_layers.<name>]) — beyond the two built-in
@@ -368,11 +375,12 @@ public enum ConfigLoader {
             ambiguousApps: raw.app_switcher?.ambiguous_apps ?? [],
             hideWorkaroundApps: raw.app_switcher?.hide_workaround_apps ?? [])
         let appCuts = AppHotkeyGroup(modifier: resolveModList(raw.appCuts?.modifier ?? []),
-                                     apps: raw.appCuts?.apps ?? [:])
+                                     apps: raw.appCuts?.apps ?? [:], enabled: raw.appCuts?.enabled ?? true)
         let hyperAppCuts = AppHotkeyGroup(modifier: resolveModList(raw.hyperAppCuts?.modifier ?? []),
-                                          apps: raw.hyperAppCuts?.apps ?? [:])
+                                          apps: raw.hyperAppCuts?.apps ?? [:], enabled: raw.hyperAppCuts?.enabled ?? true)
         let appLayers = (raw.app_layers ?? [:]).map {
-            AppLayer(name: $0.key, group: AppHotkeyGroup(modifier: resolveModList($0.value.modifier), apps: $0.value.apps))
+            AppLayer(name: $0.key, group: AppHotkeyGroup(modifier: resolveModList($0.value.modifier),
+                                                         apps: $0.value.apps, enabled: $0.value.enabled))
         }.sorted { $0.name < $1.name }
 
         return LoadedConfig(

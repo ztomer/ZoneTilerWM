@@ -235,6 +235,12 @@ public final class SettingsModel: ObservableObject {
         persist(edited)
     }
 
+    /// Toggle a layer on/off (keeps its keys; binds none when off). `section` is the layer's table:
+    /// "appCuts" / "hyperAppCuts" / app_layers."<name>".
+    public func setAppLayerEnabled(section: String, _ on: Bool) {
+        setOrAppend(section: section, key: "enabled", rawValue: on ? "true" : "false")
+    }
+
     // App-launcher hold-to-reveal HUD (palette of a layer's shortcuts).
     public func setAppLauncherHUDEnabled(_ on: Bool) { setOrAppend(section: "app_launcher_hud", key: "enabled", rawValue: on ? "true" : "false") }
     public func setAppLauncherHUDHoldDelay(_ ms: Int) { setOrAppend(section: "app_launcher_hud", key: "hold_delay_ms", rawValue: "\(ms)") }

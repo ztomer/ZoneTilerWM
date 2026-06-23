@@ -18,6 +18,11 @@ Keep this in sync as items land; reference the item id in commits.
 - [x] **N3** The **two built-in layers are now removable too** (kept by default as examples). Each layer
   card carries a trash button; removing `[appCuts]`/`[hyperAppCuts]` drops it from the list and unbinds
   it. Verified live: removing `[appCuts]` hid its card and the agent bound only `hyperAppCuts`.
+- [x] **N4** **Per-layer enable toggle** + HUD card moved to the **top** of the App Launcher panel. Each
+  layer card has a leading switch (`[<layer>] enabled`, default true); off keeps the keys but binds
+  nothing (dimmed keymap, still editable) and drops the layer from the hold-to-reveal HUD. Verified live:
+  toggling `[appCuts]` off dimmed its card and logged "appCuts disabled — skipping" while hyperAppCuts
+  still bound. Regression test covers the `enabled` decode.
 
 ## A. Toggle-in-header (kill duplicate enable rows)
 A section whose only/first control is an "Enable X" toggle should put the toggle **in the header**

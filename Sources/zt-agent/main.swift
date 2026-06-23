@@ -343,10 +343,10 @@ final class AgentController: NSObject {
             commit: { [unowned self] zoneKey, tile in self.tileFocusedToZone(zoneKey, tile: tile) })
         appLauncherHUD = AppLauncherHUDController(
             screens: screens,
-            groups: { [unowned self] in [
-                .init(modifier: self.config.appCuts.modifier, apps: self.config.appCuts.apps),
-                .init(modifier: self.config.hyperAppCuts.modifier, apps: self.config.hyperAppCuts.apps),
-            ] + self.config.appLayers.map { .init(modifier: $0.group.modifier, apps: $0.group.apps) } },   // N1
+            groups: { [unowned self] in
+                ([self.config.appCuts, self.config.hyperAppCuts] + self.config.appLayers.map { $0.group })
+                    .filter { $0.enabled }   // a disabled layer doesn't appear in the hold-to-reveal HUD either
+                    .map { .init(modifier: $0.modifier, apps: $0.apps) } },
             holdDelayMs: { [unowned self] in self.config.appLauncherHUDHoldDelayMs })   // own hold-delay (decoupled from the zone HUD)
         dragSnap = DragSnapController(
             screens: screens, monitorManager: monitorManager,

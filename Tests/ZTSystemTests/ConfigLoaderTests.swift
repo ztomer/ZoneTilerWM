@@ -137,6 +137,7 @@ final class ConfigLoaderTests: XCTestCase {
 
         [app_layers.Comms]
         modifier = ["HYPER"]
+        enabled = false
         m = "Mail"
         """
         let cfg = try ConfigLoader.load(tomlString: toml, homeDirectory: "/Users/test")
@@ -144,7 +145,10 @@ final class ConfigLoaderTests: XCTestCase {
         let dev = cfg.appLayers.first { $0.name == "Dev" }
         XCTAssertEqual(dev?.group.modifier, ["shift", "ctrl", "cmd"])     // mash_shift resolved
         XCTAssertEqual(dev?.group.apps, ["g": "Ghostty", "s": "Slack"])
-        XCTAssertEqual(cfg.appLayers.first { $0.name == "Comms" }?.group.apps, ["m": "Mail"])
+        XCTAssertEqual(dev?.group.enabled, true)                         // default on
+        let comms = cfg.appLayers.first { $0.name == "Comms" }
+        XCTAssertEqual(comms?.group.apps, ["m": "Mail"])                 // `enabled` is not treated as an app
+        XCTAssertEqual(comms?.group.enabled, false)                     // explicit toggle off
     }
 
     func testHotkeyResolversAndDerivedAccessors() throws {

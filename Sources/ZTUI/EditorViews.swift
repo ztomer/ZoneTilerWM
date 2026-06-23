@@ -347,12 +347,12 @@ struct AppShortcutsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("App-launch layers, each on its own modifier. Click a key to assign the app it "
-                 + "launches; all layers are editable at once. Add your own layers below.")
+            hudCard                          // the hold-to-reveal HUD leads the panel (its home)
+            Text("App-launch layers, each on its own modifier. Toggle a layer off to park it without "
+                 + "losing its keys; click a key to assign the app it launches.")
                 .font(.caption).foregroundColor(.secondary)
             ForEach(layers) { layer in layerCard(layer) }
             addLayerRow
-            hudCard
             footerPanel
             Spacer(minLength: 0)
         }
@@ -366,6 +366,10 @@ struct AppShortcutsView: View {
         let g = group(id)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
+                // Per-layer enable toggle: off = keep the keys but bind nothing (parked).
+                Toggle("", isOn: Binding(get: { g.enabled }, set: { model.setAppLayerEnabled(section: id, $0) }))
+                    .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                    .help(g.enabled ? "Layer enabled" : "Layer disabled (keys kept, nothing bound)")
                 Text(layer.title).font(.headline)
                 Text("Modifier").foregroundColor(.secondary)
                 ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: g.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash")) {
@@ -385,11 +389,12 @@ struct AppShortcutsView: View {
                     }
                 }
             }
+            .opacity(g.enabled ? 1 : 0.4)    // dim a parked layer's keymap (still editable)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(g.enabled ? 0.15 : 0.08), lineWidth: 0.5))
     }
 
     // N1: add a custom layer — name + modifier chosen up front, Add aligned right.
