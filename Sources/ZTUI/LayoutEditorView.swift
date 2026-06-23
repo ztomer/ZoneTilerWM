@@ -75,8 +75,13 @@ struct LayoutEditorView: View {
                 
                 Divider().padding(.vertical, 6)
                 
-                Toggle("Enable Drag-to-snap", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled))
-                    .toggleStyle(.switch)
+                HStack {
+                    Text("Drag-to-snap")
+                    Spacer()
+                    Toggle("", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
                 
                 VStack(alignment: .leading, spacing: 6) {
                     ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")

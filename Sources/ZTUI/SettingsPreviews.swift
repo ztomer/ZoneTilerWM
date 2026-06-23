@@ -149,12 +149,13 @@ struct ZoneHUDPreview: View {
                     .frame(width: w * 0.5 - 10, height: h - 12)
                     .position(x: w * 0.5, y: h * 0.5)
             }
-            VStack(spacing: 6) {
+            
+            // Keycaps grid (completely aligned to the grid cells)
+            VStack(spacing: 0) {
                 ForEach(rows, id: \.self) { row in
-                    HStack(spacing: 6) { ForEach(row, id: \.self) { cell($0) } }
+                    HStack(spacing: 0) { ForEach(row, id: \.self) { cell($0) } }
                 }
             }
-            .padding(12)
             
             // Cursor (when dragSnapEnabled is true)
             if dragSnapEnabled {
@@ -169,12 +170,23 @@ struct ZoneHUDPreview: View {
     }
     private func cell(_ key: String) -> some View {
         let active = key == selected
-        return RoundedRectangle(cornerRadius: 6)
-            .fill(active ? ZTPalette.accentColor : Color.black.opacity(0.78))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(active ? Color.clear : Color.white.opacity(0.22), lineWidth: 1))
-            .overlay(Text(key.uppercased()).font(.system(size: 18, weight: .bold, design: .monospaced))
-                .foregroundColor(active ? .black : ZTPalette.primaryTextColor))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        return ZStack {
+            Color.clear
+            Text(key.uppercased())
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(active ? .black : ZTPalette.primaryTextColor)
+                .frame(width: 20, height: 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(active ? ZTPalette.accentColor : Color.black.opacity(0.60))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(active ? Color.clear : Color.white.opacity(0.25), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.35), radius: 1.5, y: 1)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     private func mockWindow(title: String, color: Color) -> some View {
         RoundedRectangle(cornerRadius: 6)
