@@ -105,12 +105,30 @@ struct WindowHintsPreview: View {
 /// (the binary-accent rule — matches ZoneHUDOverlay). Replaces the old blue keyboard that looked
 /// nothing like the real HUD.
 struct ZoneHUDPreview: View {
+    var dragSnapEnabled: Bool = false
     private let rows = [["y", "u", "i", "o"], ["h", "j", "k", "l"], ["n", "m", ",", "."]]
     private let selected = "j"
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.10))
+        ZStack(alignment: .topLeading) {
+            // Screen Background
+            RoundedRectangle(cornerRadius: 12)
+                .fill(LinearGradient(colors: [Color(white: 0.15), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
+            
+            // Mock Windows behind overlays
+            mockWindow(title: "Safari", color: Color(white: 0.22))
+                .frame(width: 180, height: 120)
+                .offset(x: 15, y: 25)
+            
+            mockWindow(title: "Terminal", color: Color(white: 0.16))
+                .frame(width: 160, height: 100)
+                .offset(x: 140, y: 65)
+            
+            // Translucent overlay dimming the windows
+            Color.black.opacity(0.45)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            // Grid and selected zone highlight
             GeometryReader { geo in
                 let w = geo.size.width, h = geo.size.height
                 // Neutral interior grid (structure, not a signal).
@@ -137,6 +155,15 @@ struct ZoneHUDPreview: View {
                 }
             }
             .padding(12)
+            
+            // Cursor (when dragSnapEnabled is true)
+            if dragSnapEnabled {
+                Image(systemName: "cursorarrow")
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 3, x: 1, y: 1)
+                    .offset(x: 185, y: 110)
+            }
         }
         .frame(width: 330, height: 200)
     }
@@ -148,6 +175,33 @@ struct ZoneHUDPreview: View {
             .overlay(Text(key.uppercased()).font(.system(size: 18, weight: .bold, design: .monospaced))
                 .foregroundColor(active ? .black : ZTPalette.primaryTextColor))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    private func mockWindow(title: String, color: Color) -> some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(color)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+            )
+            .overlay(
+                VStack(spacing: 0) {
+                    HStack(spacing: 3) {
+                        Circle().fill(Color.red.opacity(0.7)).frame(width: 4, height: 4)
+                        Circle().fill(Color.yellow.opacity(0.7)).frame(width: 4, height: 4)
+                        Circle().fill(Color.green.opacity(0.7)).frame(width: 4, height: 4)
+                        Spacer()
+                        Text(title)
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 6)
+                    .frame(height: 12)
+                    .background(Color.white.opacity(0.04))
+                    Spacer()
+                }
+            )
+            .shadow(color: Color.black.opacity(0.3), radius: 4, x: 0, y: 2)
     }
 }
 

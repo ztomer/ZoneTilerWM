@@ -64,28 +64,28 @@ struct LayoutEditorView: View {
     // The zone picker (HUD) + drag-to-snap — interactive zone features (not "advanced"). The preview
     // shows even when the toggle is off, so you can see what you'd get.
     private var zoneHUDCard: some View {
-        let unifiedToggle = Binding<Bool>(
-            get: { model.config.zoneHUDEnabled && model.config.dragSnapEnabled },
-            set: { newValue in
-                model.setZoneHUDEnabled(newValue)
-                model.setDragSnapEnabled(newValue)
-            }
-        )
-        return SectionCard(title: "Zone picker (HUD)", toggle: unifiedToggle) {
+        SectionCard(title: "Zone picker (HUD)", toggle: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled)) {
             ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "to show each zone's key, then tap one.")
-            HStack { Spacer(); ZoneHUDPreview(); Spacer() }.padding(.top, 2)
-            if model.config.zoneHUDEnabled {
+            HStack { Spacer(); ZoneHUDPreview(dragSnapEnabled: model.config.dragSnapEnabled && model.config.zoneHUDEnabled); Spacer() }.padding(.top, 2)
+            
+            VStack(alignment: .leading, spacing: 10) {
                 Stepper("Hold delay: \(model.config.zoneHUDHoldDelayMs) ms", value: Binding(
                     get: { model.config.zoneHUDHoldDelayMs }, set: { model.setZoneHUDHoldDelay($0) }),
                     in: 120...2000, step: 20).frame(maxWidth: 280)
+                
+                Divider().padding(.vertical, 6)
+                
+                Toggle("Enable Drag-to-snap", isOn: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled))
+                    .toggleStyle(.switch)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
+                    Text("Right-click while dragging to cycle which tile in that zone the window lands in.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
             }
-            Divider().padding(.vertical, 6)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Drag-to-snap").font(.subheadline).bold()
-                ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
-                Text("Right-click while dragging to cycle which tile in that zone the window lands in.")
-                    .font(.caption).foregroundColor(.secondary)
-            }
+            .disabled(!model.config.zoneHUDEnabled)
+            .opacity(model.config.zoneHUDEnabled ? 1.0 : 0.6)
         }
     }
 
