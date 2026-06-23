@@ -346,11 +346,11 @@ struct TweaksTab: View {
     }
 }
 
-// MARK: - App Launcher (app cuts + hyper cuts + scratchpad)
+// MARK: - App Launcher (app hotkeys + hyper cuts + scratchpad)
 
 struct AppLauncherTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app cuts", "modifier", "layer", "app groups", "groups", "scratchpad", "summon", "dismiss", "auto-dismiss", "add group", "clusters", "utility apps", "enable app groups"]
+    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app hotkeys", "modifier", "layer", "app groups", "groups", "scratchpad", "summon", "dismiss", "auto-dismiss", "add group", "clusters", "utility apps", "enable app groups"]
     @ObservedObject var model: SettingsModel
     @State private var section = 0
 
@@ -381,7 +381,7 @@ struct AppLauncherTab: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Picker("", selection: $section) {
-                    Text("App Cuts").tag(0)
+                    Text("App Hotkeys").tag(0)
                     Text("App Groups").tag(1)
                 }
                 .pickerStyle(.segmented)
