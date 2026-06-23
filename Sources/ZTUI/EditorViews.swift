@@ -307,6 +307,7 @@ struct AppShortcutsView: View {
     @State private var selectedKey: String?
     @State private var edit = ""
     @State private var newLayerName = ""            // N1: add-a-layer field
+    @State private var newLayerModifier = "HYPER"   // its modifier, chosen up front
 
     init(model: SettingsModel) {
         self.model = model
@@ -391,26 +392,30 @@ struct AppShortcutsView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
     }
 
-    // N1: add a custom layer (starts on HYPER; change its modifier in the new card).
+    // N1: add a custom layer — name + modifier chosen up front, Add aligned right.
+    private var canAddLayer: Bool {
+        let n = newLayerName.trimmingCharacters(in: .whitespaces)
+        return !n.isEmpty && !n.contains("\"") && n != "appCuts" && n != "hyperAppCuts"
+            && !model.config.appLayers.contains { $0.name == n }
+    }
     private var addLayerRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.rectangle.on.rectangle").foregroundColor(.secondary)
-            TextField("new layer name", text: $newLayerName).labelsHidden()
-                .textFieldStyle(.roundedBorder).frame(maxWidth: 180)
-            Button("Add layer") {
-                let n = newLayerName.trimmingCharacters(in: .whitespaces)
-                guard !n.isEmpty, !n.contains("\""), n != "appCuts", n != "hyperAppCuts",
-                      !model.config.appLayers.contains(where: { $0.name == n }) else { return }
-                model.addAppLayer(name: n, modifier: "HYPER")
+        HStack(spacing: 12) {
+            TextField("Layer name", text: $newLayerName).labelsHidden()
+                .textFieldStyle(.roundedBorder).frame(width: 180)
+            Text("Modifier").foregroundColor(.secondary)
+            ModifierSelector(model: model, alias: newLayerModifier) { newLayerModifier = $0 }
+            Spacer()
+            Button("Add") {
+                guard canAddLayer else { return }
+                model.addAppLayer(name: newLayerName.trimmingCharacters(in: .whitespaces), modifier: newLayerModifier)
                 newLayerName = ""
             }
-            .disabled(newLayerName.trimmingCharacters(in: .whitespaces).isEmpty)
-            Text("Starts on HYPER — set its modifier in the new card.").font(.caption).foregroundColor(.secondary)
-            Spacer()
+            .disabled(!canAddLayer)
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.04)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
     }
 
     private func removeLayer(_ layer: LayerInfo) {
