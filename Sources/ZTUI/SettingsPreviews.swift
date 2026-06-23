@@ -181,42 +181,6 @@ struct BreakScreenPreview: View {
     }
 }
 
-/// Preview of drag-to-snap: a window mid-drag over a highlighted target zone (left half), so the
-/// "drop here → snaps to this zone" behaviour reads at a glance. Mirrors the live drop highlight.
-struct DragSnapPreview: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(LinearGradient(colors: [Color(white: 0.15), Color(white: 0.08)], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 1))
-            // Target zone (left half) lit up as the drop target — the accent (matches the live snap fill).
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 6).fill(ZTPalette.accentColor.opacity(0.22))
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(ZTPalette.accentColor, lineWidth: 2))
-                Color.clear
-            }
-            .padding(12)
-            // The window being dragged, overlapping the target, with a cursor.
-            RoundedRectangle(cornerRadius: 6).fill(Color(white: 0.24))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.25), lineWidth: 1))
-                .overlay(alignment: .top) {
-                    HStack(spacing: 4) {
-                        Circle().fill(.red.opacity(0.7)).frame(width: 6, height: 6)
-                        Circle().fill(.yellow.opacity(0.7)).frame(width: 6, height: 6)
-                        Circle().fill(.green.opacity(0.7)).frame(width: 6, height: 6)
-                        Spacer()
-                    }.padding(6)
-                }
-                .frame(width: 130, height: 88)
-                .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
-                .offset(x: -8, y: 6)
-            Image(systemName: "cursorarrow").font(.system(size: 18))
-                .foregroundColor(.white).shadow(radius: 2).offset(x: 36, y: 34)
-        }
-        .frame(width: 330, height: 200)
-    }
-}
-
 /// Preview of the ⌘K command palette — a search field over a few matched result rows (first
 /// selected), mirroring `CommandPaletteController` (dark card, accent-highlighted selection).
 struct CommandPalettePreview: View {

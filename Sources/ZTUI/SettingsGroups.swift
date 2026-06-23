@@ -69,6 +69,11 @@ struct PreviewsTab: View {
 
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Exposé & Hints").font(.headline)
+            }
+        }
     }
 }
 
@@ -105,6 +110,11 @@ struct SpacesTab: View {
             }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Spaces").font(.headline)
+            }
+        }
     }
 }
 
@@ -112,7 +122,7 @@ struct SpacesTab: View {
 
 struct GeneralTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload", "keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell"]
+    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload", "keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "modifier aliases", "aliases", "mash", "hyper"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -141,6 +151,8 @@ struct GeneralTab: View {
                 }
             }
 
+            AliasEditorSection(model: model)
+
             Section("Config") {
                 LabeledContent("File") {
                     HStack(spacing: 8) {
@@ -153,18 +165,29 @@ struct GeneralTab: View {
             }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("General").font(.headline)
+            }
+        }
     }
 }
 
 // MARK: - Tiling
 
-/// Tiles → Hotkeys: the tiling + focus/navigation hotkeys (their own tab, per feedback — they're not
-/// "advanced").
 struct TilesHotkeysTab: View {
-    static let searchKeywords: [String] = ["move to next monitor", "move to previous monitor", "focus next screen", "focus previous screen", "resize mode", "auto-tile screen", "zen mode", "session sandbox", "toggle float", "float", "stack focus next", "stack focus previous", "stacks", "hotkeys", "shortcuts"]
+    static let searchKeywords: [String] = ["modifiers", "tile zones modifier", "focus zones modifier", "move to next monitor", "move to previous monitor", "focus next screen", "focus previous screen", "resize mode", "auto-tile screen", "zen mode", "session sandbox", "toggle float", "float", "stack focus next", "stack focus previous", "stacks", "hotkeys", "shortcuts"]
     @ObservedObject var model: SettingsModel
+
+    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
+    private func defaultAlias() -> String { aliasNames.first ?? "mash" }
+
     var body: some View {
         Form {
+            Section("Modifiers") {
+                modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
+                modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
+            }
             Section("Tiling Hotkeys") {
                 HotkeyRowView(model: model, label: "Move to next monitor", section: "tiler.hotkeys", key: "placement_mode")
                 HotkeyRowView(model: model, label: "Move to previous monitor", section: "tiler.hotkeys", key: "zone_info")
@@ -183,6 +206,18 @@ struct TilesHotkeysTab: View {
             if let err = model.lastWriteError { Text(err).foregroundColor(.red).font(.caption) }
         }
         .formStyle(.grouped)
+    }
+
+    private func modifierRow(_ label: String, key: String, current: [String]) -> some View {
+        HStack(spacing: 8) {
+            Text(label).frame(width: KeyRowMetrics.label, alignment: .leading)
+            Spacer(minLength: 12)
+            ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias()) {
+                model.setModifierAlias(key: key, alias: $0)
+            }
+            Text("+").hidden()
+            Color.clear.frame(width: 84, height: 1)
+        }
     }
 }
 
@@ -247,34 +282,51 @@ struct TilesTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $section) {
-                Text("Zones").tag(0)
-                Text("Hotkeys").tag(1)
-                Text("Advanced").tag(2)
-            }
-            .pickerStyle(.segmented).labelsHidden()
-            .frame(maxWidth: 340).padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 4)
-
             switch section {
             case 1:  TilesHotkeysTab(model: model)
             case 2:  TilesAdvancedTab(model: model)
             default: LayoutEditorView(model: model, showDefaultZones: false, showInteractive: true)
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("", selection: $section) {
+                    Text("Zones").tag(0)
+                    Text("Hotkeys").tag(1)
+                    Text("Advanced").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 250)
+            }
+        }
     }
 }
 
-// MARK: - Input & Output (keyboard layout, audio, focus-follows-mouse)
+// MARK: - Tweaks (audio switcher + Chrome tab integration)
 
-struct AudioTab: View {
+struct TweaksTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["audio", "audio switcher", "output device", "switch hotkey", "run shortcut on change", "add device", "save devices"]
+    static let searchKeywords: [String] = ["tweaks", "audio", "audio switcher", "output device", "switch hotkey", "run shortcut on change", "add device", "save devices", "chrome", "chrome toggle tab strip", "tab strip", "vertical tabs", "chrome tabs"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
             AudioSettings(model: model)
+
+            Section {
+                HotkeyRowView(model: model, label: "Chrome: toggle tab strip", section: "system_hotkeys", key: "chrome_tabs")
+            } header: {
+                Text("Chrome Integration")
+            } footer: {
+                Text("Collapses/expands vertical tabs in Google Chrome (shortcut only active when Chrome is frontmost).")
+                    .font(.caption).foregroundColor(.secondary)
+            }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Tweaks").font(.headline)
+            }
+        }
     }
 }
 
@@ -282,24 +334,43 @@ struct AudioTab: View {
 
 struct AppLauncherTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app cuts", "modifier", "layer", "app integrations", "chrome", "chrome toggle tab strip"]
+    static let searchKeywords: [String] = ["app launcher", "hyper apps", "apps", "launch", "app cuts", "modifier", "layer", "app groups", "groups", "scratchpad", "summon", "dismiss", "auto-dismiss", "add group", "clusters", "utility apps", "enable app groups"]
     @ObservedObject var model: SettingsModel
+    @State private var section = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            AppShortcutsView(model: model).padding(16)
-            Divider()
-            Form {
-                Section {
-                    HotkeyRowView(model: model, label: "Chrome: toggle tab strip", section: "system_hotkeys", key: "chrome_tabs")
-                } header: {
-                    Text("App Integrations")
-                } footer: {
-                    Text("Collapses/expands vertical tabs in Google Chrome (shortcut only active when Chrome is frontmost).")
-                        .font(.caption).foregroundColor(.secondary)
+        VStack(spacing: 0) {
+            switch section {
+            case 1:
+                Form {
+                    AppGroupsSection(model: model)
+                }
+                .formStyle(.grouped)
+            default:
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        AppShortcutsView(model: model)
+                        Divider().padding(.vertical, 12)
+                        Form {
+                            Section("Launch Hotkeys") {
+                                HotkeyRowView(model: model, label: "Activity Monitor", section: "system_hotkeys", key: "activity_monitor")
+                            }
+                        }
+                        .formStyle(.grouped)
+                    }
+                    .padding(16)
                 }
             }
-            .formStyle(.grouped)
+        }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("", selection: $section) {
+                    Text("App Cuts").tag(0)
+                    Text("App Groups").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 200)
+            }
         }
     }
 }
@@ -382,20 +453,6 @@ struct AppGroupsSection: View {
     }
 }
 
-/// The "App Groups" pane (E1: split out of App Launcher to fill the empty gap there). Just the
-/// named-group editor with its header enable toggle.
-struct AppGroupsTab: View {
-    static let searchKeywords: [String] = ["app groups", "groups", "scratchpad", "summon", "dismiss",
-        "auto-dismiss", "add group", "clusters", "utility apps", "enable app groups"]
-    @ObservedObject var model: SettingsModel
-    var body: some View {
-        Form {
-            AppGroupsSection(model: model)
-        }
-        .formStyle(.grouped)
-    }
-}
-
 // MARK: - Appearance (window border + margins, with a shared live preview)
 
 struct AppearanceTab: View {
@@ -422,5 +479,10 @@ struct AppearanceTab: View {
 
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Appearance").font(.headline)
+            }
+        }
     }
 }

@@ -454,18 +454,16 @@ public struct SettingsView: View {
     private struct Group: Identifiable { let id: String; let title: String; let icon: String; var keywords: [String] = [] }
     // `keywords` is a comprehensive index of EVERY control label in each pane (not just its title),
     // so searching any setting name — "corner radius", "bar opacity", "dwell", "poll interval" —
-    // jumps to the pane that holds it. Keep in sync when adding a setting.
+    // jumps to the pane that holds it. Keep in sync
     private let groups: [Group] = [
         .init(id: "general",    title: "General",        icon: "gearshape",                     keywords: GeneralTab.searchKeywords),
         .init(id: "appearance", title: "Appearance",     icon: "paintbrush",                    keywords: AppearanceTab.searchKeywords),
         .init(id: "tiles",      title: "Tiles",          icon: "square.grid.3x3",               keywords: TilesTab.searchKeywords),
+        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
         .init(id: "previews",   title: "Exposé & Hints", icon: "window.badge.exclamationmark",  keywords: PreviewsTab.searchKeywords),
         .init(id: "spaces",     title: "Spaces",         icon: "rectangle.split.3x1",           keywords: SpacesTab.searchKeywords),
         .init(id: "dockpreviews", title: "Dock Previews", icon: "macwindow.on.rectangle",        keywords: DockPreviewsTab.searchKeywords),
-        .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
-        .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
-        .init(id: "appgroups",  title: "App Groups",     icon: "square.stack.3d.up",            keywords: AppGroupsTab.searchKeywords),
-        .init(id: "audio",      title: "Audio Switcher", icon: "speaker.wave.2",                keywords: AudioTab.searchKeywords),
+        .init(id: "tweaks",     title: "Tweaks",         icon: "slider.horizontal.3",           keywords: TweaksTab.searchKeywords),
         .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: PomodoroTab.searchKeywords),
         .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: AutomationTab.searchKeywords),
         .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: AdvancedTab.searchKeywords),
@@ -489,21 +487,12 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationSplitView {
             List(selection: $sel) {
-                let workspace = filteredGroups.filter { ["general", "appearance", "tiles", "previews", "spaces", "dockpreviews"].contains($0.id) }
-                let shortcuts = filteredGroups.filter { ["keys", "apps", "appgroups"].contains($0.id) }
-                let utilities = filteredGroups.filter { ["audio", "pomodoro", "automation", "advanced"].contains($0.id) }
+                let workspace = filteredGroups.filter { ["general", "appearance", "tiles", "apps", "previews", "spaces", "dockpreviews"].contains($0.id) }
+                let utilities = filteredGroups.filter { ["tweaks", "pomodoro", "automation", "advanced"].contains($0.id) }
 
                 if !workspace.isEmpty {
                     Section("Workspace & Navigation") {
                         ForEach(workspace) { g in
-                            Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
-                        }
-                    }
-                }
-
-                if !shortcuts.isEmpty {
-                    Section("Shortcuts & Clusters") {
-                        ForEach(shortcuts) { g in
                             Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
                         }
                     }
@@ -563,10 +552,8 @@ struct SettingsGroupDetail: View {
         case "previews":   PreviewsTab(model: model)
         case "spaces":     SpacesTab(model: model)
         case "dockpreviews": DockPreviewsTab(model: model)
-        case "keys":       KeybindEditorView(model: model)
-        case "audio":      AudioTab(model: model)
+        case "tweaks":     TweaksTab(model: model)
         case "apps":       AppLauncherTab(model: model)
-        case "appgroups":  AppGroupsTab(model: model)
         case "pomodoro":   PomodoroTab(model: model)
         case "appearance": AppearanceTab(model: model)
         case "automation": AutomationTab(model: model)

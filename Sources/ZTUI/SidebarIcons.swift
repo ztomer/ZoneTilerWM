@@ -78,6 +78,11 @@ struct SidebarGlyph: View {
             waves.addArc(center: .init(x: 10, y: 10), radius: 4, startAngle: .degrees(-45), endAngle: .degrees(45), clockwise: false)
             waves.addArc(center: .init(x: 10, y: 10), radius: 7, startAngle: .degrees(-45), endAngle: .degrees(45), clockwise: false)
             line(waves)
+        case "tweaks":            // Two horizontal toggle/slider switches in the 20x20 grid
+            line(rrect(3, 5, 14, 3, 1.5))
+            fill(dot(7.5, 6.5, 2.2))
+            line(rrect(3, 12, 14, 3, 1.5))
+            fill(dot(12.5, 13.5, 2.2))
         case "apps":              // 3×3 dot grid (launchpad)
             for gy in [4.5, 10.0, 15.5] { for gx in [4.5, 10.0, 15.5] { fill(dot(gx, gy, 1.5)) } }
         case "appgroups":         // a stack of grouped cards (apps summoned together)
@@ -117,10 +122,10 @@ struct SidebarGlyph: View {
 /// grade loop (render via ZT_RENDER_UI=icons:/path.png).
 struct IconMontage: View {
     private let items: [(String, String)] = [
-        ("general", "General"), ("tiling", "Tiling"), ("layouts", "Layouts"),
-        ("previews", "Exposé & Hints"), ("keys", "Keys"),
-        ("audio", "Audio Switcher"), ("apps", "App Launcher"), ("pomodoro", "Pomodoro"),
-        ("appearance", "Appearance"), ("automation", "Automation"), ("advanced", "Advanced"),
+        ("general", "General"), ("appearance", "Appearance"), ("tiles", "Tiles"),
+        ("apps", "App Launcher"), ("previews", "Exposé & Hints"), ("spaces", "Spaces"),
+        ("dockpreviews", "Dock Previews"), ("tweaks", "Tweaks"), ("pomodoro", "Pomodoro"),
+        ("automation", "Automation"), ("advanced", "Advanced"),
     ]
     var body: some View {
         let cols = [GridItem(.adaptive(minimum: 150), spacing: 18)]

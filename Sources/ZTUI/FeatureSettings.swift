@@ -256,6 +256,11 @@ struct PomodoroTab: View {
             }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Pomodoro").font(.headline)
+            }
+        }
     }
 }
 
@@ -276,6 +281,11 @@ struct AdvancedTab: View {
             }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Advanced").font(.headline)
+            }
+        }
     }
 }
 
@@ -396,6 +406,11 @@ struct AutomationTab: View {
             }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Automation").font(.headline)
+            }
+        }
     }
 
     /// "Open with ⌃⌘K" from the configured command-palette hotkey, or a hint to set one.

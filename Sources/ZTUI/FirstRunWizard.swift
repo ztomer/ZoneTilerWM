@@ -211,20 +211,23 @@ public struct FirstRunWizardView: View {
     }
 
     private var featuresBody: some View {
+        let zonePickerUnifiedBinding = Binding<Bool>(
+            get: { model.config.zoneHUDEnabled && model.config.dragSnapEnabled },
+            set: { newValue in
+                model.setZoneHUDEnabled(newValue)
+                model.setDragSnapEnabled(newValue)
+            }
+        )
         // ONE container card with internal dividers (not 5 floating cards) — matches the single-card
         // grammar of the other steps.
-        VStack(spacing: 0) {
+        return VStack(spacing: 0) {
             WizardFeatureRow(icon: "square.grid.3x3.topleft.filled", title: "Zone picker (HUD)",
-                             detail: "A grid appears while you hold the modifier, so you never guess a key.",
-                             isOn: bind(\.zoneHUDEnabled, model.setZoneHUDEnabled))
+                             detail: "Hold modifier to pick zones via key, or drag window to snap.",
+                             isOn: zonePickerUnifiedBinding)
             Divider().overlay(WizardStyle.cardStroke)
             WizardFeatureRow(icon: "rectangle.dashed", title: "Focus border",
                              detail: "A subtle outline marks the active window.",
                              isOn: Binding(get: { model.config.borders.enabled }, set: { model.setBordersEnabled($0) }))
-            Divider().overlay(WizardStyle.cardStroke)
-            WizardFeatureRow(icon: "hand.draw", title: "Drag-to-snap",
-                             detail: "Drag with the modifier held to drop a window into a zone.",
-                             isOn: bind(\.dragSnapEnabled, model.setDragSnapEnabled))
             Divider().overlay(WizardStyle.cardStroke)
             WizardFeatureRow(icon: "command.square", title: "Command palette",
                              detail: "A searchable menu of every action.",

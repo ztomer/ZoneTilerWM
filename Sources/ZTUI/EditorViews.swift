@@ -185,62 +185,7 @@ struct HotkeyRowView: View {
     }
 }
 
-struct KeybindEditorView: View {
-    /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["modifiers", "actions", "modifier aliases", "app launcher", "hyper apps", "hotkeys", "shortcuts", "bindings", "conflicts"]
-    @ObservedObject var model: SettingsModel
 
-    private struct Row: Identifiable { let id: String; let label: String; let section: String; let key: String; var help: String? = nil }
-
-    // Pomodoro keys live in the Pomodoro tab; these are the tiling/movement/system keys.
-    private let rows: [Row] = [
-        .init(id: "resize_mode", label: "Resize mode", section: "tiler.hotkeys", key: "resize_mode"),
-        .init(id: "placement_mode", label: "Move to next monitor", section: "tiler.hotkeys", key: "placement_mode"),
-        .init(id: "zone_info", label: "Move to previous monitor", section: "tiler.hotkeys", key: "zone_info"),
-        .init(id: "focus_next_screen", label: "Focus next screen", section: "tiler.hotkeys", key: "focus_next_screen"),
-        .init(id: "focus_prev_screen", label: "Focus previous screen", section: "tiler.hotkeys", key: "focus_prev_screen"),
-        .init(id: "expose", label: "Exposé / Window grid", section: "system_hotkeys", key: "expose"),
-        .init(id: "window_hints", label: "Window hints", section: "system_hotkeys", key: "window_hints"),
-        .init(id: "activity_monitor", label: "Activity Monitor", section: "system_hotkeys", key: "activity_monitor"),
-        // No "Reload config" hotkey: the agent watches config.toml and live-reloads, and Settings writes
-        // apply immediately — a manual reload binding is redundant (the menu-bar item remains as a fallback).
-    ]
-
-    private var aliasNames: [String] { model.config.aliases.keys.sorted() }
-    private func defaultAlias() -> String { aliasNames.first ?? "mash" }
-
-    var body: some View {
-        let conflicts = model.config.hotkeyConflicts()
-        return Form {
-            if !conflicts.isEmpty {
-                Section { ConflictBanner(conflicts: conflicts) }
-            }
-            // Aliases first — you define the named combos, then assign them as modifiers below.
-            AliasEditorSection(model: model)
-            Section("Modifiers") {
-                modifierRow("Tile zones", key: "modifier", current: model.config.tilerModifier)
-                modifierRow("Focus zones", key: "focus_modifier", current: model.config.focusModifier)
-            }
-            Section("Actions") {
-                ForEach(rows) { HotkeyRowView(model: model, label: $0.label, section: $0.section, key: $0.key) }
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private func modifierRow(_ label: String, key: String, current: [String]) -> some View {
-        HStack(spacing: 8) {
-            Text(label).frame(width: KeyRowMetrics.label, alignment: .leading)
-            Spacer(minLength: 12)
-            ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: current, aliases: model.config.aliases) ?? defaultAlias()) {
-                model.setModifierAlias(key: key, alias: $0)
-            }
-            // Reserve the action rows' "+ key" trailing columns so every row shares one right edge.
-            Text("+").hidden()
-            Color.clear.frame(width: 84, height: 1)
-        }
-    }
-}
 
 // MARK: - Modifier-alias editor
 
@@ -625,10 +570,24 @@ struct AppLauncherHUDPreview: View {
 /// custom Layouts editor reads as the same design language (not a bare VStack of dividers).
 struct SectionCard<Content: View>: View {
     let title: String
-    /// Optional enable toggle shown IN the header, so a single-toggle card doesn't restate its title
-    /// in a separate row.
     var toggle: Binding<Bool>? = nil
+    var headerTrailing: AnyView? = nil
     @ViewBuilder let content: () -> Content
+
+    init(title: String, toggle: Binding<Bool>? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.toggle = toggle
+        self.headerTrailing = nil
+        self.content = content
+    }
+
+    init<T: View>(title: String, headerTrailing: T, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.toggle = nil
+        self.headerTrailing = AnyView(headerTrailing)
+        self.content = content
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -636,6 +595,9 @@ struct SectionCard<Content: View>: View {
                 if let toggle {
                     Spacer()
                     Toggle("", isOn: toggle).labelsHidden().toggleStyle(.switch)
+                } else if let headerTrailing {
+                    Spacer()
+                    headerTrailing
                 }
             }
             content()

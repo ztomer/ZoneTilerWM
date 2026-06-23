@@ -40,6 +40,11 @@ struct DockPreviewsTab: View {
             }
         }
         .formStyle(.grouped)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Dock Previews").font(.headline)
+            }
+        }
     }
 }
 

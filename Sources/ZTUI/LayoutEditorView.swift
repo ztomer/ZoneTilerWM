@@ -32,17 +32,15 @@ struct LayoutEditorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {   // de-crowd the dense Layouts sections
                 ZoneTilePrimer()                          // convey the zone-vs-tile mental model first (feedback 6)
-                monitorsSection
+                if showInteractive { zoneHUDCard }        // Zone picker (hud)
+                monitorsSection                           // monitors
                 if !grid.isEmpty {
-                    SectionCard(title: "Zones") {
-                        // One clear control: this picks WHICH grid's zones you're editing (it does not
-                        // resize the grid — a grid's rows×cols come from the monitor section above).
-                        HStack(spacing: 8) {
-                            Text("Editing zones for grid").foregroundColor(.secondary)
-                            Picker("", selection: $grid) { ForEach(gridNames, id: \.self) { Text($0).tag($0) } }
-                                .labelsHidden().frame(width: 150).onChange(of: grid) { _ in syncZone() }
-                            Spacer()
-                        }
+                    SectionCard(title: "Zones editor", headerTrailing: Picker("", selection: $grid) {
+                        ForEach(gridNames, id: \.self) { Text($0).tag($0) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 150)
+                    .onChange(of: grid) { _ in syncZone() }) {
                         Text("Each key shows the zone mapped to it; the cells show its first tile. Click a key to edit its tiles. (To change the grid's rows×cols, use the monitor's grid above.)")
                             .font(.caption).foregroundColor(.secondary)
                         zonePreviews
@@ -54,7 +52,6 @@ struct LayoutEditorView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
-                if showInteractive { zoneHUDCard; dragSnapCard }   // HUD + drag-snap belong WITH zones
                 if showDefaultZones { SectionCard(title: "Default zone per app") { DefaultZonesSection(model: model) } }
                 if let err = model.lastWriteError { Text(err).font(.caption).foregroundColor(.red) }
             }
@@ -67,7 +64,14 @@ struct LayoutEditorView: View {
     // The zone picker (HUD) + drag-to-snap — interactive zone features (not "advanced"). The preview
     // shows even when the toggle is off, so you can see what you'd get.
     private var zoneHUDCard: some View {
-        SectionCard(title: "Zone picker (HUD)", toggle: boolBind(model, \.zoneHUDEnabled, model.setZoneHUDEnabled)) {
+        let unifiedToggle = Binding<Bool>(
+            get: { model.config.zoneHUDEnabled && model.config.dragSnapEnabled },
+            set: { newValue in
+                model.setZoneHUDEnabled(newValue)
+                model.setDragSnapEnabled(newValue)
+            }
+        )
+        return SectionCard(title: "Zone picker (HUD)", toggle: unifiedToggle) {
             ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "to show each zone's key, then tap one.")
             HStack { Spacer(); ZoneHUDPreview(); Spacer() }.padding(.top, 2)
             if model.config.zoneHUDEnabled {
@@ -75,15 +79,13 @@ struct LayoutEditorView: View {
                     get: { model.config.zoneHUDHoldDelayMs }, set: { model.setZoneHUDHoldDelay($0) }),
                     in: 120...2000, step: 20).frame(maxWidth: 280)
             }
-        }
-    }
-
-    private var dragSnapCard: some View {
-        SectionCard(title: "Drag-to-snap", toggle: boolBind(model, \.dragSnapEnabled, model.setDragSnapEnabled)) {
-            ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
-            Text("Right-click while dragging to cycle which tile in that zone the window lands in.")
-                .font(.caption).foregroundColor(.secondary)
-            HStack { Spacer(); DragSnapPreview(); Spacer() }.padding(.top, 2)
+            Divider().padding(.vertical, 6)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Drag-to-snap").font(.subheadline).bold()
+                ShortcutLine(lead: "Hold", tokens: model.config.tilerModifier, trail: "while dragging; drop to snap to the zone under the cursor.")
+                Text("Right-click while dragging to cycle which tile in that zone the window lands in.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
         }
     }
 
