@@ -408,6 +408,11 @@ extension AgentController {
         if config.focusFollowsMouseEnabled { ffm.start() } else { ffm.stop() }
     }
 
+    /// Start the app-launcher hold-to-reveal HUD iff [app_launcher_hud] enabled. Idempotent; reconciled on reload.
+    func reconcileAppLauncherHUD() {
+        if config.appLauncherHUDEnabled { appLauncherHUD.start() } else { appLauncherHUD.stop() }
+    }
+
     /// Start the arrangement event stream iff [events] enabled. Idempotent; reconciled on reload.
     func setupEventStream() { reconcileEventStream() }
     func reconcileEventStream() {

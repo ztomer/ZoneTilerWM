@@ -227,6 +227,17 @@ public final class SettingsModel: ObservableObject {
               let edited = TOMLEditor.removeSection(text, section: "app_layers.\"\(name)\"") else { return }
         persist(edited)
     }
+    /// Remove a built-in launch layer's table ([appCuts] / [hyperAppCuts]) entirely — they're
+    /// removable too (kept by default as examples). Re-add by editing config / the default template.
+    public func removeBuiltInAppLayer(section: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeSection(text, section: section) else { return }
+        persist(edited)
+    }
+
+    // App-launcher hold-to-reveal HUD (palette of a layer's shortcuts).
+    public func setAppLauncherHUDEnabled(_ on: Bool) { setOrAppend(section: "app_launcher_hud", key: "enabled", rawValue: on ? "true" : "false") }
+    public func setAppLauncherHUDHoldDelay(_ ms: Int) { setOrAppend(section: "app_launcher_hud", key: "hold_delay_ms", rawValue: "\(ms)") }
 
     /// Define / replace a modifier alias, e.g. [aliases] mash_shift = ["shift","ctrl","cmd"].
     /// The token order is normalised so the same combo always serialises identically.

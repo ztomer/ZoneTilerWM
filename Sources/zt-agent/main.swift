@@ -347,7 +347,7 @@ final class AgentController: NSObject {
                 .init(modifier: self.config.appCuts.modifier, apps: self.config.appCuts.apps),
                 .init(modifier: self.config.hyperAppCuts.modifier, apps: self.config.hyperAppCuts.apps),
             ] + self.config.appLayers.map { .init(modifier: $0.group.modifier, apps: $0.group.apps) } },   // N1
-            holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs })
+            holdDelayMs: { [unowned self] in self.config.appLauncherHUDHoldDelayMs })   // own hold-delay (decoupled from the zone HUD)
         dragSnap = DragSnapController(
             screens: screens, monitorManager: monitorManager,
             zoneConfig: { [unowned self] in self.config.zoneConfig },
@@ -408,7 +408,7 @@ controller.setupConfigWatch()
 controller.setupIPCServer()        // MCP shim talks to the agent over this socket
 controller.setupURLHandler()       // zonetiler:// scheme (effective in the bundled .app)
 controller.setupZoneHUD()          // modifier-held zone cheat-sheet (gated by [zone_hud] enabled)
-controller.appLauncherHUD.start()  // hold an app-launcher modifier (appCuts / HYPER) → shortcut palette
+controller.reconcileAppLauncherHUD()  // hold a layer's modifier → shortcut palette (gated by [app_launcher_hud] enabled)
 controller.setupDragSnap()         // drag-to-snap mouse monitor (gated by [drag_snap] enabled)
 controller.setupFocusFollowsMouse()  // focus-follows-mouse (gated by [focus_follows_mouse] enabled)
 controller.setupEventStream()        // arrangement event stream (gated by [events] enabled)

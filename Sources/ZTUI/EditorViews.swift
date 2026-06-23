@@ -318,13 +318,19 @@ struct AppShortcutsView: View {
         }
     }
 
-    // E2: both built-in app-launch layers are shown at once (no inner segmented tabs). N1: plus any
-    // user-defined [app_layers.<name>] layers, each removable. `removable` custom layers carry a trash
-    // button; the two built-ins do not.
+    // E2: both built-in app-launch layers + N1 custom layers are shown at once (no inner tabs). EVERY
+    // layer is removable now — the two built-ins are kept BY DEFAULT as examples, but a built-in whose
+    // table was removed simply drops out of the list (its [appCuts]/[hyperAppCuts] section is gone).
+    private struct LayerInfo: Identifiable { let id: String; let title: String; let isBuiltin: Bool }
     private func layerId(forCustom name: String) -> String { "app_layers.\"\(name)\"" }
-    private var layers: [(id: String, title: String, removable: Bool)] {
-        [("appCuts", "App launcher", false), ("hyperAppCuts", "Hyper apps", false)]
-            + model.config.appLayers.map { (layerId(forCustom: $0.name), $0.name, true) }
+    private var layers: [LayerInfo] {
+        var out: [LayerInfo] = []
+        let ac = model.config.appCuts
+        if !ac.modifier.isEmpty || !ac.apps.isEmpty { out.append(.init(id: "appCuts", title: "App launcher", isBuiltin: true)) }
+        let hc = model.config.hyperAppCuts
+        if !hc.modifier.isEmpty || !hc.apps.isEmpty { out.append(.init(id: "hyperAppCuts", title: "Hyper apps", isBuiltin: true)) }
+        out += model.config.appLayers.map { .init(id: layerId(forCustom: $0.name), title: $0.name, isBuiltin: false) }
+        return out
     }
     private var keyRows: [[String]] { model.keyboardRows }
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
@@ -343,8 +349,9 @@ struct AppShortcutsView: View {
             Text("App-launch layers, each on its own modifier. Click a key to assign the app it "
                  + "launches; all layers are editable at once. Add your own layers below.")
                 .font(.caption).foregroundColor(.secondary)
-            ForEach(layers, id: \.id) { layer in layerCard(layer.id, title: layer.title, removable: layer.removable) }
+            ForEach(layers) { layer in layerCard(layer) }
             addLayerRow
+            hudCard
             footerPanel
             Spacer(minLength: 0)
         }
@@ -353,20 +360,20 @@ struct AppShortcutsView: View {
         .padding(.vertical, 4)
     }
 
-    private func layerCard(_ id: String, title: String, removable: Bool) -> some View {
+    private func layerCard(_ layer: LayerInfo) -> some View {
+        let id = layer.id
         let g = group(id)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Text(title).font(.headline)
+                Text(layer.title).font(.headline)
                 Text("Modifier").foregroundColor(.secondary)
                 ModifierSelector(model: model, alias: Keybinding.alias(forModifiers: g.modifier, aliases: model.config.aliases) ?? (aliasNames.first ?? "mash")) {
                     model.setValue(section: id, key: "modifier", rawValue: "[\"\($0)\"]")
                 }
                 Spacer()
-                if removable {
-                    Button { removeLayer(id: id, name: title) } label: { Image(systemName: "trash") }
-                        .buttonStyle(.borderless).help("Remove this layer")
-                }
+                Button { removeLayer(layer) } label: { Image(systemName: "trash") }
+                    .buttonStyle(.borderless)
+                    .help(layer.isBuiltin ? "Remove this built-in layer (kept by default as an example)" : "Remove this layer")
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 VStack(spacing: 4) {
@@ -406,9 +413,26 @@ struct AppShortcutsView: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.04)))
     }
 
-    private func removeLayer(id: String, name: String) {
-        if selLayer == id { selLayer = nil; selectedKey = nil; edit = "" }
-        model.removeAppLayer(name: name)
+    private func removeLayer(_ layer: LayerInfo) {
+        if selLayer == layer.id { selLayer = nil; selectedKey = nil; edit = "" }
+        if layer.isBuiltin { model.removeBuiltInAppLayer(section: layer.id) }
+        else { model.removeAppLayer(name: layer.title) }
+    }
+
+    // The hold-to-reveal HUD: hold a layer's modifier → its shortcuts appear as a palette. Its home is
+    // here, with the layers (its hold-delay is its own, decoupled from the zone HUD).
+    private var hudCard: some View {
+        SectionCard(title: "Hold-to-reveal HUD", toggle: Binding(
+            get: { model.config.appLauncherHUDEnabled }, set: { model.setAppLauncherHUDEnabled($0) })) {
+            Text("Hold a layer's modifier to see its shortcuts as a palette; release to dismiss.")
+                .font(.caption).foregroundColor(.secondary)
+            HStack { Spacer(); AppLauncherHUDPreview(model: model); Spacer() }.padding(.vertical, 2)
+            if model.config.appLauncherHUDEnabled {
+                Stepper("Hold delay: \(model.config.appLauncherHUDHoldDelayMs) ms", value: Binding(
+                    get: { model.config.appLauncherHUDHoldDelayMs }, set: { model.setAppLauncherHUDHoldDelay($0) }),
+                    in: 80...2000, step: 20).frame(maxWidth: 280)
+            }
+        }
     }
 
     // Footer: assign/clear the selected key's app (fuzzy app picker — E3), with a collision warning
@@ -540,6 +564,48 @@ struct AppPickerField: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 0.5))
             }
         }
+    }
+}
+
+/// A live mock of the hold-to-reveal app-launcher HUD — the dark glass palette of a layer's mapped
+/// keys (key → app) that appears while you hold its modifier. Mirrors the live AppLauncherOverlay's
+/// look so the settings preview shows what you'll get. Uses the first non-empty layer's shortcuts.
+struct AppLauncherHUDPreview: View {
+    @ObservedObject var model: SettingsModel
+
+    private var sample: ConfigLoader.AppHotkeyGroup? {
+        let ac = model.config.appCuts
+        if !ac.apps.isEmpty { return ac }
+        let hc = model.config.hyperAppCuts
+        if !hc.apps.isEmpty { return hc }
+        return model.config.appLayers.first { !$0.group.apps.isEmpty }?.group
+    }
+
+    var body: some View {
+        let items = (sample?.apps ?? [:]).sorted { $0.key < $1.key }.prefix(8)
+        return VStack(spacing: 0) {
+            if items.isEmpty {
+                Text("Assign a few apps above to preview the HUD.")
+                    .font(.caption2).foregroundColor(.white.opacity(0.6)).padding(.vertical, 10)
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(Array(items), id: \.key) { k, app in
+                        VStack(spacing: 2) {
+                            Text(k.uppercased()).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.white)
+                            Text(app).font(.system(size: 8)).foregroundColor(.white.opacity(0.6))
+                                .lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: 50)
+                        }
+                        .frame(width: 54, height: 38)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.08)))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.14)))
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.82)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.10)))
     }
 }
 

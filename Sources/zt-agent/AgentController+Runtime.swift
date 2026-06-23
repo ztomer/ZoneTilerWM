@@ -208,6 +208,7 @@ extension AgentController {
         reconcileZoneHUD()          // start/stop the zone HUD if [zone_hud] enabled changed
         reconcileDragSnap()         // start/stop drag-to-snap if [drag_snap] enabled changed
         reconcileFocusFollowsMouse()  // start/stop focus-follows-mouse if [focus_follows_mouse] changed
+        reconcileAppLauncherHUD()     // start/stop the app-launcher HUD if [app_launcher_hud] enabled changed
         reconcileEventStream()        // start/stop the arrangement event stream if [events] changed
         manualMoveRelearn?.enabled = newConfig.relearnOnMoveEnabled  // feedback 7b: opt-in manual-drag re-learn
         dockPreview?.thumbWidth = CGFloat(newConfig.dockPreviewWidth)

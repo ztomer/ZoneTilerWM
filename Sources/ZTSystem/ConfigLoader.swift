@@ -51,6 +51,8 @@ public enum ConfigLoader {
         public var appCuts: AppHotkeyGroup
         public var hyperAppCuts: AppHotkeyGroup
         public var appLayers: [AppLayer]   // [app_layers.<name>] — extra user-defined launch layers (N1)
+        public var appLauncherHUDEnabled: Bool      // [app_launcher_hud] enabled — hold a layer's modifier → shortcut palette (default on)
+        public var appLauncherHUDHoldDelayMs: Int   // [app_launcher_hud] hold_delay_ms — hold this long before the palette shows
         public var audioDevices: [String]
         public var audioHotkeyModifier: [String]
         public var audioHotkeyKey: String?
@@ -228,6 +230,7 @@ public enum ConfigLoader {
         var appCuts: RawAppCuts?
         var hyperAppCuts: RawAppCuts?
         var app_layers: [String: RawAppCuts]?     // [app_layers.<name>] subtables, keyed by layer name
+        var app_launcher_hud: RawAppLauncherHUD?
         var audio_switcher: RawAudio?
         var system_hotkeys: [String: [String]]?
         var ui: RawUI?
@@ -264,6 +267,7 @@ public enum ConfigLoader {
         var spaces_menubar_bracket: String?
     }
 
+    private struct RawAppLauncherHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int? }
     private struct RawAutomation: Decodable { var enabled: Bool? }
     private struct RawCommandPalette: Decodable { var enabled: Bool? }
     private struct RawZoneHUD: Decodable { var enabled: Bool?; var hold_delay_ms: Int?; var commit_mode: String? }
@@ -388,6 +392,8 @@ public enum ConfigLoader {
             appCuts: appCuts,
             hyperAppCuts: hyperAppCuts,
             appLayers: appLayers,
+            appLauncherHUDEnabled: raw.app_launcher_hud?.enabled ?? true,        // on by default; preserves prior behavior
+            appLauncherHUDHoldDelayMs: raw.app_launcher_hud?.hold_delay_ms ?? 200,
             audioDevices: raw.audio_switcher?.devices ?? [],
             audioHotkeyModifier: resolveMod((raw.audio_switcher?.hotkey ?? []).first),
             audioHotkeyKey: (raw.audio_switcher?.hotkey ?? []).count >= 2 ? raw.audio_switcher?.hotkey?[1] : nil,

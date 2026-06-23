@@ -11,6 +11,13 @@ Keep this in sync as items land; reference the item id in commits.
   "Add layer" row (starts on HYPER). Collision warnings (E4) already generalize. Verified live: a custom
   "Dev" layer decoded, bound ("bound 2/2 app_layers.Dev"), and rendered with its modifier + keys.
   Regression test added.
+- [x] **N2** Move the **hold-to-reveal HUD** into the App Launcher (layers) panel: a "Hold-to-reveal
+  HUD" card with a live palette preview (`AppLauncherHUDPreview`), a header enable toggle, and its OWN
+  hold-delay (`[app_launcher_hud] enabled`/`hold_delay_ms`, decoupled from the zone HUD; agent gates via
+  `reconcileAppLauncherHUD`). Verified live (preview + 200ms stepper render).
+- [x] **N3** The **two built-in layers are now removable too** (kept by default as examples). Each layer
+  card carries a trash button; removing `[appCuts]`/`[hyperAppCuts]` drops it from the list and unbinds
+  it. Verified live: removing `[appCuts]` hid its card and the agent bound only `hyperAppCuts`.
 
 ## A. Toggle-in-header (kill duplicate enable rows)
 A section whose only/first control is an "Enable X" toggle should put the toggle **in the header**
