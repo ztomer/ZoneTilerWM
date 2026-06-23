@@ -517,7 +517,7 @@ public struct SettingsView: View {
                     }
                 }
             }
-            .navigationSplitViewColumnWidth(155)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 250)
             .listStyle(.sidebar)
             .overlay {   // honest empty state when a search matches nothing
                 if filteredGroups.isEmpty {
