@@ -463,9 +463,9 @@ public struct SettingsView: View {
         .init(id: "spaces",     title: "Spaces",         icon: "rectangle.split.3x1",           keywords: SpacesTab.searchKeywords),
         .init(id: "dockpreviews", title: "Dock Previews", icon: "macwindow.on.rectangle",        keywords: DockPreviewsTab.searchKeywords),
         .init(id: "keys",       title: "Keys",           icon: "keyboard",                      keywords: KeybindEditorView.searchKeywords),
-        .init(id: "io",         title: "Input & Output", icon: "slider.horizontal.3",           keywords: IOTab.searchKeywords),
         .init(id: "apps",       title: "App Launcher",   icon: "square.grid.2x2",               keywords: AppLauncherTab.searchKeywords),
         .init(id: "appgroups",  title: "App Groups",     icon: "square.stack.3d.up",            keywords: AppGroupsTab.searchKeywords),
+        .init(id: "audio",      title: "Audio Switcher", icon: "speaker.wave.2",                keywords: AudioTab.searchKeywords),
         .init(id: "pomodoro",   title: "Pomodoro",       icon: "timer",                         keywords: PomodoroTab.searchKeywords),
         .init(id: "automation", title: "Automation",     icon: "terminal",                      keywords: AutomationTab.searchKeywords),
         .init(id: "advanced",   title: "Advanced",       icon: "wrench.and.screwdriver",        keywords: AdvancedTab.searchKeywords),
@@ -488,8 +488,34 @@ public struct SettingsView: View {
 
     public var body: some View {
         NavigationSplitView {
-            List(filteredGroups, selection: $sel) { g in
-                Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
+            List(selection: $sel) {
+                let workspace = filteredGroups.filter { ["general", "appearance", "tiles", "previews", "spaces", "dockpreviews"].contains($0.id) }
+                let shortcuts = filteredGroups.filter { ["keys", "apps", "appgroups"].contains($0.id) }
+                let utilities = filteredGroups.filter { ["audio", "pomodoro", "automation", "advanced"].contains($0.id) }
+
+                if !workspace.isEmpty {
+                    Section("Workspace & Navigation") {
+                        ForEach(workspace) { g in
+                            Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
+                        }
+                    }
+                }
+
+                if !shortcuts.isEmpty {
+                    Section("Shortcuts & Clusters") {
+                        ForEach(shortcuts) { g in
+                            Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
+                        }
+                    }
+                }
+
+                if !utilities.isEmpty {
+                    Section("Utilities & Integration") {
+                        ForEach(utilities) { g in
+                            Label { Text(g.title) } icon: { SidebarGlyph(id: g.id) }.tag(g.id)
+                        }
+                    }
+                }
             }
             .navigationSplitViewColumnWidth(155)
             .listStyle(.sidebar)
@@ -538,7 +564,7 @@ struct SettingsGroupDetail: View {
         case "spaces":     SpacesTab(model: model)
         case "dockpreviews": DockPreviewsTab(model: model)
         case "keys":       KeybindEditorView(model: model)
-        case "io":         IOTab(model: model)
+        case "audio":      AudioTab(model: model)
         case "apps":       AppLauncherTab(model: model)
         case "appgroups":  AppGroupsTab(model: model)
         case "pomodoro":   PomodoroTab(model: model)

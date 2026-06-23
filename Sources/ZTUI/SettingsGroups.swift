@@ -112,7 +112,7 @@ struct SpacesTab: View {
 
 struct GeneralTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload"]
+    static let searchKeywords: [String] = ["startup", "launch at login", "login", "config", "config file", "reveal", "open", "version", "reload", "keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
@@ -121,6 +121,26 @@ struct GeneralTab: View {
                 footer: model.launchAtLoginAvailable ? nil
                     : "Available when running the installed ZoneTilerWM.app (not the dev binary).")
                 .disabled(!model.launchAtLoginAvailable)
+
+            Section("Keyboard") {
+                Picker("Keyboard layout", selection: Binding(
+                    get: { model.keyboardChoice },
+                    set: { model.setKeyboardLayout($0) })) {
+                    Text("Auto (\(model.detectedKeyboard))").tag("auto")
+                    ForEach(KeyboardLayout.presets, id: \.self) { Text($0).tag($0) }
+                }
+            }
+
+            ToggleSection("Focus follows mouse", isOn: boolBind(model, \.focusFollowsMouseEnabled, model.setFocusFollowsMouseEnabled),
+                          footer: "Focuses the window the cursor settles on. The one feature that adds per-interaction "
+                                + "Accessibility calls — leave off unless you want it.") {
+                if model.config.focusFollowsMouseEnabled {
+                    NumberRow(label: "Dwell", value: Binding(
+                        get: { model.config.focusFollowsMouseDelayMs },
+                        set: { model.setFocusFollowsMouseDelay($0) }), range: 50...2000, step: 25, suffix: "ms")
+                }
+            }
+
             Section("Config") {
                 LabeledContent("File") {
                     HStack(spacing: 8) {
@@ -131,7 +151,6 @@ struct GeneralTab: View {
                 }
                 LabeledContent("Version", value: model.config.version)
             }
-
         }
         .formStyle(.grouped)
     }
@@ -247,30 +266,12 @@ struct TilesTab: View {
 
 // MARK: - Input & Output (keyboard layout, audio, focus-follows-mouse)
 
-struct IOTab: View {
+struct AudioTab: View {
     /// Search terms for the titlebar settings search (keep in sync with this pane's controls).
-    static let searchKeywords: [String] = ["keyboard", "keyboard layout", "qwerty", "dvorak", "colemak", "focus follows mouse", "dwell", "audio", "audio switcher", "output device", "switch hotkey", "run shortcut on change", "add device", "save devices"]
+    static let searchKeywords: [String] = ["audio", "audio switcher", "output device", "switch hotkey", "run shortcut on change", "add device", "save devices"]
     @ObservedObject var model: SettingsModel
     var body: some View {
         Form {
-            Section("Keyboard") {
-                Picker("Keyboard layout", selection: Binding(
-                    get: { model.keyboardChoice },
-                    set: { model.setKeyboardLayout($0) })) {
-                    Text("Auto (\(model.detectedKeyboard))").tag("auto")
-                    ForEach(KeyboardLayout.presets, id: \.self) { Text($0).tag($0) }
-                }
-            }
-            ToggleSection("Focus follows mouse", isOn: boolBind(model, \.focusFollowsMouseEnabled, model.setFocusFollowsMouseEnabled),
-                          footer: "Focuses the window the cursor settles on. The one feature that adds per-interaction "
-                                + "Accessibility calls — leave off unless you want it.") {
-                if model.config.focusFollowsMouseEnabled {
-                    NumberRow(label: "Dwell", value: Binding(
-                        get: { model.config.focusFollowsMouseDelayMs },
-                        set: { model.setFocusFollowsMouseDelay($0) }), range: 50...2000, step: 25, suffix: "ms")
-                }
-            }
-            // Output
             AudioSettings(model: model)
         }
         .formStyle(.grouped)

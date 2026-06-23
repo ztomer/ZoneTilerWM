@@ -167,8 +167,6 @@ final class AgentController: NSObject {
     let pomodoro: Pomodoro
     var statusItem: NSStatusItem?
     var spacesMenubar: SpacesMenubarController?
-    var pomodoroItem: NSStatusItem?
-    var pomodoroPill: PomodoroPillView?
     var pomodoroTimer: Timer?
     var focusTimer: Timer?
     let flash = FlashOverlay()

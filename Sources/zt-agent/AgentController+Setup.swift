@@ -282,24 +282,7 @@ extension AgentController {
         }
     }
 
-    /// One-time: the menubar item + the 1s countdown timer. Pomodoro hotkeys are (re)bound in
-    /// bindAllHotkeys so they pick up config-reload changes.
     func setupPomodoro() {
-        let item = NSStatusBar.system.statusItem(withLength: 0)   // hidden until active
-        item.button?.title = ""
-        let pill = PomodoroPillView(frame: .zero)
-        pill.isHidden = true
-        if let b = item.button {
-            b.addSubview(pill)
-            NSLayoutConstraint.activate([
-                pill.leadingAnchor.constraint(equalTo: b.leadingAnchor),
-                pill.trailingAnchor.constraint(equalTo: b.trailingAnchor),
-                pill.topAnchor.constraint(equalTo: b.topAnchor),
-                pill.bottomAnchor.constraint(equalTo: b.bottomAnchor),
-            ])
-        }
-        pomodoroPill = pill
-        pomodoroItem = item
         pomodoroTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             let event = self.pomodoro.tick()

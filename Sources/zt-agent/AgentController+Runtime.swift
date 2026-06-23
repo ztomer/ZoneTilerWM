@@ -218,18 +218,6 @@ extension AgentController {
     }
 
     func refreshPomodoro() {
-        if pomodoro.isActive {
-            let m = pomodoro.timeLeft / 60, s = pomodoro.timeLeft % 60
-            let phase = pomodoro.phase == .work ? "Work" : "Rest"
-            let count = pomodoro.workCount > 0 ? "  ·\(pomodoro.workCount)" : ""
-            let text = String(format: "%@  %02d:%02d%@", phase, m, s, count)
-            let w = pomodoroPill?.update(text) ?? 0
-            pomodoroPill?.isHidden = false
-            pomodoroItem?.length = w
-        } else {
-            pomodoroPill?.isHidden = true
-            pomodoroItem?.length = 0
-        }
         if pomodoro.isActive && enableColorBar {
             pomodoroBar.update(timeLeft: pomodoro.timeLeft, maxTime: pomodoro.maxTimeSec,
                                heightRatio: pomodoroIndicatorHeight, alpha: pomodoroIndicatorAlpha,
@@ -237,6 +225,7 @@ extension AgentController {
         } else {
             pomodoroBar.hide()
         }
+        refreshUnifiedStatusItem()
     }
 
     func bindMiscHotkeys(_ config: ConfigLoader.LoadedConfig) {
@@ -364,6 +353,7 @@ extension AgentController {
             realSpaces: { [weak self] in self?.config.experimentalRealSpaces ?? false },
             switchMethod: { [weak self] in self?.config.spaceSwitchMethod ?? "auto" },
             bracketStyle: { [weak self] in self?.config.spacesMenubarBracket ?? "bold" })
+        c.onRefresh = { [weak self] in self?.refreshUnifiedStatusItem() }
         spacesMenubar = c
         c.refresh()
     }
@@ -371,28 +361,193 @@ extension AgentController {
     func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
-        item.button?.image = AgentController.menubarGlyph()   // template adapts automatically
-        item.button?.title = ""
+        if let btn = item.button {
+            btn.target = self
+            btn.action = #selector(statusItemClicked(_:))
+            btn.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        refreshUnifiedStatusItem()
+    }
+
+    func refreshUnifiedStatusItem() {
+        guard let item = statusItem, let button = item.button else { return }
+
+        let hasSpaces = config.spacesMenubar && (spacesMenubar?.isAvailable ?? false)
+        let spacesImg = hasSpaces ? spacesMenubar?.spacesImage() : nil
+        let spacesW = spacesImg?.size.width ?? 0.0
+
+        let hasPomodoro = pomodoro.isActive
+        let pomoString: String
+        let pomoFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+        let pomoAttrs: [NSAttributedString.Key: Any] = [
+            .font: pomoFont,
+            .foregroundColor: NSColor.black
+        ]
+
+        if hasPomodoro {
+            let m = pomodoro.timeLeft / 60, s = pomodoro.timeLeft % 60
+            let phase = pomodoro.phase == .work ? "Work" : "Rest"
+            let count = pomodoro.workCount > 0 ? " ·\(pomodoro.workCount)" : ""
+            pomoString = String(format: "(%@ %02d:%02d%@)", phase, m, s, count)
+        } else {
+            pomoString = ""
+        }
+
+        let pomoW = pomoString.isEmpty ? 0.0 : (pomoString as NSString).size(withAttributes: pomoAttrs).width
+
+        let unifiedW = 18.0
+            + (hasSpaces && spacesW > 0 ? (6.0 + spacesW) : 0.0)
+            + (hasPomodoro && pomoW > 0 ? (8.0 + pomoW) : 0.0)
+
+        let size = NSSize(width: unifiedW, height: 22.0)
+        let img = NSImage(size: size)
+        img.lockFocus()
+
+        // 1. Logo
+        let logoImg = AgentController.menubarGlyph()
+        logoImg.draw(in: NSRect(x: 0, y: 2, width: 18, height: 18))
+
+        // 2. Spaces
+        if hasSpaces, let sImg = spacesImg {
+            sImg.draw(in: NSRect(x: 24, y: 0, width: spacesW, height: 22))
+        }
+
+        // 3. Pomodoro
+        if hasPomodoro && !pomoString.isEmpty {
+            let xOffset = 24.0 + (hasSpaces && spacesW > 0 ? (spacesW + 8.0) : 0.0)
+            let nsStr = pomoString as NSString
+            let textH = nsStr.size(withAttributes: pomoAttrs).height
+            let yOffset = (22.0 - textH) / 2
+            nsStr.draw(at: NSPoint(x: xOffset, y: yOffset), withAttributes: pomoAttrs)
+        }
+
+        img.unlockFocus()
+        img.isTemplate = true
+        button.image = img
+        button.imagePosition = .imageOnly
+        item.length = unifiedW
+    }
+
+    @objc func statusItemClicked(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else { return }
+        if event.type == .rightMouseUp {
+            showUnifiedMenu(on: sender)
+            return
+        }
+
+        let p = sender.convert(event.locationInWindow, from: nil)
+        let totalW = Double(sender.bounds.width)
+
+        let hasSpaces = config.spacesMenubar && (spacesMenubar?.isAvailable ?? false)
+        let hasPomodoro = pomodoro.isActive
+
+        let spacesW = hasSpaces ? (spacesMenubar?.layoutWidth ?? 0.0) : 0.0
+
+        let unifiedW = 18.0
+            + (hasSpaces && spacesW > 0 ? (6.0 + spacesW) : 0.0)
+            + (hasPomodoro ? (8.0 + 35.0) : 0.0)
+
+        let xStart = max(0, (totalW - unifiedW) / 2)
+        let localX = Double(p.x) - xStart
+
+        if localX < 22.0 {
+            showUnifiedMenu(on: sender)
+        } else if hasSpaces && localX >= 24.0 && localX < (24.0 + spacesW) {
+            spacesMenubar?.handleSpacesClick(atX: localX - 24.0, event: event)
+        } else if hasPomodoro && localX >= (24.0 + spacesW + 8.0) {
+            if pomodoro.isActive {
+                dispatcher.perform(.pomodoro(.disable))
+            } else {
+                dispatcher.perform(.pomodoro(.enable))
+            }
+        } else {
+            showUnifiedMenu(on: sender)
+        }
+    }
+
+    func showUnifiedMenu(on button: NSStatusBarButton) {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "ZoneTilerWM", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
+
+        if pomodoro.isActive {
+            let pauseItem = NSMenuItem(title: "Pause Pomodoro", action: #selector(menuPausePomodoro), keyEquivalent: "")
+            pauseItem.target = self
+            menu.addItem(pauseItem)
+
+            let stopItem = NSMenuItem(title: "Stop Pomodoro", action: #selector(menuStopPomodoro), keyEquivalent: "")
+            stopItem.target = self
+            menu.addItem(stopItem)
+        } else {
+            let startItem = NSMenuItem(title: "Start Pomodoro (25m)", action: #selector(menuStartPomodoro), keyEquivalent: "")
+            startItem.target = self
+            menu.addItem(startItem)
+        }
+        menu.addItem(.separator())
+
+        let devices = config.audioDevices
+        if !devices.isEmpty {
+            let audioMenu = NSMenu()
+            let currentDevice = AudioDevices.defaultOutputName()
+            for d in devices {
+                let dItem = NSMenuItem(title: d, action: #selector(menuSelectAudioDevice(_:)), keyEquivalent: "")
+                dItem.target = self
+                dItem.representedObject = d
+                if d == currentDevice {
+                    dItem.state = .on
+                }
+                audioMenu.addItem(dItem)
+            }
+            let audioSubmenu = NSMenuItem(title: "Audio Output", action: nil, keyEquivalent: "")
+            audioSubmenu.submenu = audioMenu
+            menu.addItem(audioSubmenu)
+            menu.addItem(.separator())
+        }
+
+        if config.spacesMenubar && (spacesMenubar?.isAvailable ?? false) {
+            let rename = NSMenuItem(title: "Rename Current Space…", action: #selector(menuRenameSpace), keyEquivalent: "")
+            rename.target = self
+            menu.addItem(rename)
+            menu.addItem(.separator())
+        }
+
         let aboutItem = NSMenuItem(title: "About ZoneTilerWM", action: #selector(openAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
+
         let tutorialItem = NSMenuItem(title: "Tutorial / Getting Started", action: #selector(openTutorial), keyEquivalent: "")
         tutorialItem.target = self
         menu.addItem(tutorialItem)
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+
         let analyticsItem = NSMenuItem(title: "Window Analytics…", action: #selector(openAnalytics), keyEquivalent: "")
         analyticsItem.target = self
         menu.addItem(analyticsItem)
-        // No manual "Reload Config" item — the config file-watcher live-reloads on every save, so a
-        // manual reload is redundant. (The action is still reachable programmatically via the dispatcher.)
+
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        item.menu = menu
+
+        statusItem?.menu = menu
+        button.performClick(nil)
+        statusItem?.menu = nil
+    }
+
+    @objc func menuStartPomodoro() { dispatcher.perform(.pomodoro(.enable)) }
+    @objc func menuPausePomodoro() { dispatcher.perform(.pomodoro(.disable)) }
+    @objc func menuResumePomodoro() { dispatcher.perform(.pomodoro(.enable)) }
+    @objc func menuStopPomodoro() { dispatcher.perform(.pomodoro(.reset)) }
+    @objc func menuRenameSpace() { spacesMenubar?.renameCurrent() }
+
+    @objc func menuSelectAudioDevice(_ sender: NSMenuItem) {
+        if let name = sender.representedObject as? String {
+            dispatcher.perform(.switchAudio(device: .named(name)))
+            if let btn = statusItem?.button {
+                showUnifiedMenu(on: btn)
+            }
+        }
     }
 
     @objc func openAnalytics() {

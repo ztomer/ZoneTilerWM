@@ -64,6 +64,20 @@ struct SidebarGlyph: View {
             var dn = Path(); dn.move(to: .init(x: 14, y: 5)); dn.addLine(to: .init(x: 14, y: 15))
             dn.move(to: .init(x: 11.5, y: 12.5)); dn.addLine(to: .init(x: 14, y: 15)); dn.addLine(to: .init(x: 16.5, y: 12.5))
             line(up); line(dn)
+        case "audio":             // speaker icon with sound waves
+            var speaker = Path()
+            speaker.move(to: .init(x: 4, y: 7))
+            speaker.addLine(to: .init(x: 7.5, y: 7))
+            speaker.addLine(to: .init(x: 11, y: 3.5))
+            speaker.addLine(to: .init(x: 11, y: 16.5))
+            speaker.addLine(to: .init(x: 7.5, y: 13))
+            speaker.addLine(to: .init(x: 4, y: 13))
+            speaker.closeSubpath()
+            line(speaker)
+            var waves = Path()
+            waves.addArc(center: .init(x: 10, y: 10), radius: 4, startAngle: .degrees(-45), endAngle: .degrees(45), clockwise: false)
+            waves.addArc(center: .init(x: 10, y: 10), radius: 7, startAngle: .degrees(-45), endAngle: .degrees(45), clockwise: false)
+            line(waves)
         case "apps":              // 3×3 dot grid (launchpad)
             for gy in [4.5, 10.0, 15.5] { for gx in [4.5, 10.0, 15.5] { fill(dot(gx, gy, 1.5)) } }
         case "appgroups":         // a stack of grouped cards (apps summoned together)
@@ -105,7 +119,7 @@ struct IconMontage: View {
     private let items: [(String, String)] = [
         ("general", "General"), ("tiling", "Tiling"), ("layouts", "Layouts"),
         ("previews", "Exposé & Hints"), ("keys", "Keys"),
-        ("io", "Input & Output"), ("apps", "App Launcher"), ("pomodoro", "Pomodoro"),
+        ("audio", "Audio Switcher"), ("apps", "App Launcher"), ("pomodoro", "Pomodoro"),
         ("appearance", "Appearance"), ("automation", "Automation"), ("advanced", "Advanced"),
     ]
     var body: some View {
