@@ -484,7 +484,8 @@ extension AgentController {
                                             gridV: gv, gridH: gh, screenCGFrame: screen.frame,
                                             highlight: hl, backdropImage: bg)
         case "applauncher":
-            let apps = config.appCuts.apps.merging(config.hyperAppCuts.apps) { a, _ in a }
+            var apps = config.appCuts.apps.merging(config.hyperAppCuts.apps) { a, _ in a }
+            for layer in config.appLayers { apps.merge(layer.group.apps) { a, _ in a } }   // N1
             data = AppLauncherOverlay.renderPNG(caps: AppLauncherHUD.caps(apps: apps),
                                                 screenCGFrame: screen.frame, backdropImage: bg)
         case "break":

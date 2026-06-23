@@ -50,6 +50,7 @@ public enum ConfigLoader {
         public var appSwitcher: AppSwitcher.Config
         public var appCuts: AppHotkeyGroup
         public var hyperAppCuts: AppHotkeyGroup
+        public var appLayers: [AppLayer]   // [app_layers.<name>] — extra user-defined launch layers (N1)
         public var audioDevices: [String]
         public var audioHotkeyModifier: [String]
         public var audioHotkeyKey: String?
@@ -226,6 +227,7 @@ public enum ConfigLoader {
         var app_switcher: RawAppSwitcher?
         var appCuts: RawAppCuts?
         var hyperAppCuts: RawAppCuts?
+        var app_layers: [String: RawAppCuts]?     // [app_layers.<name>] subtables, keyed by layer name
         var audio_switcher: RawAudio?
         var system_hotkeys: [String: [String]]?
         var ui: RawUI?
@@ -300,6 +302,15 @@ public enum ConfigLoader {
     public struct AppHotkeyGroup: Equatable {
         public let modifier: [String]
         public let apps: [String: String]
+        public init(modifier: [String], apps: [String: String]) { self.modifier = modifier; self.apps = apps }
+    }
+
+    /// A user-defined extra app-launch layer ([app_layers.<name>]) — beyond the two built-in
+    /// appCuts/hyperAppCuts layers. Same shape (a modifier + key→app), plus its name (N1).
+    public struct AppLayer: Equatable {
+        public let name: String
+        public let group: AppHotkeyGroup
+        public init(name: String, group: AppHotkeyGroup) { self.name = name; self.group = group }
     }
 
     // MARK: - API
@@ -356,6 +367,9 @@ public enum ConfigLoader {
                                      apps: raw.appCuts?.apps ?? [:])
         let hyperAppCuts = AppHotkeyGroup(modifier: resolveModList(raw.hyperAppCuts?.modifier ?? []),
                                           apps: raw.hyperAppCuts?.apps ?? [:])
+        let appLayers = (raw.app_layers ?? [:]).map {
+            AppLayer(name: $0.key, group: AppHotkeyGroup(modifier: resolveModList($0.value.modifier), apps: $0.value.apps))
+        }.sorted { $0.name < $1.name }
 
         return LoadedConfig(
             version: raw.version ?? "Unknown",
@@ -373,6 +387,7 @@ public enum ConfigLoader {
             appSwitcher: appSwitcher,
             appCuts: appCuts,
             hyperAppCuts: hyperAppCuts,
+            appLayers: appLayers,
             audioDevices: raw.audio_switcher?.devices ?? [],
             audioHotkeyModifier: resolveMod((raw.audio_switcher?.hotkey ?? []).first),
             audioHotkeyKey: (raw.audio_switcher?.hotkey ?? []).count >= 2 ? raw.audio_switcher?.hotkey?[1] : nil,

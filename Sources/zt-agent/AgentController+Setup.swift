@@ -332,6 +332,7 @@ extension AgentController {
         if let hyper = config.aliases["HYPER"] { bindAutoTile(modifier: hyper, key: "return") }
         bindAppHotkeys(config.appCuts, label: "appCuts")
         bindAppHotkeys(config.hyperAppCuts, label: "hyperAppCuts")
+        for layer in config.appLayers { bindAppHotkeys(layer.group, label: "app_layers.\(layer.name)") }   // N1
         bindAppGroupHotkeys()
         if let audioKey = config.audioHotkeyKey {
             bindAudioHotkey(modifier: config.audioHotkeyModifier, key: audioKey,

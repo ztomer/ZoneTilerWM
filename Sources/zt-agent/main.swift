@@ -346,7 +346,7 @@ final class AgentController: NSObject {
             groups: { [unowned self] in [
                 .init(modifier: self.config.appCuts.modifier, apps: self.config.appCuts.apps),
                 .init(modifier: self.config.hyperAppCuts.modifier, apps: self.config.hyperAppCuts.apps),
-            ] },
+            ] + self.config.appLayers.map { .init(modifier: $0.group.modifier, apps: $0.group.apps) } },   // N1
             holdDelayMs: { [unowned self] in self.config.zoneHUDHoldDelayMs })
         dragSnap = DragSnapController(
             screens: screens, monitorManager: monitorManager,

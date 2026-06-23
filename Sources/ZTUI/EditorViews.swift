@@ -306,6 +306,7 @@ struct AppShortcutsView: View {
     @State private var selLayer: String?            // which layer the selected key belongs to
     @State private var selectedKey: String?
     @State private var edit = ""
+    @State private var newLayerName = ""            // N1: add-a-layer field
 
     init(model: SettingsModel) {
         self.model = model
@@ -317,22 +318,33 @@ struct AppShortcutsView: View {
         }
     }
 
-    // E2: both app-launch layers are shown at once (no inner segmented tabs — there's room now that
-    // App groups moved to their own pane).
-    private let layers: [(id: String, title: String)] = [("appCuts", "App launcher"), ("hyperAppCuts", "Hyper apps")]
+    // E2: both built-in app-launch layers are shown at once (no inner segmented tabs). N1: plus any
+    // user-defined [app_layers.<name>] layers, each removable. `removable` custom layers carry a trash
+    // button; the two built-ins do not.
+    private func layerId(forCustom name: String) -> String { "app_layers.\"\(name)\"" }
+    private var layers: [(id: String, title: String, removable: Bool)] {
+        [("appCuts", "App launcher", false), ("hyperAppCuts", "Hyper apps", false)]
+            + model.config.appLayers.map { (layerId(forCustom: $0.name), $0.name, true) }
+    }
     private var keyRows: [[String]] { model.keyboardRows }
     private var aliasNames: [String] { model.config.aliases.keys.sorted() }
     private func group(_ id: String) -> ConfigLoader.AppHotkeyGroup {
-        id == "appCuts" ? model.config.appCuts : model.config.hyperAppCuts
+        switch id {
+        case "appCuts":      return model.config.appCuts
+        case "hyperAppCuts": return model.config.hyperAppCuts
+        default:             return model.config.appLayers.first { layerId(forCustom: $0.name) == id }?.group
+                                 ?? ConfigLoader.AppHotkeyGroup(modifier: [], apps: [:])
+        }
     }
     private func displayKey(_ k: String) -> String { k.count == 1 ? k.uppercased() : k }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Two app-launch layers, each on its own modifier. Click a key to assign the app it "
-                 + "launches; both layers are editable at once.")
+            Text("App-launch layers, each on its own modifier. Click a key to assign the app it "
+                 + "launches; all layers are editable at once. Add your own layers below.")
                 .font(.caption).foregroundColor(.secondary)
-            ForEach(layers, id: \.id) { layer in layerCard(layer.id, title: layer.title) }
+            ForEach(layers, id: \.id) { layer in layerCard(layer.id, title: layer.title, removable: layer.removable) }
+            addLayerRow
             footerPanel
             Spacer(minLength: 0)
         }
@@ -341,7 +353,7 @@ struct AppShortcutsView: View {
         .padding(.vertical, 4)
     }
 
-    private func layerCard(_ id: String, title: String) -> some View {
+    private func layerCard(_ id: String, title: String, removable: Bool) -> some View {
         let g = group(id)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
@@ -351,6 +363,10 @@ struct AppShortcutsView: View {
                     model.setValue(section: id, key: "modifier", rawValue: "[\"\($0)\"]")
                 }
                 Spacer()
+                if removable {
+                    Button { removeLayer(id: id, name: title) } label: { Image(systemName: "trash") }
+                        .buttonStyle(.borderless).help("Remove this layer")
+                }
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 VStack(spacing: 4) {
@@ -366,6 +382,33 @@ struct AppShortcutsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.15), lineWidth: 0.5))
+    }
+
+    // N1: add a custom layer (starts on HYPER; change its modifier in the new card).
+    private var addLayerRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus.rectangle.on.rectangle").foregroundColor(.secondary)
+            TextField("new layer name", text: $newLayerName).labelsHidden()
+                .textFieldStyle(.roundedBorder).frame(maxWidth: 180)
+            Button("Add layer") {
+                let n = newLayerName.trimmingCharacters(in: .whitespaces)
+                guard !n.isEmpty, !n.contains("\""), n != "appCuts", n != "hyperAppCuts",
+                      !model.config.appLayers.contains(where: { $0.name == n }) else { return }
+                model.addAppLayer(name: n, modifier: "HYPER")
+                newLayerName = ""
+            }
+            .disabled(newLayerName.trimmingCharacters(in: .whitespaces).isEmpty)
+            Text("Starts on HYPER — set its modifier in the new card.").font(.caption).foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.04)))
+    }
+
+    private func removeLayer(id: String, name: String) {
+        if selLayer == id { selLayer = nil; selectedKey = nil; edit = "" }
+        model.removeAppLayer(name: name)
     }
 
     // Footer: assign/clear the selected key's app (fuzzy app picker — E3), with a collision warning

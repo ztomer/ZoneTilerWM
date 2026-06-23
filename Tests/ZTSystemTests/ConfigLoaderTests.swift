@@ -123,6 +123,30 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertTrue(cfg.appGroups.isEmpty)   // repo template ships none
     }
 
+    func testAppLayersDecodeFromSubtables() throws {
+        // N1: extra [app_layers.<name>] launch layers decode like app groups — modifier resolved via
+        // the aliases, sorted by name, empty when absent.
+        let base = try String(contentsOf: repoConfigURL(), encoding: .utf8)
+        XCTAssertTrue(try ConfigLoader.load(tomlString: base, homeDirectory: "/Users/test").appLayers.isEmpty)
+        let toml = base + """
+
+        [app_layers.Dev]
+        modifier = ["mash_shift"]
+        g = "Ghostty"
+        s = "Slack"
+
+        [app_layers.Comms]
+        modifier = ["HYPER"]
+        m = "Mail"
+        """
+        let cfg = try ConfigLoader.load(tomlString: toml, homeDirectory: "/Users/test")
+        XCTAssertEqual(cfg.appLayers.map { $0.name }, ["Comms", "Dev"])   // sorted by name
+        let dev = cfg.appLayers.first { $0.name == "Dev" }
+        XCTAssertEqual(dev?.group.modifier, ["shift", "ctrl", "cmd"])     // mash_shift resolved
+        XCTAssertEqual(dev?.group.apps, ["g": "Ghostty", "s": "Slack"])
+        XCTAssertEqual(cfg.appLayers.first { $0.name == "Comms" }?.group.apps, ["m": "Mail"])
+    }
+
     func testHotkeyResolversAndDerivedAccessors() throws {
         let cfg = try ConfigLoader.load(tomlString: String(contentsOf: repoConfigURL(), encoding: .utf8),
                                         homeDirectory: "/Users/test")

@@ -217,6 +217,17 @@ public final class SettingsModel: ObservableObject {
         persist(edited)
     }
 
+    /// Create an extra app-launch layer ([app_layers."<name>"]) seeded with a modifier (N1). Uses the
+    /// same subtable form as app groups so it stays TOMLEditor-addressable (no [[array]] of tables).
+    public func addAppLayer(name: String, modifier: String) {
+        setOrAppend(section: "app_layers.\"\(name)\"", key: "modifier", rawValue: "[\"\(modifier)\"]")
+    }
+    public func removeAppLayer(name: String) {
+        guard let text = try? String(contentsOf: configURL, encoding: .utf8),
+              let edited = TOMLEditor.removeSection(text, section: "app_layers.\"\(name)\"") else { return }
+        persist(edited)
+    }
+
     /// Define / replace a modifier alias, e.g. [aliases] mash_shift = ["shift","ctrl","cmd"].
     /// The token order is normalised so the same combo always serialises identically.
     public func setAlias(name: String, modifiers: [String]) {

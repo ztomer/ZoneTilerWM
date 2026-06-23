@@ -3,11 +3,14 @@
 Tracking list for the settings/UI polish pass. Status: `[ ]` todo · `[~]` in progress · `[x]` done.
 Keep this in sync as items land; reference the item id in commits.
 
-## N. App launcher — custom layers (deferred from E4)
-- [ ] **N1** Allow **adding more app-launch layers** beyond the fixed two (`[appCuts]`/`[hyperAppCuts]`),
-  each with a user-chosen modifier. Needs a config-schema change (e.g. an `[[app_layers]]` array), an
-  agent binding loop over the layers, and a UI to add/remove a layer. The collision-warning groundwork
-  (E4) already generalizes to N layers.
+## N. App launcher — custom layers (was deferred from E4)
+- [x] **N1** Add **more app-launch layers** beyond the built-in two. Done via `[app_layers.<name>]`
+  subtables (decoded as `[String: RawAppCuts]` → `config.appLayers`) — same TOMLEditor-addressable form
+  as app groups, no `[[array]]` of tables. The agent binds every layer (binding loop + HUD palette +
+  command-palette merge); the App Launcher pane renders one card per layer with a trash button, plus an
+  "Add layer" row (starts on HYPER). Collision warnings (E4) already generalize. Verified live: a custom
+  "Dev" layer decoded, bound ("bound 2/2 app_layers.Dev"), and rendered with its modifier + keys.
+  Regression test added.
 
 ## A. Toggle-in-header (kill duplicate enable rows)
 A section whose only/first control is an "Enable X" toggle should put the toggle **in the header**
@@ -37,11 +40,10 @@ A section whose only/first control is an "Enable X" toggle should put the toggle
   once** (no inner segmented tabs), each with its own modifier selector.
 - [x] **E3** The app-name field is now an **`AppPickerField`** with a live fuzzy-match dropdown sourced
   from installed apps (prefix matches first). Verified live (typing "saf" → Safari).
-- [~] **E4** **Key-collision warnings** done: assigning a key warns if its (modifier, key) is already
-  bound by the other layer, a tiling/system/pomodoro hotkey, an app group, or the tiling zone keys —
-  verified live (HYPER+0 → "Also system hotkey 'expose'"). The "add **more layers** (custom modifier)"
-  part is deferred — it needs a config-schema change (the two layers are fixed `[appCuts]`/
-  `[hyperAppCuts]` tables); see backlog **N1**.
+- [x] **E4** **Key-collision warnings**: assigning a key warns if its (modifier, key) is already bound
+  by another layer, a tiling/system/pomodoro hotkey, an app group, or the tiling zone keys — verified
+  live (HYPER+0 → "Also system hotkey 'expose'"). The "add **more layers** (custom modifier)" part
+  shipped as **N1** (below).
 - [x] **E5 / A6** Removed **Scratchpad** (superseded by app groups); App groups now carry an **enable
   toggle in the header** ([ui] app_groups_enabled, gates all group hotkeys).
 
